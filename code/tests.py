@@ -1,0 +1,88 @@
+from simtk import unit
+from simtk.openmm import app
+import numpy as np
+from integrators import LangevinSplittingIntegrator
+from openmmtools.testsystems import AlanineDipeptideVacuum
+W_unit = unit.kilojoule_per_mole
+from utils import configure_platform, get_total_energy, strip_unit
+
+def record_energy_changes(simulation, n_steps=100, W_shad_name="W_shad"):
+    """Record the per-step changes in
+    total energy,
+    integrator-accumulated "heat,"
+    and integrator-accumulated "W_shad"
+    for n_steps."""
+
+    get_energy = lambda: get_total_energy(simulation)
+    get_heat = lambda: simulation.integrator.getGlobalVariableByName("heat")
+    get_W_shad = lambda: simulation.integrator.getGlobalVariableByName(W_shad_name)
+
+    delta_energy = np.zeros(n_steps)
+    delta_heat = np.zeros(n_steps)
+    delta_W_shad = np.zeros(n_steps)
+
+    for i in range(n_steps):
+        e_0 = get_energy()
+        q_0 =  get_heat()
+        W_shad_0 = get_W_shad()
+
+        simulation.step(1)
+
+        delta_energy[i] = strip_unit(get_energy() - e_0)
+        delta_heat[i] = get_heat() - q_0
+        delta_W_shad[i] = get_W_shad() - W_shad_0
+
+
+    return delta_energy, delta_heat, delta_W_shad
+
+def simulation_factory(scheme, constrained=True):
+    """Create and return a simulation that includes:
+    * Langevin integrator with the prescribed operator splitting
+    * AlanineDipeptideVacuum with or without restraints."""
+    platform = configure_platform("Reference")
+    temperature = 298 * unit.kelvin
+    if constrained:
+        testsystem = AlanineDipeptideVacuum(constraints=app.HBonds)
+    else:
+        testsystem = AlanineDipeptideVacuum(constraints=None)
+
+    lsi = LangevinSplittingIntegrator(scheme, temperature=temperature,
+                                      measure_heat=True, measure_shadow_work=True)
+
+    simulation = app.Simulation(testsystem.topology, testsystem.system, lsi, platform)
+    simulation.context.setPositions(testsystem.positions)
+    simulation.context.setVelocitiesToTemperature(temperature)
+    return simulation
+
+def check_W_shad_consistency(energy_changes):
+    """Compute and print the average deviation from our definition that
+    Delta E = W_shad + Q for each timestep."""
+    delta_energy, delta_heat, delta_W_shad = energy_changes
+    print("\tAverage deviation between Delta E and (W_shad + Q): {:.3f}".format(
+        np.linalg.norm(delta_energy - (delta_W_shad + delta_heat)) / len(delta_energy)))
+
+# loop over several operator splittings, with and without constraints
+for constrained in [True, False]:
+    if constrained: print("\n\nWith constraints\n")
+    else: print("\n\nWithout constraints\n")
+
+    for scheme in ["R V O", "R O V",
+                   "V R O R V", "R V O V R", "O R V R O",
+                   "R O V O R", "V O R O V", "V R R R O R R R V"]:
+        simulation = simulation_factory(scheme)
+        #simulation.step(100)
+        print("Scheme: {}".format(scheme))
+        check_W_shad_consistency(record_energy_changes(simulation))
+
+# also check VVVR, in the system without constraints
+print("\n\nVVVR")
+platform = configure_platform("Reference")
+temperature = 298 * unit.kelvin
+testsystem = AlanineDipeptideVacuum(constraints=None)
+from openmmtools.integrators import VVVRIntegrator
+vvvr = VVVRIntegrator(temperature, monitor_heat=True, monitor_work=True)
+simulation = app.Simulation(testsystem.topology, testsystem.system, vvvr, platform)
+simulation.context.setPositions(testsystem.positions)
+simulation.context.setVelocitiesToTemperature(temperature)
+simulation.step(100)
+check_W_shad_consistency(record_energy_changes(simulation, W_shad_name="shadow_work"))
