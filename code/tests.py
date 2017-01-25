@@ -4,7 +4,7 @@ import numpy as np
 from integrators import LangevinSplittingIntegrator
 from openmmtools.testsystems import AlanineDipeptideVacuum
 W_unit = unit.kilojoule_per_mole
-from utils import configure_platform, get_total_energy, strip_unit
+from utils import configure_platform, get_total_energy, strip_unit, generate_solvent_solute_splitting_string
 
 def record_energy_changes(simulation, n_steps=100, W_shad_name="W_shad"):
     """Record the per-step changes in
@@ -68,7 +68,9 @@ for constrained in [True, False]:
 
     for scheme in ["R V O", "R O V",
                    "V R O R V", "R V O V R", "O R V R O",
-                   "R O V O R", "V O R O V", "V R R R O R R R V"]:
+                   "R O V O R", "V O R O V", "V R R R O R R R V",
+                   generate_solvent_solute_splitting_string(K_p=2,K_r=2)
+                   ]:
         simulation = simulation_factory(scheme)
         #simulation.step(100)
         print("Scheme: {}".format(scheme))
