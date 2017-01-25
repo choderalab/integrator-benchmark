@@ -75,16 +75,19 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
 
         splitting = splitting.upper().split()
         if override_splitting_checks == False:
-            assert (set(splitting) == set("RVO"))
+            assert (set(splitting).issubset(set("RVO").union(set(["V{}".format(i) for i in range(32)]))))
+            assert ("R" in splitting)
+            assert ("O" in splitting)
 
         # Count how many times each step appears, so we know how big each R/V/O substep will be
         n_R = sum([letter == "R" for letter in splitting])
         n_V = sum([letter == "V" for letter in splitting])
         n_O = sum([letter == "O" for letter in splitting])
         # Each force group should be integrated for a total length equal to dt
-        fgs = set([step for step in splitting if step[0] == 'V'])
+        fgs = set([step[1:] for step in splitting if step[0] == 'V'])
         n_Vs = dict()
-        for fg in fgs: n_Vs[fg] = sum([step == fg for step in splitting])
+        for fg in fgs: n_Vs[fg] = sum([step[1:] == fg for step in splitting])
+        print(n_Vs)
 
         # Define substep functions
         def R_step():
@@ -142,7 +145,13 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
                 # accumulate heat
                 self.addComputeGlobal("heat", "heat + (new_ke - old_ke)")
 
-        substep_functions = {"O": O_step, "R": R_step, "V": V_step }
+        def substep_function(step_string):
+            if step_string == "O":
+                O_step()
+            elif step_string == "R":
+                R_step()
+            elif step_string[0] == "V":
+                V_step(step_string[1:])
 
         # Create a new CustomIntegrator
         super(LangevinSplittingIntegrator, self).__init__(timestep)
@@ -169,4 +178,4 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
 
         # Integrate, applying constraints or bookkeeping as necessary
         self.addUpdateContextState()
-        for step in splitting: substep_functions[step]()
+        for step in splitting: substep_function(step)
