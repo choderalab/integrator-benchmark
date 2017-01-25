@@ -6,6 +6,7 @@ from openmmtools.constants import kB
 
 class LangevinSplittingIntegrator(mm.CustomIntegrator):
     """Integrates Langevin dynamics with a prescribed operator splitting.
+
     One way to divide the Langevin system is into three parts which can each be solved "exactly:"
         - R: Linear "drift"
             Deterministic update of *positions*, using current velocities
@@ -13,9 +14,12 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
             Deterministic update of *velocities*, using current forces
         - O: Ornstein-Uhlenbeck
             Stochastic update of velocities, simulating interaction with a heat bath
+
     We can then construct integrators by solving each part for a certain timestep in sequence.
     (We can further split up the V step by force group, evaluating cheap but fast-fluctuating
-    forces more frequently than expensive by slow-fluctuating forces.)
+    forces more frequently than expensive by slow-fluctuating forces. Since forces are only
+    evaluated in the V step, we represent this by including in our "alphabet" V0, V1, ...)
+
     Examples
     --------
         - VVVR:
@@ -128,7 +132,7 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
                 self.addComputeSum("old_ke", kinetic_energy)
 
             # update velocities
-            self.addComputePerDof("v", "(b * v) + sqrt((1 - b*b) * (kT / m)) * gaussian")
+            self.addComputePerDof("v", "(b * v) + sqrt(1 - b*b) * sqrt(kT / m) * gaussian")
             self.addConstrainVelocities()
 
             if measure_heat:
