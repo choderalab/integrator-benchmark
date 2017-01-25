@@ -172,9 +172,9 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
             self.addGlobalVariable("DeltaE_{}".format(i), 0)
 
         # Integrate, applying constraints or bookkeeping as necessary
+        get_total_energy("old")
         self.addUpdateContextState()
 
-        get_total_energy("old")
         # measure energy change in each substep...
         for i, step in enumerate(splitting):
             substep_function(step)
