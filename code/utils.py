@@ -8,6 +8,12 @@ import numpy as np
 from openmmtools.testsystems import WaterBox
 W_unit = unit.kilojoule_per_mole
 
+figure_directory = "../figures/"
+figure_format = ".jpg"
+
+def savefig(name):
+    plt.savefig("{}{}{}".format(figure_directory, name, figure_format), dpi=300)
+
 def generate_solvent_solute_splitting_string(base_integrator="VRORV", K_p=1, K_r=3):
     """Generate string representing sequence of V0, V1, R, O steps, where force group 1
     is assumed to contain fast-changing, cheap-to-evaluate forces, and force group 0
@@ -139,7 +145,7 @@ def plot(results, name=""):
         plt.ylim(y_min, y_max)
         plt.xlabel('# steps')
         plt.ylabel('Shadow work')
-        plt.savefig('{}_work_trajectories_{}.jpg'.format(name, scheme), dpi=300)
+        savefig('{}_work_trajectories_{}'.format(name, scheme))
 
         F_mean = np.mean(Fs, 0)
         F_band = 1.96 * np.std(Fs, 0) / np.sqrt(len(Fs))
@@ -155,7 +161,7 @@ def plot(results, name=""):
         plt.fill_between(x_F, F_mean - F_band, F_mean + F_band, color="blue", alpha=0.3)
         plt.fill_between(x_R, R_mean - R_band, R_mean + R_band, color="green", alpha=0.3)
 
-        plt.savefig('{}_averaged_work_trajectories_{}.jpg'.format(name, scheme), dpi=300)
+        savefig('{}_averaged_work_trajectories_{}'.format(name, scheme))
         plt.close()
     # also make a comparison figure with all of the integrators, just with the confidence bands
     # instead of the full trajectories
@@ -185,5 +191,30 @@ def plot(results, name=""):
     plt.ylabel('Shadow work')
     plt.title('Comparison')
     plt.legend(fancybox=True, loc='best')
-    plt.savefig('{}_averaged_work_trajectories_comparison.jpg'.format(name), dpi=300)
+    savefig('{}_averaged_work_trajectories_comparison.jpg'.format(name))
     plt.close()
+
+def measure_shadow_work_via_heat(simulation, n_steps):
+    """Given a `simulation` that uses an integrator that accumulates heat exchange with bath,
+    apply the integrator for n_steps and return the change in energy - the heat."""
+    get_energy = lambda : get_total_energy(simulation)
+    get_heat = lambda : simulation.integrator.getGlobalVariableByName("heat")
+
+    E_0 = get_energy()
+    Q_0 = get_heat()
+
+    W_shads = []
+
+    for _ in range(n_steps):
+        simulation.step(1)
+
+        E_1 = get_energy()
+        Q_1 = get_heat()
+
+        delta_E = E_1 - E_0
+        delta_Q = Q_1 - Q_0
+
+        W_shad = delta_E.value_in_unit(W_unit) - delta_Q
+        W_shads.append(W_shad)
+
+    return np.array(W_shads)

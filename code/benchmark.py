@@ -24,31 +24,6 @@ def measure_shadow_work(simulation, n_steps):
         W_shads[i] = get_W_shad()
     return W_shads - init_W_shad
 
-def measure_shadow_work_via_heat(simulation, n_steps):
-    """Given a `simulation` that uses an integrator that accumulates heat exchange with bath,
-    apply the integrator for n_steps and return the change in energy - the heat."""
-    get_energy = lambda : get_total_energy(simulation)
-    get_heat = lambda : simulation.integrator.getGlobalVariableByName("heat")
-
-    E_0 = get_energy()
-    Q_0 = get_heat()
-
-    W_shads = []
-
-    for _ in range(n_steps):
-        simulation.step(1)
-
-        E_1 = get_energy()
-        Q_1 = get_heat()
-
-        delta_E = E_1 - E_0
-        delta_Q = Q_1 - Q_0
-
-        W_shad = delta_E.value_in_unit(W_unit) - delta_Q
-        W_shads.append(W_shad)
-
-    return np.array(W_shads)
-
 def randomization_midpoint_operator(simulation, temperature):
     """Resamples velocities from Maxwell-Boltzmann distribution."""
     simulation.context.setVelocitiesToTemperature(temperature)
