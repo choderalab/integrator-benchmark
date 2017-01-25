@@ -15,7 +15,6 @@ import numpy as np
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 from functools import partial
 np.random.seed(0)
 
@@ -273,7 +272,7 @@ def run_protocol(integrator, midpoint_operator):
     return W_shad_F, W_shad_R, x_1
 
 def perform_benchmark(integrator, midpoint_operator, n_samples):
-    samples = [run_protocol(integrator, midpoint_operator) for _ in tqdm(range(n_samples))]
+    samples = [run_protocol(integrator, midpoint_operator) for _ in range(n_samples)]
     W_shads_F, W_shads_R, x = [s[0] for s in samples], [s[1] for s in samples], [s[2] for s in samples]
     return W_shads_F, W_shads_R, x
 
