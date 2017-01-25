@@ -8,6 +8,36 @@ import numpy as np
 from openmmtools.testsystems import WaterBox
 W_unit = unit.kilojoule_per_mole
 
+def generate_solvent_solute_splitting_string(base_integrator="VRORV", K_p=1, K_r=3):
+    """Generate string representing sequence of V0, V1, R, O steps, where force group 1
+    is assumed to contain fast-changing, cheap-to-evaluate forces, and force group 0
+    is assumed to contain slow-changing, expensive-to-evaluate forces.
+
+
+
+    Currently only supports solvent-solute splittings of the VRORV (BAOAB / g-BAOAB)
+    integrator, but it should be easy also to support splittings of the ABOBA integrator.
+
+    Parameters
+    -----------
+    base_integrator: string
+        Currently only supports VRORV
+    K_p: int
+        Number of times to evaluate force group 1 per timestep.
+    K_r: int
+        Number of inner-loop iterations
+
+    Returns
+    -------
+    splitting_string: string
+        Sequence of V0, V1, R, O steps, to be passed to LangevinSplittingIntegrator
+    """
+    assert(base_integrator == "VRORV" or base_integrator == "BAOAB")
+    Rs = "R " * K_r
+    inner_loop = "V1 " + Rs + "O " + Rs + "V1 "
+    s = "V0 " + inner_loop * K_p + "V0"
+    return s
+
 def configure_platform(platform_name='Reference'):
     """Set precision, etc..."""
     if platform_name.upper() == 'Reference'.upper():
