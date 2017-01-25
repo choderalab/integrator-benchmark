@@ -104,6 +104,7 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
             * potential energy in global pe
             * total energy in global {name}_e
             """
+            self.addUpdateContextState()
             self.addComputeSum("ke", kinetic_energy)
             self.addComputeGlobal("pe", "energy")
             self.addComputeGlobal("{}_e".format(name), "pe + ke")
