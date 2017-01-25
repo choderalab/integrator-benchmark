@@ -98,8 +98,9 @@ def V_map(x, v, h):  # linear "kick"
 
 def O_map(x, v, h, gamma):  # Ornstein-Uhlenbeck
     x_ = x
-    b = np.exp(-gamma * h)
-    v_ = (b * v) + (np.sqrt(1 - b ** 2) * draw_velocities())
+    a = np.exp(-gamma * h)
+    b = np.sqrt(1 - np.exp(-2 * gamma * h))
+    v_ = (a * v) + b * draw_velocities()
     return x_, v_
 
 

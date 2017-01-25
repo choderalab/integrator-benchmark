@@ -10,14 +10,24 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
     One way to divide the Langevin system is into three parts which can each be solved "exactly:"
         - R: Linear "drift"
             Deterministic update of *positions*, using current velocities
+            x <- x + v dt
+
         - V: Linear "kick"
             Deterministic update of *velocities*, using current forces
+            v <- v + (f/m) dt
+                where f = force, m = mass
+
         - O: Ornstein-Uhlenbeck
             Stochastic update of velocities, simulating interaction with a heat bath
+            v <- av + b sqrt(kT/m) R
+                where
+                a = e^(-gamma dt)
+                b = sqrt(1 - e^(-2gamma dt))
+                R is i.i.d. standard normal
 
     We can then construct integrators by solving each part for a certain timestep in sequence.
     (We can further split up the V step by force group, evaluating cheap but fast-fluctuating
-    forces more frequently than expensive by slow-fluctuating forces. Since forces are only
+    forces more frequently than expensive but slow-fluctuating forces. Since forces are only
     evaluated in the V step, we represent this by including in our "alphabet" V0, V1, ...)
 
     Examples
@@ -116,7 +126,14 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
             if measure_shadow_work: self.addComputeGlobal("W_shad", "W_shad + current_DeltaE")
 
         def V_step(fg):
-            # update velocities
+            """Deterministic velocity update, using only forces from force-group fg.
+
+            Parameters
+            ----------
+            fg : string
+                Force group to use in this substep.
+                "" means all forces, "0" means force-group 0, etc.
+            """
             self.addComputePerDof("v", "v + ((dt / {}) * f{} / m)".format(n_Vs[fg], fg))
             self.addConstrainVelocities()
             self.addUpdateContextState()
@@ -126,7 +143,7 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
 
         def O_step():
             # update velocities
-            self.addComputePerDof("v", "(b * v) + sqrt(1 - b*b) * sqrt(kT / m) * gaussian")
+            self.addComputePerDof("v", "(a * v) + (b * sqrt(kT / m) * gaussian)")
             self.addConstrainVelocities()
 
             compute_substep_energy_change()
@@ -144,7 +161,13 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
         super(LangevinSplittingIntegrator, self).__init__(timestep)
         # Initialize
         self.addGlobalVariable("kT", kT)  # thermal energy
-        self.addGlobalVariable("b", numpy.exp(-gamma * timestep / max(1, n_O)))  # velocity mixing parameter
+
+        # velocity mixing parameter: current velocity
+        h = timestep / max(1, n_O)
+        self.addGlobalVariable("a", numpy.exp(-gamma * h))
+
+        # velocity mixing parameter: random velocity
+        self.addGlobalVariable("b", numpy.sqrt(1 - numpy.exp(- 2 * gamma * h)))
         self.addPerDofVariable("x1", 0) # positions before application of position constraints
 
         # bookkeeping variables
