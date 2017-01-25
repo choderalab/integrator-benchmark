@@ -6,6 +6,42 @@ from openmmtools.testsystems import AlanineDipeptideVacuum
 W_unit = unit.kilojoule_per_mole
 from utils import configure_platform, get_total_energy, strip_unit, generate_solvent_solute_splitting_string
 
+
+def get_n_substeps(integrator):
+    matching_string = "DeltaE_"
+    global_var_names = [integrator.getGlobalVariableName(i) for i in range(integrator.getNumGlobalVariables())]
+    n_substeps = len([var_name for var_name in global_var_names if var_name[:len(matching_string)] == matching_string])
+    return n_substeps
+
+def get_substep_energy_changes(integrator, n_substeps):
+    DeltaEs = np.zeros(n_substeps)
+    for i in range(n_substeps):
+        DeltaEs[i] = integrator.getGlobalVariableByName("DeltaE_{}".format(i))
+    return DeltaEs
+
+def compare_substep_energy_changes(simulation, n_steps=10):
+    """Get all the substep energy changes, and compare them with
+    """
+    n_substeps = get_n_substeps(simulation.integrator)
+    substep_DeltaEs = np.zeros((n_steps, n_substeps))
+    onstep_DeltaEs = np.zeros(n_steps)
+    get_energy = lambda: get_total_energy(simulation)
+
+
+    for i in range(n_steps):
+        E_0 = get_energy()
+        simulation.step(1)
+        E_1 = get_energy()
+
+        onstep_DeltaEs[i] = strip_unit(E_1 - E_0)
+        substep_DeltaEs[i] = get_substep_energy_changes(simulation.integrator, n_substeps)
+
+    deviations = onstep_DeltaEs - substep_DeltaEs.sum(1)
+    print("Deviation in first step: {:.3f}".format(deviations[0]))
+    print("Deviations in subsequent steps: {}".format(deviations[1:]))
+
+    return onstep_DeltaEs, substep_DeltaEs
+
 def record_energy_changes(simulation, n_steps=100, W_shad_name="W_shad"):
     """Record the per-step changes in
     total energy,
@@ -61,30 +97,32 @@ def check_W_shad_consistency(energy_changes):
     print("\tAverage deviation between Delta E and (W_shad + Q): {:.3f}".format(
         np.linalg.norm(delta_energy - (delta_W_shad + delta_heat)) / len(delta_energy)))
 
-# loop over several operator splittings, with and without constraints
-for constrained in [True, False]:
-    if constrained: print("\n\nWith constraints\n")
-    else: print("\n\nWithout constraints\n")
 
-    for scheme in ["R V O", "R O V",
-                   "V R O R V", "R V O V R", "O R V R O",
-                   "R O V O R", "V O R O V", "V R R R O R R R V",
-                   generate_solvent_solute_splitting_string(K_p=2,K_r=2)
-                   ]:
-        simulation = simulation_factory(scheme)
-        #simulation.step(100)
-        print("Scheme: {}".format(scheme))
-        check_W_shad_consistency(record_energy_changes(simulation))
+if __name__ == "__main__":
+    # loop over several operator splittings, with and without constraints
+    for constrained in [True, False]:
+        if constrained: print("\n\nWith constraints\n")
+        else: print("\n\nWithout constraints\n")
 
-# also check VVVR, in the system without constraints
-print("\n\nVVVR")
-platform = configure_platform("Reference")
-temperature = 298 * unit.kelvin
-testsystem = AlanineDipeptideVacuum(constraints=None)
-from openmmtools.integrators import VVVRIntegrator
-vvvr = VVVRIntegrator(temperature, monitor_heat=True, monitor_work=True)
-simulation = app.Simulation(testsystem.topology, testsystem.system, vvvr, platform)
-simulation.context.setPositions(testsystem.positions)
-simulation.context.setVelocitiesToTemperature(temperature)
-simulation.step(100)
-check_W_shad_consistency(record_energy_changes(simulation, W_shad_name="shadow_work"))
+        for scheme in ["R V O", "R O V",
+                       "V R O R V", "R V O V R", "O R V R O",
+                       "R O V O R", "V O R O V", "V R R R O R R R V",
+                       generate_solvent_solute_splitting_string(K_p=2,K_r=2)
+                       ]:
+            simulation = simulation_factory(scheme)
+            #simulation.step(100)
+            print("Scheme: {}".format(scheme))
+            check_W_shad_consistency(record_energy_changes(simulation))
+
+    # also check VVVR, in the system without constraints
+    print("\n\nVVVR")
+    platform = configure_platform("Reference")
+    temperature = 298 * unit.kelvin
+    testsystem = AlanineDipeptideVacuum(constraints=None)
+    from openmmtools.integrators import VVVRIntegrator
+    vvvr = VVVRIntegrator(temperature, monitor_heat=True, monitor_work=True)
+    simulation = app.Simulation(testsystem.topology, testsystem.system, vvvr, platform)
+    simulation.context.setPositions(testsystem.positions)
+    simulation.context.setVelocitiesToTemperature(temperature)
+    simulation.step(100)
+    check_W_shad_consistency(record_energy_changes(simulation, W_shad_name="shadow_work"))
