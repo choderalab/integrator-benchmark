@@ -87,7 +87,6 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
         fgs = set([step[1:] for step in splitting if step[0] == 'V'])
         n_Vs = dict()
         for fg in fgs: n_Vs[fg] = sum([step[1:] == fg for step in splitting])
-        print(n_Vs)
 
         # Define substep functions
         def R_step():
