@@ -191,7 +191,7 @@ def plot(results, name=""):
     plt.ylabel('Shadow work')
     plt.title('Comparison')
     plt.legend(fancybox=True, loc='best')
-    savefig('{}_averaged_work_trajectories_comparison.jpg'.format(name))
+    savefig('{}_averaged_work_trajectories_comparison'.format(name))
     plt.close()
 
 def measure_shadow_work_via_heat(simulation, n_steps):
