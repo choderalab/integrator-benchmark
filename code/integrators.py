@@ -49,8 +49,8 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
                  timestep=1.0 * simtk.unit.femtoseconds,
                  constraint_tolerance=1e-8,
                  override_splitting_checks=False,
-                 measure_shadow_work=True,
-                 measure_heat=True
+                 measure_shadow_work=False,
+                 measure_heat=True,
                  ):
         """
 
@@ -83,47 +83,57 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
         gamma = collision_rate
         kinetic_energy = "0.5 * m * v * v"
 
+        # Convert splitting string into a list of all-caps strings
         splitting = splitting.upper().split()
-        if override_splitting_checks == False:
-            assert (set(splitting).issubset(set("RVO").union(set(["V{}".format(i) for i in range(32)]))))
-            assert ("R" in splitting)
-            assert ("O" in splitting)
 
         # Count how many times each step appears, so we know how big each R/V/O substep will be
         n_R = sum([letter == "R" for letter in splitting])
         n_V = sum([letter == "V" for letter in splitting])
         n_O = sum([letter == "O" for letter in splitting])
-        # Each force group should be integrated for a total length equal to dt
-        fgs = set([step[1:] for step in splitting if step[0] == 'V'])
-        n_Vs = dict()
-        for fg in fgs: n_Vs[fg] = sum([step[1:] == fg for step in splitting])
 
-        def get_total_energy(name="old"):
-            """Computes
-            * kinetic energy in global ke
-            * potential energy in global pe
-            * total energy in global {name}_e
-            """
-            self.addComputeSum("ke", kinetic_energy)
-            self.addComputeGlobal("pe", "energy")
-            self.addComputeGlobal("{}_e".format(name), "pe + ke")
+        # Check if the splitting string asks for multi-time-stepping.
+        # If so, each force group should be integrated for a total length equal to dt
+        if len(set([step for step in splitting if step[0] == "V"])) > 1:
+            mts = True
+            fgs = set([step[1:] for step in splitting if step[0] == "V"])
+            n_Vs = dict()
+            for fg in fgs:
+                n_Vs[fg] = sum([step[1:] == fg for step in splitting])
+        else:
+            mts = False
 
-        def compute_substep_energy_change():
-            get_total_energy("new")
-            self.addComputeGlobal("current_DeltaE", "new_e - old_e")
-            self.addComputeGlobal("old_e", "new_e")
+        # Do a couple sanity checks on the splitting string
+        if override_splitting_checks == False:
+            # Make sure we contain at least one of R, V, O steps
+            assert ("R" in splitting)
+            assert ("V" in [s[0] for s in splitting])
+            assert ("O" in splitting)
+
+            # Make sure it contains no invalid characters
+            assert (set(splitting).issubset(set("RVO").union(set(["V{}".format(i) for i in range(32)]))))
+
+            # If the splitting string contains both "V" and a force-group-specific V0,V1,etc.,
+            # then raise an error
+            if mts and (n_V > 0):
+                raise(ValueError("Splitting string includes an evaluation of all forces and "
+                                 "evaluation of subsets of forces."))
 
         # Define substep functions
         def R_step():
+            if measure_shadow_work:
+                self.addComputeGlobal("old_pe", "energy")
+                self.addComputeSum("old_ke", kinetic_energy)
+
             # update positions (and velocities, if there are constraints)
-            self.addComputePerDof("x", "x + ((dt / n_R) * v)")
+            self.addComputePerDof("x", "x + ((dt / {}) * v)".format(n_R))
             self.addComputePerDof("x1", "x")  # save pre-constraint positions in x1
             self.addConstrainPositions()  # x is now constrained
-            self.addComputePerDof("v", "v + ((x - x1) / (dt / n_R))")
+            self.addComputePerDof("v", "v + ((x - x1) / (dt / {}))".format(n_R))
             self.addConstrainVelocities()
 
-            compute_substep_energy_change()
-            if measure_shadow_work: self.addComputeGlobal("W_shad", "W_shad + current_DeltaE")
+            if measure_shadow_work:
+                self.addComputeSum("new_ke", kinetic_energy)
+                self.addComputeGlobal("W_shad", "W_shad + (new_ke + new_pe) - (old_ke + old_pe)")
 
         def V_step(fg):
             """Deterministic velocity update, using only forces from force-group fg.
@@ -134,19 +144,29 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
                 Force group to use in this substep.
                 "" means all forces, "0" means force-group 0, etc.
             """
-            self.addComputePerDof("v", "v + ((dt / {}) * f{} / m)".format(n_Vs[fg], fg))
+            if measure_shadow_work:
+                self.addComputeSum("old_ke", kinetic_energy)
+
+            # update velocities
+            if mts: self.addComputePerDof("v", "v + ((dt / {}) * f{} / m)".format(n_Vs[fg], fg))
+            else: self.addComputePerDof("v", "v + (dt / {}) * f / m".format(n_V))
             self.addConstrainVelocities()
 
-            compute_substep_energy_change()
-            if measure_shadow_work: self.addComputeGlobal("W_shad", "W_shad + current_DeltaE")
+            if measure_shadow_work:
+                self.addComputeSum("new_ke", kinetic_energy)
+                self.addComputeGlobal("shadow_work", "shadow_work + (new_ke - old_ke)")
 
         def O_step():
+            if measure_heat:
+                self.addComputeSum("old_ke", kinetic_energy)
+
             # update velocities
             self.addComputePerDof("v", "(a * v) + (b * sqrt(kT / m) * gaussian)")
             self.addConstrainVelocities()
 
-            compute_substep_energy_change()
-            if measure_heat: self.addComputeGlobal("heat", "heat + current_DeltaE")
+            if measure_heat:
+                self.addComputeSum("new_ke", kinetic_energy)
+                self.addComputeGlobal("heat", "heat + (new_ke - old_ke)")
 
         def substep_function(step_string):
             if step_string == "O":
@@ -158,46 +178,37 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
 
         # Create a new CustomIntegrator
         super(LangevinSplittingIntegrator, self).__init__(timestep)
-        # Initialize
-        self.addGlobalVariable("kT", kT)  # thermal energy
 
-        # velocity mixing parameter: current velocity
+        # Initialize
+        self.addGlobalVariable("kT", kT)
+
+        # Velocity mixing parameter: current velocity component
         h = timestep / max(1, n_O)
         self.addGlobalVariable("a", numpy.exp(-gamma * h))
 
-        # velocity mixing parameter: random velocity
+        # Velocity mixing parameter: random velocity component
         self.addGlobalVariable("b", numpy.sqrt(1 - numpy.exp(- 2 * gamma * h)))
-        self.addPerDofVariable("x1", 0) # positions before application of position constraints
 
-        # bookkeeping variables
-        self.addPerDofVariable("x_prev", 0)
-        self.addPerDofVariable("v_prev", 0)
+        # Positions before application of position constraints
+        self.addPerDofVariable("x1", 0)
 
+        # Set constraint tolerance
         self.setConstraintTolerance(constraint_tolerance)
 
-        self.addGlobalVariable("n_R", n_R)
-        self.addGlobalVariable("n_V", n_V)
-        self.addGlobalVariable("n_O", n_O)
-
         # Add bookkeeping variables
-        self.addGlobalVariable("ke", 0)
-        self.addGlobalVariable("pe", 0)
-        self.addGlobalVariable("old_e", 0)
-        self.addGlobalVariable("new_e", 0)
+        if measure_heat:
+            self.addGlobalVariable("heat", 0)
 
-        self.addGlobalVariable("W_shad", 0)
-        self.addGlobalVariable("heat", 0)
+        if measure_shadow_work or measure_heat:
+            self.addGlobalVariable("old_ke", 0)
+            self.addGlobalVariable("new_ke", 0)
 
-        # store all of the substep energy changes
-        self.addGlobalVariable("current_DeltaE", 0)
-        for i in range(len(splitting)):
-            self.addGlobalVariable("DeltaE_{}".format(i), 0)
+        if measure_shadow_work:
+            self.addGlobalVariable("old_pe", 0)
+            self.addGlobalVariable("new_pe", 0)
+            self.addGlobalVariable("W_shad", 0)
 
-        # Integrate, applying constraints or bookkeeping as necessary
-        get_total_energy("old")
+        # Integrate
         self.addUpdateContextState()
-
-        # measure energy change in each substep...
         for i, step in enumerate(splitting):
             substep_function(step)
-            self.addComputeGlobal("DeltaE_{}".format(i), "current_DeltaE")
