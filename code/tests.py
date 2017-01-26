@@ -4,7 +4,7 @@ import numpy as np
 from integrators import LangevinSplittingIntegrator
 from openmmtools.testsystems import AlanineDipeptideVacuum
 W_unit = unit.kilojoule_per_mole
-from utils import configure_platform, get_total_energy, strip_unit, generate_solvent_solute_splitting_string
+from utils import configure_platform, get_total_energy, strip_unit, generate_solvent_solute_splitting_string, load_alanine
 
 
 def get_n_substeps(integrator):
@@ -77,16 +77,13 @@ def simulation_factory(scheme, constrained=True):
     * AlanineDipeptideVacuum with or without restraints."""
     platform = configure_platform("Reference")
     temperature = 298 * unit.kelvin
-    if constrained:
-        testsystem = AlanineDipeptideVacuum(constraints=app.HBonds)
-    else:
-        testsystem = AlanineDipeptideVacuum(constraints=None)
+    topology, system, positions = load_alanine(constrained)
 
     lsi = LangevinSplittingIntegrator(scheme, temperature=temperature,
                                       measure_heat=True, measure_shadow_work=True)
 
-    simulation = app.Simulation(testsystem.topology, testsystem.system, lsi, platform)
-    simulation.context.setPositions(testsystem.positions)
+    simulation = app.Simulation(topology, system, lsi, platform)
+    simulation.context.setPositions(positions)
     simulation.context.setVelocitiesToTemperature(temperature)
     return simulation
 
