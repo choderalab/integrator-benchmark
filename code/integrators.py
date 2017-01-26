@@ -104,7 +104,6 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
             * potential energy in global pe
             * total energy in global {name}_e
             """
-            self.addUpdateContextState()
             self.addComputeSum("ke", kinetic_energy)
             self.addComputeGlobal("pe", "energy")
             self.addComputeGlobal("{}_e".format(name), "pe + ke")
@@ -137,7 +136,6 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
             """
             self.addComputePerDof("v", "v + ((dt / {}) * f{} / m)".format(n_Vs[fg], fg))
             self.addConstrainVelocities()
-            self.addUpdateContextState()
 
             compute_substep_energy_change()
             if measure_shadow_work: self.addComputeGlobal("W_shad", "W_shad + current_DeltaE")
@@ -196,8 +194,8 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
             self.addGlobalVariable("DeltaE_{}".format(i), 0)
 
         # Integrate, applying constraints or bookkeeping as necessary
-        get_total_energy("old")
         self.addUpdateContextState()
+        get_total_energy("old")
 
         # measure energy change in each substep...
         for i, step in enumerate(splitting):
