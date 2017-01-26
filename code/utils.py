@@ -2,10 +2,11 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
+from simtk.openmm import app
 from simtk import unit
 import simtk.openmm as mm
 import numpy as np
-from openmmtools.testsystems import WaterBox
+from openmmtools.testsystems import WaterBox, AlanineDipeptideVacuum
 W_unit = unit.kilojoule_per_mole
 
 figure_directory = "../figures/"
@@ -62,12 +63,27 @@ def strip_unit(quantity):
     """Take a unit'd quantity and return just its value."""
     return quantity.value_in_unit(quantity.unit)
 
-def load_waterbox():
+def load_waterbox(constrained=True):
     """Load WaterBox test system with non-default PME cutoff and error tolerance... """
-    testsystem = WaterBox(constrained=True, ewaldErrorTolerance=1e-5, cutoff=10*unit.angstroms)
-    (system, positions) = testsystem.system, testsystem.positions
-    #positions = np.load("waterbox.npy") # load equilibrated configuration saved beforehand
-    return system, positions
+    testsystem = WaterBox(constrained=constrained, ewaldErrorTolerance=1e-5, cutoff=10*unit.angstroms)
+    (topology, system, positions) = testsystem.topology, testsystem.system, testsystem.positions
+    positions = np.load("waterbox.npy") # load equilibrated configuration saved beforehand
+    return topology, system, positions
+
+def load_alanine(constrained=True):
+    if constrained: constraints = app.HBonds
+    else: constraints = None
+    testsystem = AlanineDipeptideVacuum(constraints=constraints)
+    topology, system, positions = testsystem.topology, testsystem.system, testsystem.positions
+
+    index_of_CMMotionRemover = -1
+    for i in range(system.getNumForces()):
+        if type(system.getForce(i)) == mm.CMMotionRemover:
+            index_of_CMMotionRemover = i
+    if index_of_CMMotionRemover != -1:
+        system.removeForce(i)
+
+    return topology, system, positions
 
 def get_total_energy(simulation):
     """Compute the kinetic energy + potential energy of the simulation."""
@@ -218,3 +234,8 @@ def measure_shadow_work_via_heat(simulation, n_steps):
         W_shads.append(W_shad)
 
     return np.array(W_shads)
+
+if __name__=="__main__":
+    topology, system, positions = load_alanine(False)
+    print(system.getForces())
+

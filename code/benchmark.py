@@ -4,14 +4,13 @@ from simtk import unit
 from simtk.openmm import app
 import numpy as np
 from integrators import LangevinSplittingIntegrator
-from openmmtools.testsystems import AlanineDipeptideVacuum
 W_unit = unit.kilojoule_per_mole
 from analysis import estimate_nonequilibrium_free_energy
 from cPickle import dump
-
 from openmmtools.integrators import GHMCIntegrator
 
-from utils import plot, get_total_energy, get_summary_string, configure_platform
+from utils import plot, get_total_energy, get_summary_string, configure_platform, load_alanine
+
 
 def measure_shadow_work(simulation, n_steps):
     """Simulate for n_steps, and record the integrator's W_shad global variable
@@ -97,50 +96,53 @@ def collect_and_save_results(schemes, simulation_factory, equilibrium_samples,
 
     return results
 
-if __name__ == '__main__':
-    """Perform comparison of four Strang splittings of the Langevin equations, on
-    a small system that can be quickly sampled on the Reference platform, and
-    plot and save results.
-    """
+def build_waterbox_benchmark():
+    platform = configure_platform("OpenCL")
+    temperature = 298.0 * unit.kelvin
+    burn_in_length = 1000  # in steps
+    n_samples = 100  # number of samples to collect
+    protocol_length = 50  # length of protocol
+    ghmc_thinning = protocol_length  # number of GHMC steps between samples
+    collision_rate = 91 / unit.picoseconds
+
+
+def build_alanine_benchmark():
     platform = configure_platform("Reference")
     temperature = 298.0 * unit.kelvin
-    burn_in_length = 100000 # in steps
-    n_samples = 2000 # number of samples to collect
-    protocol_length = 50 # length of protocol
-    ghmc_thinning = protocol_length # number of GHMC steps between samples
+    burn_in_length = 100000  # in steps
+    n_samples = 2000  # number of samples to collect
+    protocol_length = 50  # length of protocol
+    ghmc_thinning = protocol_length  # number of GHMC steps between samples
     collision_rate = 91 / unit.picoseconds
-    schemes = ["R V O V R", "O V R V O", "V R O R V", "V R R R O R R R V"]
 
     def test_on_alanine(schemes, constrained=True, randomize=True):
         """Compare the schemes on Alanine test system..."""
-
         # define test name
-        if constrained: name = "constrained"
-        else: name = "unconstrained"
+        if constrained:
+            name = "constrained"
+        else:
+            name = "unconstrained"
 
-        if randomize: name = name + "_randomized"
-        else: name = name + "_null"
+        if randomize:
+            name = name + "_randomized"
+        else:
+            name = name + "_null"
         print("\n\nName: {}".format(name))
 
-        # get system
-        if constrained:
-            print("Constrained")
-            testsystem = AlanineDipeptideVacuum(constraints=app.HBonds)
-        else:
-            print("Unconstrained")
-            testsystem = AlanineDipeptideVacuum(constraints=None)
-
-        (system, positions) = testsystem.system, testsystem.positions
-        print("# atoms: {}".format(len(positions)))
+        topology, system, positions = load_alanine(constrained)
+        for force in system.getForces():
+            print(type(force))
 
         # if constrained, use a larger timestep
-        if constrained: timestep = 2.5 * unit.femtoseconds
-        else: timestep = 2.0 * unit.femtoseconds
+        if constrained:
+            timestep = 2.5 * unit.femtoseconds
+        else:
+            timestep = 2.0 * unit.femtoseconds
 
         print("Timestep: {}".format(timestep))
 
         if randomize:
-            midpoint_operator = lambda simulation:\
+            midpoint_operator = lambda simulation: \
                 randomization_midpoint_operator(simulation, temperature)
             print('Midpoint operator: randomization')
 
@@ -151,15 +153,15 @@ if __name__ == '__main__':
         # define unbiased simulation...
         ghmc_timestep = 1.5 * unit.femtoseconds
         ghmc = GHMCIntegrator(temperature, timestep=ghmc_timestep)
-        get_acceptance_rate = lambda: ghmc.getGlobalVariableByName("naccept")\
-                          / ghmc.getGlobalVariableByName("ntrials")
+        get_acceptance_rate = lambda: ghmc.getGlobalVariableByName("naccept") \
+                                      / ghmc.getGlobalVariableByName("ntrials")
 
-        unbiased_simulation = app.Simulation(testsystem.topology, system, ghmc, platform)
+        unbiased_simulation = app.Simulation(topology, system, ghmc, platform)
 
         unbiased_simulation.context.setPositions(positions)
         unbiased_simulation.context.setVelocitiesToTemperature(temperature)
         print('"Burning in" unbiased GHMC sampler for {:.3}ps...'.format(
-                (burn_in_length * ghmc_timestep).value_in_unit(unit.picoseconds)))
+            (burn_in_length * ghmc_timestep).value_in_unit(unit.picoseconds)))
         unbiased_simulation.step(burn_in_length)
         print("Burn-in GHMC acceptance rate: {:.3f}%".format(100 * get_acceptance_rate()))
         ghmc.setGlobalVariableByName("naccept", 0)
@@ -178,16 +180,26 @@ if __name__ == '__main__':
             lsi = LangevinSplittingIntegrator(scheme, timestep=timestep, temperature=temperature,
                                               collision_rate=collision_rate)
 
-            simulation = app.Simulation(testsystem.topology, system, lsi, platform)
+            simulation = app.Simulation(topology, system, lsi, platform)
             simulation.context.setPositions(positions)
             simulation.context.setVelocitiesToTemperature(temperature)
             return simulation
 
         results = collect_and_save_results(schemes, simulation_factory, equilibrium_samples, n_samples,
-                                 M=protocol_length, midpoint_operator=midpoint_operator, temperature=temperature,
-                                 name=name)
+                                           M=protocol_length, midpoint_operator=midpoint_operator,
+                                           temperature=temperature,
+                                           name=name)
         plot(results, name)
 
+    return test_on_alanine
+
+if __name__ == '__main__':
+    """Perform comparison of four Strang splittings of the Langevin equations, on
+        a small system that can be quickly sampled, and
+        plot and save results.
+        """
+    schemes = ["R V O V R", "O V R V O", "V R O R V", "V R R R O R R R V"]
+    test = build_alanine_benchmark()
     for randomize in [True, False]:
         for constrained in [True, False]:
-            test_on_alanine(schemes, constrained, randomize)
+            test(schemes, constrained, randomize)
