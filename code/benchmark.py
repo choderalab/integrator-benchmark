@@ -9,19 +9,8 @@ from analysis import estimate_nonequilibrium_free_energy
 from cPickle import dump
 from openmmtools.integrators import GHMCIntegrator
 
-from utils import plot, get_total_energy, get_summary_string, configure_platform, load_alanine
-
-
-def measure_shadow_work(simulation, n_steps):
-    """Simulate for n_steps, and record the integrator's W_shad global variable
-    at each step, minus the value of W_shad before integrating."""
-    get_W_shad = lambda : simulation.integrator.getGlobalVariableByName("W_shad")
-    W_shads = np.zeros(n_steps)
-    init_W_shad = get_W_shad()
-    for i in range(n_steps):
-        simulation.step(1)
-        W_shads[i] = get_W_shad()
-    return W_shads - init_W_shad
+from utils import plot, get_total_energy, get_summary_string, configure_platform, load_alanine, \
+    measure_shadow_work, measure_shadow_work_via_heat
 
 def randomization_midpoint_operator(simulation, temperature):
     """Resamples velocities from Maxwell-Boltzmann distribution."""
