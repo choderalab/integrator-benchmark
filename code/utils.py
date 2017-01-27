@@ -120,7 +120,7 @@ def unpack_trajs(result):
 
     for i in range(len(W_shads_F)):
         traj_F = W_shads_F[i]
-        traj_R = W_shads_R[i] + traj_F[-1] + W_midpoint[i]
+        traj_R = W_shads_R[i] + traj_F[-1]
 
         x_F = (np.arange(len(traj_F)))
         x_R = (np.arange(len(traj_R))) + x_F[-1]
