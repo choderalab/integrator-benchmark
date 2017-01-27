@@ -72,6 +72,7 @@ def find_appropriate_timestep(simulation_factory,
             print("Testing: {:.3f}fs".format(timestep.value_in_unit(unit.femtosecond)))
         simulation = simulation_factory(timestep)
         simulation_crashed = False
+        changed_timestep_range = False
         W_shads_F, W_shads_R, W_midpoints = [], [], []
 
         def update_lists(W_shad_F, W_midpoint, W_shad_R):
@@ -113,6 +114,7 @@ def find_appropriate_timestep(simulation_factory,
             if simulation_crashed or (DeltaF_neq_lcb > DeltaF_neq_threshold):
                 if verbose: print("This timestep is probably too big!\n")
                 max_timestep = timestep
+                changed_timestep_range = True
                 break
 
             # else, if (DeltaF_neq_ucb < threshold), then we're pretty sure we can get
@@ -120,10 +122,18 @@ def find_appropriate_timestep(simulation_factory,
             elif (DeltaF_neq_ucb < DeltaF_neq_threshold):
                 if verbose: print("We can probably get away with a larger timestep!\n")
                 min_timestep = timestep
+                changed_timestep_range = True
                 break
 
             # else, the threshold is within the upper and lower confidence bounds, and we keep going
-    if verbose: print("\nTerminating: found the following timestep: ".format(timestep.value_in_unit(unit.femtosecond)))
+
+        if (not changed_timestep_range):
+            if verbose:
+                print("\nTerminating early: found the following timestep: ".format(timestep.value_in_unit(unit.femtosecond)))
+            return timestep
+    if verbose:
+        timestep = (min_timestep + max_timestep) / 2
+        print("\nTerminating: found the following timestep: ".format(timestep.value_in_unit(unit.femtosecond)))
     return timestep
 
 if __name__ == "__main__":
