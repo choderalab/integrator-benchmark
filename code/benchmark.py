@@ -1,16 +1,15 @@
-""""""
-
 from simtk import unit
 from simtk.openmm import app
 import numpy as np
 from integrators import LangevinSplittingIntegrator
 W_unit = unit.kilojoule_per_mole
 from analysis import estimate_nonequilibrium_free_energy
-from cPickle import dump
+from pickle import dump
 from openmmtools.integrators import GHMCIntegrator
+from tqdm import tqdm
 
 from utils import plot, get_total_energy, get_summary_string, configure_platform, load_alanine, \
-    measure_shadow_work, measure_shadow_work_via_heat
+    measure_shadow_work, load_waterbox
 
 def randomization_midpoint_operator(simulation, temperature):
     """Resamples velocities from Maxwell-Boltzmann distribution."""
@@ -42,7 +41,7 @@ def benchmark(simulation, equilibrium_samples, n_samples, M, midpoint_operator, 
     """
     W_shads_F, W_shads_R, W_midpoint = [], [], []
 
-    for _ in range(n_samples):
+    for _ in tqdm(range(n_samples)):
         # draw equilibrium sample
         simulation.context.setPositions(equilibrium_samples[np.random.randint(len(equilibrium_samples))])
         simulation.context.setVelocitiesToTemperature(temperature)
@@ -85,51 +84,71 @@ def collect_and_save_results(schemes, simulation_factory, equilibrium_samples,
 
     return results
 
-def build_waterbox_benchmark():
-    platform = configure_platform("OpenCL")
+system_params = {
+    "waterbox": {
+        "platform" : configure_platform("OpenCL"),
+        "loader": load_waterbox,
+        "burn_in_length": 1000,
+        "n_samples": 2000,
+        "protocol_length": 50,
+        "constrained_timestep": 2.5*unit.femtosecond,
+        "unconstrained_timestep": 1.0*unit.femtosecond,
+
+    },
+    "alanine": {
+        "platform": configure_platform("Reference"),
+        "loader": load_alanine,
+        "burn_in_length": 1000,
+        "n_samples": 5000,
+        "protocol_length": 50,
+        "constrained_timestep": 2.5*unit.femtosecond,
+        "unconstrained_timestep": 2.0*unit.femtosecond,
+    }
+}
+
+def build_benchmark(system_name):
+    assert(system_name in system_params.keys())
+    params = system_params[system_name]
+
     temperature = 298.0 * unit.kelvin
-    burn_in_length = 1000  # in steps
-    n_samples = 100  # number of samples to collect
-    protocol_length = 50  # length of protocol
-    ghmc_thinning = protocol_length  # number of GHMC steps between samples
+    ghmc_thinning = params["protocol_length"]  # number of GHMC steps between samples
     collision_rate = 91 / unit.picoseconds
 
+    def tester(schemes, constrained=True, randomize=True):
+        """Function that accepts a list of splitting scheme strings and
 
-def build_alanine_benchmark():
-    platform = configure_platform("Reference")
-    temperature = 298.0 * unit.kelvin
-    burn_in_length = 100000  # in steps
-    n_samples = 2000  # number of samples to collect
-    protocol_length = 50  # length of protocol
-    ghmc_thinning = protocol_length  # number of GHMC steps between samples
-    collision_rate = 91 / unit.picoseconds
+        Saves results as {name}
 
-    def test_on_alanine(schemes, constrained=True, randomize=True):
-        """Compare the schemes on Alanine test system..."""
+        Parameters
+        ----------
+        schemes : list of strings
+            List of splitting scheme strings
+        constrained : boolean
+
+        randomize : boolean
+            If true, randomize the velocities at the midpoint
+            Else, do nothing
+
+
+        """
         # define test name
-        if constrained:
-            name = "constrained"
-        else:
-            name = "unconstrained"
-
-        if randomize:
-            name = name + "_randomized"
-        else:
-            name = name + "_null"
+        constraint_string = {True: "constrained", False: "unconstrained"}
+        midpoint_string = {True: "randomized", False: "null"}
+        name = "_".join([system_name, constraint_string[constrained], midpoint_string[randomize]])
         print("\n\nName: {}".format(name))
 
-        topology, system, positions = load_alanine(constrained)
-        for force in system.getForces():
-            print(type(force))
+        # load the system
+        topology, system, positions = params["loader"](constrained)
 
-        # if constrained, use a larger timestep
-        if constrained:
-            timestep = 2.5 * unit.femtoseconds
-        else:
-            timestep = 2.0 * unit.femtoseconds
+        # print the active forces
+        for force in system.getForces(): print(type(force))
 
+        # set the timestep
+        if constrained: timestep = params["constrained_timestep"]
+        else: timestep = params["unconstrained_timestep"]
         print("Timestep: {}".format(timestep))
 
+        # set the midpoint operator
         if randomize:
             midpoint_operator = lambda simulation: \
                 randomization_midpoint_operator(simulation, temperature)
@@ -144,21 +163,22 @@ def build_alanine_benchmark():
         ghmc = GHMCIntegrator(temperature, timestep=ghmc_timestep)
         get_acceptance_rate = lambda: ghmc.getGlobalVariableByName("naccept") \
                                       / ghmc.getGlobalVariableByName("ntrials")
-
-        unbiased_simulation = app.Simulation(topology, system, ghmc, platform)
-
+        unbiased_simulation = app.Simulation(topology, system, ghmc, params["platform"])
         unbiased_simulation.context.setPositions(positions)
         unbiased_simulation.context.setVelocitiesToTemperature(temperature)
+
+        # equilibrate
         print('"Burning in" unbiased GHMC sampler for {:.3}ps...'.format(
-            (burn_in_length * ghmc_timestep).value_in_unit(unit.picoseconds)))
-        unbiased_simulation.step(burn_in_length)
+            (params["burn_in_length"] * ghmc_timestep).value_in_unit(unit.picoseconds)))
+        unbiased_simulation.step(params["burn_in_length"])
         print("Burn-in GHMC acceptance rate: {:.3f}%".format(100 * get_acceptance_rate()))
         ghmc.setGlobalVariableByName("naccept", 0)
         ghmc.setGlobalVariableByName("ntrials", 0)
 
+        # collect equilibrium samples
         print("Collecting equilibrium samples...")
         equilibrium_samples = []
-        for _ in range(5 * n_samples):
+        for _ in tqdm(range(params["n_samples"])):
             unbiased_simulation.step(ghmc_thinning)
             equilibrium_samples.append(
                 unbiased_simulation.context.getState(getPositions=True).getPositions(asNumpy=True))
@@ -169,26 +189,34 @@ def build_alanine_benchmark():
             lsi = LangevinSplittingIntegrator(scheme, timestep=timestep, temperature=temperature,
                                               collision_rate=collision_rate)
 
-            simulation = app.Simulation(topology, system, lsi, platform)
+            simulation = app.Simulation(topology, system, lsi, params["platform"])
             simulation.context.setPositions(positions)
             simulation.context.setVelocitiesToTemperature(temperature)
             return simulation
 
-        results = collect_and_save_results(schemes, simulation_factory, equilibrium_samples, n_samples,
-                                           M=protocol_length, midpoint_operator=midpoint_operator,
+        print("Collecting {} protocol samples per condition...".format(params["n_samples"]))
+        results = collect_and_save_results(schemes, simulation_factory, equilibrium_samples, params["n_samples"],
+                                           M=params["protocol_length"], midpoint_operator=midpoint_operator,
                                            temperature=temperature,
                                            name=name)
         plot(results, name)
 
-    return test_on_alanine
+    return tester
 
 if __name__ == '__main__':
-    """Perform comparison of four Strang splittings of the Langevin equations, on
-        a small system that can be quickly sampled, and
-        plot and save results.
-        """
+    """Perform comparison of several Strang splittings of the Langevin equations, on
+    small systems that can be quickly sampled, and plot and save results.
+    """
     schemes = ["R V O V R", "O V R V O", "V R O R V", "V R R R O R R R V"]
-    test = build_alanine_benchmark()
-    for randomize in [True, False]:
-        for constrained in [True, False]:
+
+    print("Testing on AlanineDipeptideVecuum")
+    test = build_benchmark(system_name="alanine")
+    for constrained in [True, False]:
+        for randomize in [True, False]:
+            test(schemes, constrained, randomize)
+
+    print("Testing on WaterBox")
+    test = build_benchmark(system_name="waterbox")
+    for constrained in [True, False]:
+        for randomize in [True, False]:
             test(schemes, constrained, randomize)
