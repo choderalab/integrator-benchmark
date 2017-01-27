@@ -19,6 +19,21 @@ def null_midpoint_operator(simulation):
     """Do nothing to the simulation"""
     pass
 
+def apply_protocol(simulation, M, midpoint_operator):
+    # perform "forward" protocol
+    W_shad_F = measure_shadow_work(simulation, M)
+
+    # perform midpoint operation
+    E_before_midpoint = get_total_energy(simulation)
+    midpoint_operator(simulation)
+    E_after_midpoint = get_total_energy(simulation)
+    W_midpoint = (E_after_midpoint - E_before_midpoint).value_in_unit(W_unit)
+
+    # perform "reverse" protocol
+    W_shad_R = measure_shadow_work(simulation, M)
+
+    return W_shad_F, W_midpoint, W_shad_R
+
 def benchmark(simulation, equilibrium_samples, n_samples, M, midpoint_operator, temperature):
     """Estimate the nonequilbrium free energy difference between the equilibrium ensemble and
     the perturbed ensemble sampled by the simulation.
@@ -39,29 +54,24 @@ def benchmark(simulation, equilibrium_samples, n_samples, M, midpoint_operator, 
         energy difference
         * W_midpoint: work values for applying midpoint operator to nonequilibrium samples
     """
-    W_shads_F, W_shads_R, W_midpoint = [], [], []
+    W_shads_F, W_midpoints, W_shads_R = [], [], []
+    def update_lists(W_shad_F, W_midpoint, W_shad_R):
+        W_shads_F.append(W_shad_F)
+        W_midpoints.append(W_midpoint)
+        W_shads_R.append(W_shad_R)
 
     for _ in tqdm(range(n_samples)):
         # draw equilibrium sample
         simulation.context.setPositions(equilibrium_samples[np.random.randint(len(equilibrium_samples))])
         simulation.context.setVelocitiesToTemperature(temperature)
 
-        # perform "forward" protocol
-        W_shads_F.append(measure_shadow_work(simulation, M))
-
-        # perform midpoint operation
-        E_before_midpoint = get_total_energy(simulation)
-        midpoint_operator(simulation)
-        E_after_midpoint = get_total_energy(simulation)
-        W_midpoint.append((E_after_midpoint - E_before_midpoint).value_in_unit(W_unit))
-
-        # perform "reverse" protocol
-        W_shads_R.append(measure_shadow_work(simulation, M))
+        # collect and store measurements
+        update_lists(*apply_protocol(simulation, M, midpoint_operator))
 
     # use only the endpoints of each trajectory for DeltaF_neq estimation
     DeltaF_neq, sq_uncertainty = estimate_nonequilibrium_free_energy(np.array(W_shads_F)[:,-1], np.array(W_shads_R)[:,-1])
 
-    return W_shads_F, W_shads_R, DeltaF_neq, sq_uncertainty, W_midpoint
+    return W_shads_F, W_shads_R, DeltaF_neq, sq_uncertainty, W_midpoints
 
 def collect_and_save_results(schemes, simulation_factory, equilibrium_samples,
                              n_samples, M, midpoint_operator, temperature, name=""):
@@ -93,31 +103,61 @@ system_params = {
         "protocol_length": 50,
         "constrained_timestep": 2.5*unit.femtosecond,
         "unconstrained_timestep": 1.0*unit.femtosecond,
-
+        "temperature": 298.0 * unit.kelvin,
+        "collision_rate": 91 / unit.picoseconds,
     },
     "alanine": {
         "platform": configure_platform("Reference"),
         "loader": load_alanine,
         "burn_in_length": 1000,
-        "n_samples": 5000,
+        "n_samples": 1000,
         "protocol_length": 50,
         "constrained_timestep": 2.5*unit.femtosecond,
         "unconstrained_timestep": 2.0*unit.femtosecond,
+        "temperature": 298.0 * unit.kelvin,
+        "collision_rate": 91 / unit.picoseconds,
     }
 }
+
+def get_equilibrium_samples(topology, system, positions,
+                            platform, temperature,
+                            burn_in_length, n_samples, thinning_interval,
+                            ghmc_timestep=1.5 * unit.femtoseconds, **kwargs):
+    # define unbiased simulation...
+    ghmc = GHMCIntegrator(temperature, timestep=ghmc_timestep)
+    get_acceptance_rate = lambda: ghmc.getGlobalVariableByName("naccept") \
+                                  / ghmc.getGlobalVariableByName("ntrials")
+    unbiased_simulation = app.Simulation(topology, system, ghmc, platform)
+    unbiased_simulation.context.setPositions(positions)
+    unbiased_simulation.context.setVelocitiesToTemperature(temperature)
+
+    # equilibrate
+    print('"Burning in" unbiased GHMC sampler for {:.3}ps...'.format(
+        (burn_in_length * ghmc_timestep).value_in_unit(unit.picoseconds)))
+    unbiased_simulation.step(burn_in_length)
+    print("Burn-in GHMC acceptance rate: {:.3f}%".format(100 * get_acceptance_rate()))
+    ghmc.setGlobalVariableByName("naccept", 0)
+    ghmc.setGlobalVariableByName("ntrials", 0)
+
+    # collect equilibrium samples
+    print("Collecting equilibrium samples...")
+    equilibrium_samples = []
+    for _ in tqdm(range(n_samples)):
+        unbiased_simulation.step(thinning_interval)
+        equilibrium_samples.append(
+            unbiased_simulation.context.getState(getPositions=True).getPositions(asNumpy=True))
+    print("Equilibrated GHMC acceptance rate: {:.3f}%".format(100 * get_acceptance_rate()))
+
+    return equilibrium_samples, unbiased_simulation
 
 def build_benchmark(system_name):
     assert(system_name in system_params.keys())
     params = system_params[system_name]
 
-    temperature = 298.0 * unit.kelvin
-    ghmc_thinning = params["protocol_length"]  # number of GHMC steps between samples
-    collision_rate = 91 / unit.picoseconds
-
     def tester(schemes, constrained=True, randomize=True):
         """Function that accepts a list of splitting scheme strings and
 
-        Saves results as {name}
+        Pickles results and outputs a bunch of figures
 
         Parameters
         ----------
@@ -151,53 +191,32 @@ def build_benchmark(system_name):
         # set the midpoint operator
         if randomize:
             midpoint_operator = lambda simulation: \
-                randomization_midpoint_operator(simulation, temperature)
+                randomization_midpoint_operator(simulation, params["temperature"])
             print('Midpoint operator: randomization')
 
         if not randomize:
             midpoint_operator = null_midpoint_operator
             print('Midpoint operator: null')
 
-        # define unbiased simulation...
-        ghmc_timestep = 1.5 * unit.femtoseconds
-        ghmc = GHMCIntegrator(temperature, timestep=ghmc_timestep)
-        get_acceptance_rate = lambda: ghmc.getGlobalVariableByName("naccept") \
-                                      / ghmc.getGlobalVariableByName("ntrials")
-        unbiased_simulation = app.Simulation(topology, system, ghmc, params["platform"])
-        unbiased_simulation.context.setPositions(positions)
-        unbiased_simulation.context.setVelocitiesToTemperature(temperature)
-
-        # equilibrate
-        print('"Burning in" unbiased GHMC sampler for {:.3}ps...'.format(
-            (params["burn_in_length"] * ghmc_timestep).value_in_unit(unit.picoseconds)))
-        unbiased_simulation.step(params["burn_in_length"])
-        print("Burn-in GHMC acceptance rate: {:.3f}%".format(100 * get_acceptance_rate()))
-        ghmc.setGlobalVariableByName("naccept", 0)
-        ghmc.setGlobalVariableByName("ntrials", 0)
-
-        # collect equilibrium samples
-        print("Collecting equilibrium samples...")
-        equilibrium_samples = []
-        for _ in tqdm(range(params["n_samples"])):
-            unbiased_simulation.step(ghmc_thinning)
-            equilibrium_samples.append(
-                unbiased_simulation.context.getState(getPositions=True).getPositions(asNumpy=True))
-        print("Equilibrated GHMC acceptance rate: {:.3f}%".format(100 * get_acceptance_rate()))
-
-        def simulation_factory(scheme):
+        n_samples, thinning_interval = params["n_samples"], params["protocol_length"]
+        equilibrium_samples, unbiased_sim = get_equilibrium_samples(topology, system, positions,
+                                                      thinning_interval=thinning_interval,
+                                                      **params)
+        # define a factory for Langevin simulations
+        def simulation_factory(scheme, timestep=timestep):
             """Factory for biased simulations"""
-            lsi = LangevinSplittingIntegrator(scheme, timestep=timestep, temperature=temperature,
-                                              collision_rate=collision_rate)
+            lsi = LangevinSplittingIntegrator(scheme, timestep=timestep, temperature=params["temperature"],
+                                              collision_rate=params["collision_rate"])
 
             simulation = app.Simulation(topology, system, lsi, params["platform"])
             simulation.context.setPositions(positions)
-            simulation.context.setVelocitiesToTemperature(temperature)
+            simulation.context.setVelocitiesToTemperature(params["temperature"])
             return simulation
 
         print("Collecting {} protocol samples per condition...".format(params["n_samples"]))
         results = collect_and_save_results(schemes, simulation_factory, equilibrium_samples, params["n_samples"],
                                            M=params["protocol_length"], midpoint_operator=midpoint_operator,
-                                           temperature=temperature,
+                                           temperature=params["temperature"],
                                            name=name)
         plot(results, name)
 
