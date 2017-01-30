@@ -1,14 +1,22 @@
 from simtk import unit
 from simtk.openmm import app
 import numpy as np
-from benchmark import system_params, get_equilibrium_samples, randomization_midpoint_operator, apply_protocol
+from benchmark import get_equilibrium_samples, \
+    randomization_midpoint_operator, null_midpoint_operator, apply_protocol
+from testsystems import system_params
 from integrators import LangevinSplittingIntegrator
 from analysis import estimate_nonequilibrium_free_energy
+from tqdm import tqdm
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 def find_appropriate_timestep(simulation_factory,
-                              equilibrium_sampler,
+                              equilibrium_samples,
                               M,
                               midpoint_operator,
+                              temperature,
                               timestep_range,
                               DeltaF_neq_threshold=1.0,
                               max_samples=10000,
@@ -35,13 +43,14 @@ def find_appropriate_timestep(simulation_factory,
     simulation_factory: function
         accepts a timestep argument and returns a simulation equipped with an integrator with that
         timestep
-    equilibrium_sampler: function
-        no arguments, returns a (x,v)
-       pair that's drawn from the correct equilibrium distribution
+    equilibrium_samples: list
+        list of samples from the configuration distribution at equilibrium
     M: int
         protocol length
     midpoint_operator: function
         accepts a simulation as an argument, doesn't return anything
+    temperature: unit'd quantity
+        temperature used to resample velocities
     timestep_range: iterable
         (min_timestep, max_timestep)
     DeltaF_neq_threshold: double, default=1.0
@@ -87,9 +96,11 @@ def find_appropriate_timestep(simulation_factory,
             # collect another batch_size protocol samples
             for _ in range(batch_size):
                 # draw equilibrium sample
-                x, v = equilibrium_sampler()
-                simulation.context.setPositions(x)
-                simulation.context.setVelocities(v)
+                #x, v = equilibrium_sampler()
+                #simulation.context.setPositions(x)
+                #simulation.context.setVelocities(v)
+                simulation.context.setPositions(equilibrium_samples[np.random.randint(len(equilibrium_samples))])
+                simulation.context.setVelocitiesToTemperature(temperature)
 
                 # collect and store measurements
                 # if the simulation crashes, set simulation_crashed flag
@@ -101,18 +112,23 @@ def find_appropriate_timestep(simulation_factory,
 
             # if we didn't crash, update estimate of DeltaF_neq upper and lower confidence bounds
             DeltaF_neq, sq_uncertainty = estimate_nonequilibrium_free_energy(np.array(W_shads_F)[:,-1], np.array(W_shads_R)[:,-1])
-            if np.isnan(DeltaF_neq + sq_uncertainty): simulation_crashed = True
+            if np.isnan(DeltaF_neq + sq_uncertainty):
+                if verbose:
+                    print("A simulation encountered NaNs!")
+                simulation_crashed = True
             bound = alpha * np.sqrt(sq_uncertainty)
             DeltaF_neq_lcb, DeltaF_neq_ucb = DeltaF_neq - bound, DeltaF_neq + bound
+            out_of_bounds = (DeltaF_neq_lcb > DeltaF_neq_threshold) or (DeltaF_neq_ucb < DeltaF_neq_threshold)
 
-            if verbose and ((DeltaF_neq_lcb > DeltaF_neq_threshold) or (DeltaF_neq_ucb < DeltaF_neq_threshold) or simulation_crashed):
+            if verbose and (out_of_bounds or simulation_crashed):
                 print("After collecting {} protocol samples, DeltaF_neq is likely in the following interval: "
                 "[{:.3f}, {:.3f}]".format(len(W_shads_F), DeltaF_neq_lcb, DeltaF_neq_ucb))
 
             # if (DeltaF_neq_lcb > threshold) or (nans are encountered), then we're pretty sure this timestep is too big,
             # and we can move on to try a smaller one
             if simulation_crashed or (DeltaF_neq_lcb > DeltaF_neq_threshold):
-                if verbose: print("This timestep is probably too big!\n")
+                if verbose:
+                    print("This timestep is probably too big!\n")
                 max_timestep = timestep
                 changed_timestep_range = True
                 break
@@ -120,7 +136,8 @@ def find_appropriate_timestep(simulation_factory,
             # else, if (DeltaF_neq_ucb < threshold), then we're pretty sure we can get
             # away with a larger timestep
             elif (DeltaF_neq_ucb < DeltaF_neq_threshold):
-                if verbose: print("We can probably get away with a larger timestep!\n")
+                if verbose:
+                    print("We can probably get away with a larger timestep!\n")
                 min_timestep = timestep
                 changed_timestep_range = True
                 break
@@ -128,6 +145,7 @@ def find_appropriate_timestep(simulation_factory,
             # else, the threshold is within the upper and lower confidence bounds, and we keep going
 
         if (not changed_timestep_range):
+            timestep = (min_timestep + max_timestep) / 2
             if verbose:
                 print("\nTerminating early: found the following timestep: ".format(timestep.value_in_unit(unit.femtosecond)))
             return timestep
@@ -136,10 +154,62 @@ def find_appropriate_timestep(simulation_factory,
         print("\nTerminating: found the following timestep: ".format(timestep.value_in_unit(unit.femtosecond)))
     return timestep
 
+def sweep_over_timesteps(simulation_factory,
+                          equilibrium_samples,
+                          M,
+                          midpoint_operator,
+                          timesteps_to_try,
+                          temperature,
+                          n_samples=10000,
+                          verbose=True
+                          ):
+
+    DeltaF_neqs, sq_uncertainties = [], []
+
+    for timestep in timesteps_to_try:
+        simulation = simulation_factory(timestep)
+        W_shads_F, W_shads_R, W_midpoints = [], [], []
+
+        def update_lists(W_shad_F, W_midpoint, W_shad_R):
+            W_shads_F.append(W_shad_F)
+            W_midpoints.append(W_midpoint)
+            W_shads_R.append(W_shad_R)
+
+        # collect up to max_samples protocol samples, making a decision about whether to proceed
+        # every batch_size samples
+        for _ in tqdm(range(n_samples)):
+
+            # draw equilibrium sample
+            simulation.context.setPositions(equilibrium_samples[np.random.randint(len(equilibrium_samples))])
+            simulation.context.setVelocitiesToTemperature(temperature)
+
+            # collect and store measurements
+            # if the simulation crashes, set simulation_crashed flag
+            try:
+                update_lists(*apply_protocol(simulation, M, midpoint_operator))
+            except:
+                simulation_crashed = True
+                if verbose:
+                    print("A simulation crashed! Considering this timestep unstable...")
+
+        # if we didn't crash, update estimate of DeltaF_neq upper and lower confidence bounds
+        DeltaF_neq, sq_uncertainty = estimate_nonequilibrium_free_energy(np.array(W_shads_F)[:,-1], np.array(W_shads_R)[:,-1])
+        DeltaF_neqs.append(DeltaF_neq)
+        sq_uncertainties.append(sq_uncertainty)
+        print("\tTimestep: {:.3f}\n\tDeltaF_neq: {:.3f} +/- {:.3f}".format(
+            timestep.value_in_unit(unit.femtosecond),
+            DeltaF_neq,
+            1.96 * np.sqrt(sq_uncertainty)
+        ))
+    return DeltaF_neqs, sq_uncertainties
+
 if __name__ == "__main__":
-    # scheme = "V R R R O R R R V"
-    scheme = "O V R V O"
-    print(scheme)
+    schemes = ["V R O R V", "O R V R O",
+               "R V O V R", "O V R V O",
+               "R R V O V R R", "O V R R R R V O",
+               "V R R O R R V", "V R R R O R R R V"
+               ]
+    print(schemes)
 
     params = system_params["alanine"]
     topology, system, positions = params["loader"](constrained=True)
@@ -148,10 +218,11 @@ if __name__ == "__main__":
     platform = params["platform"]
     temperature = params["temperature"]
     M = params["protocol_length"]
-    n_samples = 10000
+    n_samples = params["n_samples"]
     thinning_interval = M
 
     midpoint_operator = lambda simulation: randomization_midpoint_operator(simulation, temperature)
+    #midpoint_operator = null_midpoint_operator
 
     equilibrium_samples, unbiased_simulation = get_equilibrium_samples(topology, system, positions, platform,
                                                                        temperature=temperature,
@@ -159,15 +230,7 @@ if __name__ == "__main__":
                                                                        thinning_interval=thinning_interval,
                                                                        burn_in_length=n_samples * thinning_interval)
 
-
-    def equilibrium_sampler():
-        x = equilibrium_samples[np.random.randint(len(equilibrium_samples))]
-        unbiased_simulation.context.setVelocitiesToTemperature(temperature)
-        v = unbiased_simulation.context.getState(getVelocities=True).getVelocities(asNumpy=True)
-        return x, v
-
-
-    def simulation_factory(timestep):
+    def simulation_factory(timestep, scheme):
         """Factory for biased simulations"""
         lsi = LangevinSplittingIntegrator(scheme, timestep=timestep, temperature=temperature,
                                           collision_rate=collision_rate)
@@ -177,7 +240,32 @@ if __name__ == "__main__":
         simulation.context.setVelocitiesToTemperature(temperature)
         return simulation
 
-    find_appropriate_timestep(simulation_factory, equilibrium_sampler,
-                              M=params["protocol_length"], midpoint_operator=midpoint_operator,
-                              timestep_range=[0.1 * unit.femtosecond, 8 * unit.femtosecond], max_samples=n_samples
-                              )
+    # plot DeltaF_neq as function of timestep
+    timesteps_to_try = np.linspace(0.25,5,10) * unit.femtosecond
+    results = {}
+    plt.figure()
+    for scheme in schemes:
+        print(scheme)
+        sim_factory = lambda timestep: simulation_factory(timestep, scheme)
+        DeltaFs, sq_uncertainties = sweep_over_timesteps(sim_factory, equilibrium_samples, M,
+                             midpoint_operator, timesteps_to_try, temperature,  n_samples=n_samples)
+        results[scheme] = DeltaFs, sq_uncertainties
+        sigmas = 1.96 * np.sqrt(sq_uncertainties)
+        # plot the results
+        plt.errorbar(timesteps_to_try.value_in_unit(unit.femtosecond), DeltaFs, yerr=sigmas, label=scheme)
+
+    plt.xlabel("Timestep (fs)")
+    plt.ylabel("$\Delta F_{neq}$")
+    plt.legend(loc='best', fancybox=True)
+    plt.savefig("../figures/alanine_conf_DeltaFs.jpg")
+    plt.close()
+
+    # search for max allowable timestep
+    for scheme in schemes:
+        print("\n" + scheme)
+        sim_factory = lambda timestep: simulation_factory(timestep, scheme)
+        timestep = find_appropriate_timestep(sim_factory, equilibrium_samples,
+                                  M=M, midpoint_operator=midpoint_operator, temperature=temperature,
+                                  timestep_range=[0.1 * unit.femtosecond, 10 * unit.femtosecond], max_samples=n_samples
+                                  )
+        print(timestep)
