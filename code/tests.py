@@ -4,7 +4,8 @@ import numpy as np
 from integrators import LangevinSplittingIntegrator
 from openmmtools.testsystems import AlanineDipeptideVacuum
 W_unit = unit.kilojoule_per_mole
-from utils import configure_platform, get_total_energy, strip_unit, generate_solvent_solute_splitting_string, load_alanine
+from utils import configure_platform, get_total_energy, strip_unit, generate_solvent_solute_splitting_string
+from testsystems import load_alanine
 
 
 def get_n_substeps(integrator):

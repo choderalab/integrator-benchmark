@@ -1,12 +1,12 @@
 import matplotlib
+
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
-from simtk.openmm import app
 from simtk import unit
 import simtk.openmm as mm
 import numpy as np
-from openmmtools.testsystems import WaterBox, AlanineDipeptideVacuum
+
 W_unit = unit.kilojoule_per_mole
 
 figure_directory = "../figures/"
@@ -63,28 +63,6 @@ def strip_unit(quantity):
     """Take a unit'd quantity and return just its value."""
     return quantity.value_in_unit(quantity.unit)
 
-def load_waterbox(constrained=True):
-    """Load WaterBox test system with non-default PME cutoff and error tolerance... """
-    testsystem = WaterBox(constrained=constrained, ewaldErrorTolerance=1e-5, cutoff=10*unit.angstroms)
-    (topology, system, positions) = testsystem.topology, testsystem.system, testsystem.positions
-    positions = np.load("waterbox.npy") # load equilibrated configuration saved beforehand
-    return topology, system, positions
-
-def load_alanine(constrained=True):
-    if constrained: constraints = app.HBonds
-    else: constraints = None
-    testsystem = AlanineDipeptideVacuum(constraints=constraints)
-    topology, system, positions = testsystem.topology, testsystem.system, testsystem.positions
-
-    index_of_CMMotionRemover = -1
-    for i in range(system.getNumForces()):
-        if type(system.getForce(i)) == mm.CMMotionRemover:
-            index_of_CMMotionRemover = i
-    if index_of_CMMotionRemover != -1:
-        system.removeForce(i)
-
-    return topology, system, positions
-
 def get_total_energy(simulation):
     """Compute the kinetic energy + potential energy of the simulation."""
     state = simulation.context.getState(getEnergy=True)
@@ -120,7 +98,7 @@ def unpack_trajs(result):
 
     for i in range(len(W_shads_F)):
         traj_F = W_shads_F[i]
-        traj_R = W_shads_R[i] + traj_F[-1]
+        traj_R = W_shads_R[i]# + traj_F[-1]
 
         x_F = (np.arange(len(traj_F)))
         x_R = (np.arange(len(traj_R))) + x_F[-1]
@@ -297,8 +275,3 @@ def measure_shadow_work(simulation, n_steps):
         return measure_shadow_work_via_W_shad(simulation, n_steps)
     else:
         raise (RuntimeError("Simulation doesn't support shadow work computation"))
-
-if __name__=="__main__":
-    topology, system, positions = load_alanine(False)
-    print(system.getForces())
-
