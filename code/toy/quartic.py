@@ -227,7 +227,7 @@ def check_bookkeeping(results):
         discrepancy = accumulated - actual
 
         print('\t{}: Mean squared discrepancy between '
-              'accumulated and actual energy change: {:.3f}'.format(scheme, np.mean(np.linalg.norm(discrepancy))))
+              'accumulated and actual energy change: {:.5f}'.format(scheme, np.mean(np.linalg.norm(discrepancy))))
 
 check_bookkeeping(results)
 
@@ -263,6 +263,8 @@ def run_protocol(integrator, midpoint_operator):
         x_1, v_1 = x_traj[-1], v_traj[-1]
     elif midpoint_operator == "randomize-velocity":
         x_1, v_1 = x_traj[-1], draw_velocities()
+    elif midpoint_operator == "randomize-positions":
+        x_1, v_1 = draw_configuration(), v_traj[-1]
     else:
         raise (ValueError("Invalid midpoint operator"))
 
@@ -283,9 +285,9 @@ def estimate_nonequilibrium_free_energy(W_shads_F, W_shads_R, N_eff=None, verbos
     # squared uncertainty = [var(W_0->M) + var(W_M->2M) - 2 cov(W_0->M, W_M->2M)] / (4 N_eff)
     sq_uncertainty = (np.var(W_shads_F) + np.var(W_shads_R) - 2 * np.cov(W_shads_F, W_shads_R)[0, 1]) / (4 * N_eff)
     if verbose:
-        print("\t<W_F>: {:.3f} +/- {:.3f}".format(np.mean(W_shads_F), 1.96 * np.std(W_shads_F) / np.sqrt(len(W_shads_F))))
-        print("\t<W_R>: {:.3f} +/- {:.3f}".format(np.mean(W_shads_R), 1.96 * np.std(W_shads_R) / np.sqrt(len(W_shads_R))))
-        print("\tcov(W_F, W_R): {:.3f}".format(np.cov(W_shads_F, W_shads_R)[0, 1]))
+        print("\t<W_F>: {:.5f} +/- {:.5f}".format(np.mean(W_shads_F), 1.96 * np.std(W_shads_F) / np.sqrt(len(W_shads_F))))
+        print("\t<W_R>: {:.5f} +/- {:.5f}".format(np.mean(W_shads_R), 1.96 * np.std(W_shads_R) / np.sqrt(len(W_shads_R))))
+        print("\tcov(W_F, W_R): {:.5f}".format(np.cov(W_shads_F, W_shads_R)[0, 1]))
     return DeltaF_neq, sq_uncertainty
 
 
@@ -304,23 +306,24 @@ def unpack_W_shads(W_shads_F, W_shads_R):
 
 
 colors = {"null": "blue",
-          "randomize-velocity": "green"
+          "randomize-velocity": "green",
+          "randomize-positions": "orange"
           }
 
 
 n_steps = 20
 results = dict()
-midpoint_operators = ["null", "randomize-velocity"]
+midpoint_operators = ["null", "randomize-velocity", "randomize-positions"]
 for scheme in schemes:
-    print("Scheme: {}".format(scheme))
+    print("\n\nScheme: {}".format(scheme))
 
     integrator = partial(bookkeeping_langevin_factory(n_steps, scheme), h=timestep, integrator_params=integrator_params)
 
     results[scheme] = dict()
     plt.figure()
     for midpoint_operator in midpoint_operators:
-        print("Midpoint operator: {}".format(midpoint_operator))
-        W_shads_F, W_shads_R, x = perform_benchmark(integrator, midpoint_operator, n_samples=10000)
+        print("\nMidpoint operator: {}".format(midpoint_operator))
+        W_shads_F, W_shads_R, x = perform_benchmark(integrator, midpoint_operator, n_samples=50000)
         results[scheme][midpoint_operator] = W_shads_F, W_shads_R, x
 
 
@@ -342,7 +345,7 @@ for scheme in schemes:
 
         plt.legend(fancybox=True, loc='best')
 
-        print("\tDeltaF_neq: {:.3f} +/- {:.3f}".format(DeltaF_neq, np.sqrt(sq_uncertainty)))
+        print("\tDeltaF_neq: {:.5f} +/- {:.5f}".format(DeltaF_neq, np.sqrt(sq_uncertainty)))
 
     savefig("benchmark_{}".format(scheme))
     plt.close()
