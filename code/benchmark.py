@@ -1,15 +1,18 @@
+import numpy as np
+from testsystems import system_params
 from simtk import unit
 from simtk.openmm import app
-import numpy as np
+
 from integrators import LangevinSplittingIntegrator
+
 W_unit = unit.kilojoule_per_mole
 from analysis import estimate_nonequilibrium_free_energy
 from pickle import dump
 from openmmtools.integrators import GHMCIntegrator
 from tqdm import tqdm
 
-from utils import plot, get_total_energy, get_summary_string, configure_platform, load_alanine, \
-    measure_shadow_work, load_waterbox
+from utils import plot, get_total_energy, get_summary_string, measure_shadow_work
+
 
 def randomization_midpoint_operator(simulation, temperature):
     """Resamples velocities from Maxwell-Boltzmann distribution."""
@@ -93,31 +96,6 @@ def collect_and_save_results(schemes, simulation_factory, equilibrium_samples,
     with open("{}_results.pkl".format(name), "w") as f: dump(results, f)
 
     return results
-
-system_params = {
-    "waterbox": {
-        "platform" : configure_platform("OpenCL"),
-        "loader": load_waterbox,
-        "burn_in_length": 1000,
-        "n_samples": 2000,
-        "protocol_length": 50,
-        "constrained_timestep": 2.5*unit.femtosecond,
-        "unconstrained_timestep": 1.0*unit.femtosecond,
-        "temperature": 298.0 * unit.kelvin,
-        "collision_rate": 91 / unit.picoseconds,
-    },
-    "alanine": {
-        "platform": configure_platform("Reference"),
-        "loader": load_alanine,
-        "burn_in_length": 1000,
-        "n_samples": 1000,
-        "protocol_length": 50,
-        "constrained_timestep": 2.5*unit.femtosecond,
-        "unconstrained_timestep": 2.0*unit.femtosecond,
-        "temperature": 298.0 * unit.kelvin,
-        "collision_rate": 91 / unit.picoseconds,
-    }
-}
 
 def get_equilibrium_samples(topology, system, positions,
                             platform, temperature,
