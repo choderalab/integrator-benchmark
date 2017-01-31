@@ -1,11 +1,21 @@
 import numpy as np
-from openmmtools.testsystems import WaterBox, AlanineDipeptideVacuum
+from openmmtools.testsystems import HarmonicOscillator, PowerOscillator, \
+    AlanineDipeptideVacuum, WaterBox
 from simtk.openmm import app
 
 from utils import configure_platform
 from simtk import unit
 import simtk.openmm as mm
 
+def load_harmonic_oscillator(**args):
+    """Load 3D harmonic oscillator"""
+    testsystem = HarmonicOscillator()
+    return testsystem.topology, testsystem.system, testsystem.positions
+
+def load_quartic_potential(**args):
+    """Load 3D quartic potential"""
+    testsystem = PowerOscillator(b=4.0)
+    return testsystem.topology, testsystem.system, testsystem.positions
 
 def load_waterbox(constrained=True):
     """Load WaterBox test system with non-default PME cutoff and error tolerance... """
@@ -31,7 +41,26 @@ def load_alanine(constrained=True):
     return topology, system, positions
 
 
+simple_params = {
+    "platform": configure_platform("Reference"),
+    "burn_in_length": 1000,
+    "n_samples": 1000,
+    "protocol_length": 50,
+    "constrained_timestep": 2.5*unit.femtosecond,
+    "unconstrained_timestep": 2.0*unit.femtosecond,
+    "temperature": 298.0 * unit.kelvin,
+    "collision_rate": 91 / unit.picoseconds,
+}
+
+harmonic_oscillator_params = simple_params.copy()
+harmonic_oscillator_params["loader"] = load_harmonic_oscillator
+
+quartic_params = simple_params.copy()
+quartic_params["loader"] = load_quartic_potential
+
 system_params = {
+    "harmonic_oscillator": harmonic_oscillator_params,
+    "quartic_potential": quartic_params,
     "waterbox": {
         "platform" : configure_platform("OpenCL"),
         "loader": load_waterbox,
