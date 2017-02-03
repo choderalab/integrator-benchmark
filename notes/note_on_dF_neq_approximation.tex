@@ -1,0 +1,106 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}                % See geometry.pdf to learn the layout options. There are lots.
+\usepackage{url}
+\geometry{letterpaper}                   % ... or a4paper or a5paper or ... 
+\usepackage[parfill]{parskip}    % Activate to begin paragraphs with an empty line rather than an indent
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{epstopdf}
+\usepackage{microtype}
+\usepackage{heuristica}
+\usepackage{cancel}
+\usepackage{float}
+
+\newcommand{\x}{\mathbf{x}}
+\newcommand{\s}{\mathbf{s}}
+\newcommand{\vel}{\mathbf{v}}
+\newcommand{\kldiv}{\mathcal{D}_\text{KL}}
+
+\begin{document}
+\subsection*{Question}
+Is this a valid near-equilibrium approximation for the free energy difference between $\omega$ and $\pi$?
+$$F_\omega - F_\pi \approx\frac{1}{2} \left[
+\langle W_\text{shad} \rangle_{\pi \to \rho}
+- \langle W_\text{shad} \rangle_{\omega \to \rho} \right]$$
+
+
+\subsection*{Notation}
+\begin{itemize}
+\item the equilibrium distribution is $\pi$
+$$\pi(\x, \vel) \equiv p(\x) q(\vel)$$
+\item the nonequilibrium steady state sampled by our Langevin integrator is $\rho$
+$$\rho(\x, \vel) = \; ?$$
+\item the configuration-marginal of the nonequilibrium steady state is $\rho_\x$
+$$\rho_\x(\x) \equiv \int d\vel \rho(\x, \vel)$$
+\item the ``midpoint'' nonequilibrium macrostate is $\omega$
+$$\omega(\x, \vel) \equiv \rho_\x (\x) q(\vel)$$
+\end{itemize}
+
+\subsection*{Configuration space bias is equivalent to $F_\omega - F_\pi$}
+We're interested in approximating the KL divergence between the configuration distribution at equilibrium and the configuration distribution in the nonequilibrium steady state: $\kldiv(\rho_\x \| p)$.
+We've constructed $\omega$ so that $\kldiv(\rho_\x \| p) = \kldiv( \omega \| \pi)$:
+$$\begin{aligned}
+\kldiv(\omega \| \pi) &\equiv \int \int d \x d\vel \left( \omega(\x, \vel) \log \frac{\omega(\x, \vel)}{\pi(\x, \vel)} \right)\\
+&= \int \int d \x d\vel \left( \omega(\x, \vel) \log \frac{\rho_\x (\x)}{p(\x)}  \cancelto{1}{\frac{q(\vel)}{q(\vel)}}\right)\\
+&= \int \int d \x d\vel \left( \omega(\x, \vel) \log \frac{\rho_\x (\x)}{p(\x)}  \right)\\
+&= \int d \vel \left( \int d \x \rho_\x (\x) q(\vel) \log \frac{\rho_\x (\x)}{p(\x)} \right) \\
+&= \cancelto{1}{\left( \int d \vel q(\vel) \right)} \left( \int d \x \rho_\x (\x) \log \frac{\rho_\x (\x)}{p(\x)} \right) \\
+&= \kldiv(\rho_\x \| p)
+\end{aligned}
+$$
+
+%Thus, if we can estimate $\Delta F_\text{neq}$ between $\pi$ and $\omega$, 
+
+%Since nonequilibrium free energy differences are equal to KL divergences, 
+Note that $\kldiv(\omega \| \pi) = \beta (F_\omega - F_\pi)$ where $\beta = \frac{1}{k_B T}$ (see proof proceeding eq. 1 of \url{http://threeplusone.com/Sivak2012a.pdf}).
+
+Thus, if we can approximate the nonequilibrium free energy difference $F_\omega - F_\pi$, then we can approximate the configuration-space bias.
+
+\subsection*{Approximating $F_\omega - F_\pi$}
+We can write down a nonequilibrium protocol that transforms $\pi$ into $\omega$:
+\begin{enumerate}
+\item \textbf{Simulate Langevin dynamics} for $N$ steps (performs ``shadow work'' to turn $\pi$ into $\rho$)
+\item \textbf{Randomize velocities} by sampling $\vel \sim q$ (performs no work, turns $\rho$ into $\omega$)
+\end{enumerate}
+where $N$ is chosen sufficiently large to reach steady state $\rho$.
+
+Call the procedure [1,2] the ``forward protocol'' and the procedure [2,1] the ``reverse protocol.''
+
+Using the near-equilibrium approximation in \url{http://threeplusone.com/Sivak2012a.pdf}, we can approximate $\Delta F_\text{neq} \equiv F_\omega - F_\pi$  in terms of quantities we can compute from simulation.
+
+Denote by $\langle W_\text{F} \rangle_\pi$ the average work performed by the ``forward protocol,'' where the average is over initial conditions at equilibrium. Denote by $\langle W_\text{R} \rangle_\omega$ the average work performed by the ``reverse protocol,'' where the average is over initial conditions distributed according to $\omega$.
+
+$$\begin{aligned}
+\Delta F_\text{neq}
+& \approx
+\frac{1}{2} [ \langle W_\text{F} \rangle_\pi - \langle W_\text{R} \rangle_\omega ]\\
+&= \frac{1}{2}
+\left[
+\left(
+\langle W \rangle_{\pi \to \rho}
++ \langle W \rangle_{\rho \to \omega}
+\right)
+- \left(
+\langle W \rangle_{\omega \to \omega} + 
+\langle W \rangle_{\omega \to \rho}
+\right)
+\right]\\
+&= \frac{1}{2} [
+\langle W_\text{shad} \rangle_{\pi \to \rho}
++ \cancelto{0}{\langle W \rangle_{\rho \to \omega}}
+- 
+\cancelto{0}{\langle W \rangle_{\omega \to \omega}} 
+- 
+\langle W_\text{shad} \rangle_{\omega \to \rho} ]\\
+&= \frac{1}{2} \left[
+\langle W_\text{shad} \rangle_{\pi \to \rho}
+- \langle W_\text{shad} \rangle_{\omega \to \rho} \right]\\
+\end{aligned}$$
+
+Where we can approximate:
+\begin{itemize}
+\item $\langle W_\text{shad} \rangle_{\pi \to \rho}$ by starting in equilibrium, and measuring the shadow work accumulated by simulating for $N$ steps.
+\item $\langle W_\text{shad} \rangle_{\omega \to \rho}$ by starting in nonequilibrium steady state with velocities resampled from equilibrium, and measuring the shadow work accumulated by simulating for $N$ steps.
+\end{itemize}
+\end{document}
