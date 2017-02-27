@@ -13,16 +13,34 @@ from scipy.stats import entropy
 np.random.seed(0)
 
 figure_directory = "figures/"  # relative to script
-figure_format = ".jpg"
+figure_format = ".pdf"
 
 # Define system
 beta = 1.0  # inverse temperature
 dim = 1  # system dimension
 
+@jit
+def quartic_potential(x): return x**4
 
 @jit
-def potential(x): return x**4
+def quartic_force(x): return - 4.0 * x**3
 
+
+@jit
+def eggcrate_potential(x): return x**2 + np.sin(10 * x)
+
+@jit
+def eggcrate_force(x): return - ( 2 * ( x + 5 * np.cos(10 * x)) )
+
+
+system = "quartic"
+
+if system == "quartic":
+    potential = quartic_potential
+    force = quartic_force
+elif system == "eggcrate":
+    potential = eggcrate_potential
+    force = eggcrate_force
 
 @jit
 def reduced_potential(x): return potential(x) * beta
@@ -35,9 +53,6 @@ def log_q(x): return - reduced_potential(x)
 @jit
 def q(x): return np.exp(log_q(x))
 
-
-@jit
-def force(x): return - 4.0 * x**3
 
 # normalized density
 x = np.linspace(-3, 3, 1000)
@@ -55,7 +70,7 @@ timestep = 1.0
 gamma = 100.0
 
 # implement ovrvo
-def simulate_vvvr(x0, v0, n_steps, gamma, dt):
+def simulate_vvvr(x0, v0, n_steps, gamma, dt, thinning_factor=1):
     """Simulate n_steps of VVVR, accumulating heat
 
     :param x0:
@@ -66,9 +81,9 @@ def simulate_vvvr(x0, v0, n_steps, gamma, dt):
     :return:
     """
     Q = 0
-    W_shads = np.zeros(n_steps)
+    W_shads = np.zeros(n_steps / thinning_factor)
     x, v = x0, v0
-    xs, vs = np.zeros(n_steps), np.zeros(n_steps)
+    xs, vs = np.zeros(n_steps / thinning_factor), np.zeros(n_steps / thinning_factor)
     xs[0] = x0
     vs[0] = v0
     E_old = potential(x) + 0.5 * m * v**2
@@ -76,12 +91,10 @@ def simulate_vvvr(x0, v0, n_steps, gamma, dt):
     a = np.exp(-gamma * (dt / 2.0))
     b = np.sqrt(1 - np.exp(-2 * gamma * (dt / 2.0)))
 
-    R = np.random.randn(n_steps, 2)
-
     for i in range(1, n_steps):
         # O step
         ke_old = 0.5 * m * v**2
-        v = (a * v) + b * velocity_scale * R[i, 0]
+        v = (a * v) + b * velocity_scale * np.random.randn()
         ke_new = 0.5 * m * v ** 2
         Q += (ke_new - ke_old)
 
@@ -96,22 +109,23 @@ def simulate_vvvr(x0, v0, n_steps, gamma, dt):
 
         # O step
         ke_old = 0.5 * m * v ** 2
-        v = (a * v) + b * velocity_scale * R[i, 1]
+        v = (a * v) + b * velocity_scale * np.random.randn()
         ke_new = 0.5 * m * v ** 2
         Q += (ke_new - ke_old)
 
         # store
-        xs[i] = x
-        vs[i] = v
+        if i % thinning_factor == 0:
+            xs[i / thinning_factor] = x
+            vs[i / thinning_factor] = v
 
-        E_new = potential(x) + 0.5 * m * v**2
-        W_shads[i] = (E_new - E_old) - Q
+            E_new = potential(x) + 0.5 * m * v ** 2
+            W_shads[i / thinning_factor] = (E_new - E_old) - Q
 
     return xs, vs, Q, W_shads
 
 
 # implement BAOAB / VRORV
-def simulate_baoab(x0, v0, n_steps, gamma, dt):
+def simulate_baoab(x0, v0, n_steps, gamma, dt, thinning_factor=1):
     """Simulate n_steps of BAOAB, accumulating heat
 
     :param x0:
@@ -122,17 +136,15 @@ def simulate_baoab(x0, v0, n_steps, gamma, dt):
     :return:
     """
     Q = 0
-    W_shads = np.zeros(n_steps)
+    W_shads = np.zeros(n_steps / thinning_factor)
     x, v = x0, v0
-    xs, vs = np.zeros(n_steps), np.zeros(n_steps)
+    xs, vs = np.zeros(n_steps / thinning_factor), np.zeros(n_steps / thinning_factor)
     xs[0] = x0
     vs[0] = v0
     E_old = potential(x) + 0.5 * m * v**2
 
     a = np.exp(-gamma * (dt))
     b = np.sqrt(1 - np.exp(-2 * gamma * (dt)))
-
-    R = np.random.randn(n_steps)
 
     for i in range(1, n_steps):
         # V step
@@ -143,7 +155,7 @@ def simulate_baoab(x0, v0, n_steps, gamma, dt):
 
         # O step
         ke_old = 0.5 * m * v**2
-        v = (a * v) + b * velocity_scale * R[i]
+        v = (a * v) + b * velocity_scale * np.random.randn()
         ke_new = 0.5 * m * v ** 2
         Q += (ke_new - ke_old)
 
@@ -154,11 +166,12 @@ def simulate_baoab(x0, v0, n_steps, gamma, dt):
         v = v + ((dt / 2.0) * force(x) / m)
 
         # store
-        xs[i] = x
-        vs[i] = v
+        if i % thinning_factor == 0:
+            xs[i / thinning_factor] = x
+            vs[i / thinning_factor] = v
 
-        E_new = potential(x) + 0.5 * m * v**2
-        W_shads[i] = (E_new - E_old) - Q
+            E_new = potential(x) + 0.5 * m * v**2
+            W_shads[i / thinning_factor] = (E_new - E_old) - Q
 
     return xs, vs, Q, W_shads
 
@@ -218,20 +231,21 @@ def speed_test(n_steps=100000):
 
 def compute_free_energy_potential_and_entropy(x_samples, hist_args):
     # print average potential energy
-    avg_potential = np.mean(x_samples ** 4)
-    #stderr = np.std(xs ** 4) / np.sqrt(len(xs))
-    #print("\t<U>={:.3f} +/- {:.3f}".format(avg_potential, 1.96 * stderr))
-    print("\t<U>={:.5f}".format(avg_potential))
+    avg_potential = np.mean(potential(x_samples))
+    print("\t<U> = {:.5f}".format(avg_potential))
 
     # now, what's the entropy
     hist, _ = np.histogram(x_samples, **hist_args)
+    #hist, _ = np.histogram(x_samples, bins="auto")
     ent = entropy(hist, base=np.e)
-    print("\tS={:.5f}".format(ent))
+    print("\tS = {:.5f} (using {}-bin histogram)".format(ent, len(hist)))
 
     return avg_potential - ent / beta
 
+
+
 @jit
-def estimate_Delta_F_neq_conf_vvvr(x_samples, gamma, dt, protocol_length=100, n_samples=1000, scheme="VVVR"):
+def estimate_Delta_F_neq_conf_vvvr(x_samples, gamma, dt, protocol_length=100, n_samples=1000):
 
     # indices of samples drawn with replacement from initial equilibrium samples
     selections = np.random.randint(0, len(x_samples), n_samples)
@@ -282,17 +296,54 @@ def estimate_Delta_F_neq_conf_baoab(x_samples, gamma, dt, protocol_length=100, n
 
     return W_shads_F, W_shads_R
 
+
+def v_density(x):
+    return (1 / (np.sqrt(2 * np.pi * sigma2))) * np.exp(-x ** 2 / (2 * sigma2))
+
+def normalize_histogram(hist, bin_edges):
+    x_range = bin_edges[-1] - bin_edges[0]
+    sum_y = np.sum(hist)
+    Z = (sum_y / x_range)
+    return hist / Z
+
+def compute_exact_histogram(density, bin_edges):
+    exact_hist = np.zeros(len(eq_hist))
+    for i in range(len(bin_edges) - 1):
+        left, right = bin_edges[i], bin_edges[i + 1]
+        x_ = np.linspace(left, right, 1000)
+        y_ = density(x_)
+        exact_hist[i] = np.trapz(y_, x_)
+    # let's double-check to make sure this histogram is normalized
+    return normalize_histogram(exact_hist, bin_edges)
+
+def plot_difference_between_histograms(data, exact_hist, range, n_bins=100):
+    hist_args = {"bins": n_bins, "range": range, "density": True}
+    hist, bin_edges = np.histogram(data, **hist_args)
+    hist = normalize_histogram(hist, bin_edges)
+
+    bin_width = (bin_edges[1] - bin_edges[0]) / 2
+    x_points = bin_edges[1:] - bin_width
+
+    plt.plot(x_points, exact_hist, label="Exact", c="blue")
+    plt.plot(x_points, hist, label="Sampled", c="red")
+    plt.fill_between(x_points, hist, exact_hist, alpha=0.4, color="grey", label="Difference")
+
+    plt.legend(loc="best", fancybox=True)
+
 if __name__ == "__main__":
-    #speed_test()
+    np.random.seed(12345)
+
     # now, collect a bunch of samples, compute histograms
-    n_steps = 50000000
+    n_steps = 100000000
+    thinning_factor = 5
 
     # generate plots
-    x = np.linspace(-3, 3, 1000)
+    left, right = -3, 3
+    x = np.linspace(left, right, 1000)
     sigma2 = velocity_scale**2
-    v_p = (1 / (np.sqrt(2 * np.pi * sigma2))) * np.exp(-x**2 / (2 * sigma2))
+    v_p = v_density(x)
 
-    histstyle = {"bins" : 100,
+    histstyle = {"bins" : 200,
                  "normed" : True,
                  "histtype" : "stepfilled",
                  "alpha" : 0.5}
@@ -302,7 +353,7 @@ if __name__ == "__main__":
 
     # let's collect some equilibrium samples
     eq_xs = fast_mh(0.0, n_steps)
-    hist_args = {"bins": 100, "range": (-3, 3)}
+    hist_args = {"bins": 200, "range": (left, right)}
     eq_hist, _ = np.histogram(eq_xs, **hist_args)
     print("Equilibrium samples:")
     F_eq = compute_free_energy_potential_and_entropy(eq_xs, hist_args)
@@ -311,16 +362,12 @@ if __name__ == "__main__":
     # (this is important because the KL divergence between the raw sample
     # histograms was often inf, due to no equilibrium samples in the extreme tails)
     eq_hist, bin_edges = np.histogram(eq_xs, **hist_args)
-    exact_eq_hist = np.zeros(len(eq_hist))
-    for i in range(len(bin_edges) - 1):
-        left, right = bin_edges[i], bin_edges[i+1]
-        x_ = np.linspace(left, right, 1000)
-        y_ = q(x_)
-        exact_eq_hist[i] = np.trapz(y_, x_)
+    exact_eq_hist = compute_exact_histogram(q, bin_edges)
+    exact_v_hist = compute_exact_histogram(v_density, bin_edges)
 
     plt.figure()
     plt.plot(exact_eq_hist)
-    plt.savefig("exact_eq_hist.jpg")
+    plt.savefig("{}exact_eq_hist{}".format(figure_directory, figure_format))
     plt.close()
 
     print("D_KL between sampled eq_hist and exact_eq_hist: {:.5f}".format(
@@ -331,7 +378,7 @@ if __name__ == "__main__":
     plt.figure()
     plt.hist(eq_xs, **histstyle)  # histogram of x samples
     plt.plot(x, map(p, x))  # actual density
-    plt.savefig("x_samples_equil.jpg", dpi=300)
+    plt.savefig("{}x_samples_equil{}".format(figure_directory, figure_format), dpi=300)
     plt.close()
 
     def compare_estimators(scheme="VVVR"):
@@ -340,37 +387,43 @@ if __name__ == "__main__":
         KLs_prot = []
         KLs_prot_err = []
 
-        timesteps_to_try = [0.25, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1]
+        timesteps_to_try = np.array([0.25, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1])
 
-        results = []
-        for dt in timesteps_to_try:
+        for i, dt in enumerate(timesteps_to_try):
             print(dt)
             if scheme == "VVVR":
-                results.append(fast_simulate(x_0, v_0, n_steps, gamma, dt))
+                xs, vs, Q, W_shad = fast_simulate(x_0, v_0, n_steps, gamma, dt, thinning_factor)
             elif scheme == "BAOAB":
-                results.append(fast_simulate_baoab(x_0, v_0, n_steps, gamma, dt))
-
-        for i, result in enumerate(results):
-            dt = timesteps_to_try[i]
-            name = "{}_dt={}.jpg".format(scheme, dt)
-            xs, vs, Q, W_shad = result
+                xs, vs, Q, W_shad = fast_simulate_baoab(x_0, v_0, n_steps, gamma, dt, thinning_factor)
+            name = "{}_dt={}".format(scheme, dt).replace('.','-') + figure_format
             xs = xs[100:]
             vs = vs[100:]
+
+            if len(np.where(np.isnan(xs))[0]) > 0:
+                max_ind = np.where(np.isnan(xs))[0][0]
+                print("\tNaN encountered after {} steps!".format(thinning_factor * max_ind))
+
+                xs = xs[:max_ind - 10]
+                vs = vs[:max_ind - 10]
+
             print("\nTesting {} with timestep dt={}".format(scheme, dt))
-            #print(dt, np.max(xs), np.min(xs))
 
             # plot x histogram
             plt.figure()
-            plt.hist(xs, **histstyle) # histogram of x samples
-            plt.plot(x, map(p, x)) # actual density
-            plt.savefig("x_samples_{}".format(name), dpi=300)
+            plot_difference_between_histograms(xs, exact_eq_hist, range=(left, right), n_bins=hist_args["bins"])
+            plt.xlabel("Configuration ($x$)")
+            plt.ylabel("Probability density")
+            plt.yticks([])
+            plt.savefig("{}x_samples_{}".format(figure_directory, name), dpi=300)
             plt.close()
 
             # plot v histogram
             plt.figure()
-            plt.hist(vs, **histstyle)  # histogram of v samples
-            plt.plot(x, v_p)  # actual density
-            plt.savefig("v_samples_{}".format(name), dpi=300)
+            plot_difference_between_histograms(vs, exact_v_hist, range=(left, right), n_bins=hist_args["bins"])
+            plt.xlabel("Velocity ($v$)")
+            plt.ylabel("Probability density")
+            plt.yticks([])
+            plt.savefig("{}v_samples_{}".format(figure_directory, name), dpi=300)
             plt.close()
 
             F_neq = compute_free_energy_potential_and_entropy(xs, hist_args)
@@ -384,8 +437,8 @@ if __name__ == "__main__":
             print("\tHistogram D_KL(p_neq(x) || p_eq(x)) : {:.5f}".format(KLs_hist[-1]))
 
             # compute conf-space Delta F_neq
-            protocol_length = 50
-            n_protocol_samples = int(n_steps / protocol_length)
+            protocol_length = 100
+            n_protocol_samples = 2000000
             if scheme=="VVVR":
                 W_shads_F, W_shads_R = estimate_Delta_F_neq_conf_vvvr(eq_xs, gamma, dt, protocol_length, n_protocol_samples)
             elif scheme=="BAOAB":
@@ -411,10 +464,33 @@ if __name__ == "__main__":
             plt.ylabel("Probability density")
             plt.yscale("log")
             plt.title("{}, dt={}: Nonequilibrium work distributions".format(scheme, dt))
-            plt.savefig("work_dists_{}".format(name), dpi=300)
+            plt.savefig("{}work_dists_{}".format(figure_directory, name), dpi=300)
             plt.close()
 
             # to-do: also plot the work trajectories, so that we can verify that we're in steady state
+            mean_F = np.mean(W_shads_F, 0)
+            mean_R = np.mean(W_shads_R, 0)
+            err_F = 1.96 * np.std(W_shads_F, 0) / np.sqrt(len(W_shads_F))
+            err_R = 1.96 * np.std(W_shads_R, 0) / np.sqrt(len(W_shads_R))
+
+            plt.figure()
+            ax = plt.subplot(121)
+            ax.plot(mean_F, c="blue", linewidth=3)
+            ax.fill_between(range(len(mean_F)), mean_F - err_F, mean_F + err_F, color="blue", alpha=0.5)
+            ax.set_xlabel("Step")
+            ax.set_ylabel("Work")
+            ax.set_title(r"$W_{\pi \to \rho}$")
+
+            ax1 = plt.subplot(122, sharey=ax)
+            ax1.plot(mean_R, c="red", linewidth=3)
+            ax1.fill_between(range(len(mean_F)), mean_R - err_R, mean_R + err_R, color="red", alpha=0.5)
+
+            ax1.set_xlabel("Step")
+            ax1.set_title(r"$W_{\omega \to \rho}$")
+
+            plt.savefig("{}work_trajs_{}".format(figure_directory, name), dpi=300)
+            plt.close()
+
 
         # plot the various estimates
 
@@ -436,5 +512,10 @@ if __name__ == "__main__":
     plt.title("Validating noneq estimator of the timestep-dependent\n"
               "configuration-space error on 1D quartic potential")
     plt.legend(loc="best", fancybox=True)
-    plt.savefig("estimator_comparison.jpg", dpi=300)
+    plt.savefig("{}estimator_comparison{}".format(figure_directory, figure_format), dpi=300)
     plt.close()
+
+
+    # next things:
+    # * plot contours of 2D joint distribution over (x,v)
+    # * add plot of total KL divergence for each vs. estimated total KL divergence?

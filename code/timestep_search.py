@@ -20,6 +20,7 @@ def find_appropriate_timestep(simulation_factory,
                               timestep_range,
                               DeltaF_neq_threshold=1.0,
                               max_samples=10000,
+                              batch_size=1000,
                               verbose=True
                               ):
     """Perform binary search* over the timestep range, trying to find
@@ -66,7 +67,6 @@ def find_appropriate_timestep(simulation_factory,
         Maximum timestep tested that doesn't exceed the DeltaF_neq_threshold
     """
     max_iter = 10
-    batch_size = 100
     alpha = 1.96 # for now hard-coded confidence level
 
     min_timestep, max_timestep = timestep_range[0], timestep_range[-1]
@@ -193,7 +193,9 @@ def sweep_over_timesteps(simulation_factory,
                     print("A simulation crashed! Considering this timestep unstable...")
 
         # if we didn't crash, update estimate of DeltaF_neq upper and lower confidence bounds
-        DeltaF_neq, sq_uncertainty = estimate_nonequilibrium_free_energy(np.array(W_shads_F)[:,-1], np.array(W_shads_R)[:,-1])
+        W_F = np.array(W_shads_F)[:,-1]
+        W_R = np.array(W_shads_R)[:, -1]
+        DeltaF_neq, sq_uncertainty = estimate_nonequilibrium_free_energy(W_F, W_R)
         DeltaF_neqs.append(DeltaF_neq)
         sq_uncertainties.append(sq_uncertainty)
         print("\tTimestep: {:.3f}\n\tDeltaF_neq: {:.3f} +/- {:.3f}".format(
@@ -204,15 +206,14 @@ def sweep_over_timesteps(simulation_factory,
     return DeltaF_neqs, sq_uncertainties
 
 if __name__ == "__main__":
-    schemes = ["V R O R V", "O R V R O",
-               "R V O V R", "O V R V O",
-               "R R V O V R R", "O V R R R R V O",
-               "V R R O R R V", "V R R R O R R R V"
-               ]
-    print(schemes)
+    from mts import generate_baoab_mts_string_from_ratios
+    schemes = [generate_baoab_mts_string_from_ratios(3,3), generate_baoab_mts_string_from_ratios(1,1)]
 
-    params = system_params["alanine"]
-    topology, system, positions = params["loader"](constrained=True)
+    print(schemes)
+    constrained = True
+    name = "waterbox"
+    params = system_params[name]
+    topology, system, positions = params["loader"](constrained=constrained)
     temperature = params["temperature"]
     collision_rate = params["collision_rate"]
     platform = params["platform"]
@@ -221,14 +222,13 @@ if __name__ == "__main__":
     n_samples = params["n_samples"]
     thinning_interval = M
 
-    midpoint_operator = lambda simulation: randomization_midpoint_operator(simulation, temperature)
-    #midpoint_operator = null_midpoint_operator
 
     equilibrium_samples, unbiased_simulation = get_equilibrium_samples(topology, system, positions, platform,
                                                                        temperature=temperature,
-                                                                       n_samples=n_samples,
+                                                                       n_samples=100,
                                                                        thinning_interval=thinning_interval,
-                                                                       burn_in_length=n_samples * thinning_interval)
+                                                                       burn_in_length=n_samples * thinning_interval,
+                                                                       ghmc_timestep=2.5*unit.femtosecond)
 
     def simulation_factory(timestep, scheme):
         """Factory for biased simulations"""
@@ -241,31 +241,36 @@ if __name__ == "__main__":
         return simulation
 
     # plot DeltaF_neq as function of timestep
-    timesteps_to_try = np.linspace(0.25,5,10) * unit.femtosecond
-    results = {}
-    plt.figure()
-    for scheme in schemes:
-        print(scheme)
-        sim_factory = lambda timestep: simulation_factory(timestep, scheme)
-        DeltaFs, sq_uncertainties = sweep_over_timesteps(sim_factory, equilibrium_samples, M,
-                             midpoint_operator, timesteps_to_try, temperature,  n_samples=n_samples)
-        results[scheme] = DeltaFs, sq_uncertainties
-        sigmas = 1.96 * np.sqrt(sq_uncertainties)
-        # plot the results
-        plt.errorbar(timesteps_to_try.value_in_unit(unit.femtosecond), DeltaFs, yerr=sigmas, label=scheme)
+    def plot_deltaF_neq(schemes, timesteps_to_try, midpoint_operator, protocol_type="conf"):
+        results = {}
 
-    plt.xlabel("Timestep (fs)")
-    plt.ylabel("$\Delta F_{neq}$")
-    plt.legend(loc='best', fancybox=True)
-    plt.savefig("../figures/alanine_conf_DeltaFs.jpg")
+        for scheme in schemes:
+            print(scheme)
+            sim_factory = lambda timestep: simulation_factory(timestep, scheme)
+            DeltaFs, sq_uncertainties = sweep_over_timesteps(sim_factory, equilibrium_samples, M,
+                                 midpoint_operator, timesteps_to_try, temperature,  n_samples=n_samples)
+            results[scheme] = DeltaFs, sq_uncertainties
+            sigmas = 1.96 * np.sqrt(sq_uncertainties)
+            # plot the results
+            plt.errorbar(timesteps_to_try.value_in_unit(unit.femtosecond), DeltaFs, yerr=sigmas, label="{} ({})".format(scheme, protocol_type))
+
+        plt.xlabel("Timestep (fs)")
+        plt.ylabel("$\Delta F_{neq}$")
+        plt.legend(loc='best', fancybox=True)
+
+    ts = np.linspace(1, 20, 5) * unit.femtosecond
+    plt.figure()
+
+    for protocol_type in ["full", "conf"]:
+        if protocol_type == "conf":
+            midpoint_operator = lambda simulation: randomization_midpoint_operator(simulation, temperature)
+        elif protocol_type == "full":
+            midpoint_operator = null_midpoint_operator
+
+        plot_deltaF_neq(schemes, ts, midpoint_operator, protocol_type)
+
+    plt.savefig("../figures/{}_DeltaFs.pdf".format(name))
     plt.close()
 
-    # search for max allowable timestep
-    for scheme in schemes:
-        print("\n" + scheme)
-        sim_factory = lambda timestep: simulation_factory(timestep, scheme)
-        timestep = find_appropriate_timestep(sim_factory, equilibrium_samples,
-                                  M=M, midpoint_operator=midpoint_operator, temperature=temperature,
-                                  timestep_range=[0.1 * unit.femtosecond, 10 * unit.femtosecond], max_samples=n_samples
-                                  )
-        print(timestep)
+    # okay, next, let's do exactly the same thing as we did for the quartic
+    # example: VVVR vs. BAOAB, conf vs. full

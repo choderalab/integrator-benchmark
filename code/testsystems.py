@@ -6,16 +6,17 @@ from utils import configure_platform
 from simtk import unit
 import simtk.openmm as mm
 
+n_particles = 500
 def load_harmonic_oscillator(**args):
     """Load 3D harmonic oscillator"""
     testsystem = CustomExternalForcesTestSystem(("{k}*x^2 + {k}*y^2 + {k}*z^2".format(k=100.0),),
-                                                n_particles=500)
+                                                n_particles=n_particles)
     return testsystem.topology, testsystem.system, testsystem.positions
 
 def load_quartic_potential(**args):
     """Load 3D quartic potential"""
     testsystem = CustomExternalForcesTestSystem(("{k}*x^4 + {k}*y^4 + {k}*z^4".format(k=100.0),),
-                                                n_particles=500)
+                                                n_particles=n_particles)
     return testsystem.topology, testsystem.system, testsystem.positions
 
 def load_mts_test(**args):
@@ -33,7 +34,7 @@ def load_mts_test(**args):
     ks = [100.0, 400.0] # stiffness of each force group term
     # force group term 0 will be evaluated most slowly, etc...
     testsystem = CustomExternalForcesTestSystem(energy_expressions=["{k}*x^4 + {k}*y^4 + {k}*z^4".format(k=k) for k in ks],
-                                                n_particles=500)
+                                                n_particles=n_particles)
     return testsystem.topology, testsystem.system, testsystem.positions
 
 
@@ -44,10 +45,9 @@ def load_waterbox(constrained=True):
     positions = np.load("waterbox.npy") # load equilibrated configuration saved beforehand
     return topology, system, positions
 
-def keep_only_some_forces(system):
+def keep_only_some_forces(system, extra_forces_to_keep=[]):
     """Remove unwanted forces, e.g. center-of-mass motion removal"""
-    forces_to_keep = ["HarmonicBondForce", "HarmonicAngleForce",
-                      "PeriodicTorsionForce", "NonbondedForce"]
+    forces_to_keep = extra_forces_to_keep + ["HarmonicBondForce", "HarmonicAngleForce", "PeriodicTorsionForce", "NonbondedForce"]
     force_indices_to_remove = list()
     for force_index in range(system.getNumForces()):
         force = system.getForce(force_index)
@@ -68,6 +68,26 @@ def load_alanine(constrained=True):
 
     return topology, system, positions
 
+def load_src_vacuum(constrained=True):
+    if constrained: constraints = app.HBonds
+    else: constraints = None
+    testsystem = SrcImplicit(constraints=constraints)
+    topology, system, positions = testsystem.topology, testsystem.system, testsystem.positions
+
+    keep_only_some_forces(system)
+
+    return topology, system, positions
+
+def load_src_implicit(constrained=True):
+    if constrained: constraints = app.HBonds
+    else: constraints = None
+    testsystem = SrcImplicit(constraints=constraints)
+    topology, system, positions = testsystem.topology, testsystem.system, testsystem.positions
+
+    keep_only_some_forces(system, extra_forces_to_keep=["GBSAOBCForce"])
+
+    return topology, system, positions
+
 def load_solvated_alanine(constrained=True):
     """Load AlanineDipeptide in explicit solvent,
     optionally with rigid water + hydrogen bonds constrained."""
@@ -84,7 +104,7 @@ def load_solvated_alanine(constrained=True):
 simple_params = {
     "platform": configure_platform("Reference"),
     "burn_in_length": 1000,
-    "n_samples": 1000,
+    "n_samples": 10000,
     "protocol_length": 50,
     "constrained_timestep": 2.5*unit.femtosecond,
     "unconstrained_timestep": 2.0*unit.femtosecond,
@@ -109,7 +129,7 @@ system_params = {
         "platform" : configure_platform("OpenCL"),
         "loader": load_waterbox,
         "burn_in_length": 100,
-        "n_samples": 50,
+        "n_samples": 100,
         "protocol_length": 50,
         "constrained_timestep": 2.5*unit.femtosecond,
         "unconstrained_timestep": 1.0*unit.femtosecond,
@@ -120,7 +140,7 @@ system_params = {
         "platform": configure_platform("Reference"),
         "loader": load_alanine,
         "burn_in_length": 1000,
-        "n_samples": 1000,
+        "n_samples": 100,
         "protocol_length": 50,
         "constrained_timestep": 2.5*unit.femtosecond,
         "unconstrained_timestep": 2.0*unit.femtosecond,

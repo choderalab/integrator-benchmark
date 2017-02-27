@@ -1,8 +1,10 @@
 import numpy
 import simtk.unit
 import simtk.openmm as mm
+
 print('OpenMM version: ', mm.version.full_version)
 from openmmtools.constants import kB
+
 
 class LangevinSplittingIntegrator(mm.CustomIntegrator):
     """Integrates Langevin dynamics with a prescribed operator splitting.
@@ -115,8 +117,8 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
             # If the splitting string contains both "V" and a force-group-specific V0,V1,etc.,
             # then raise an error
             if mts and (n_V > 0):
-                raise(ValueError("Splitting string includes an evaluation of all forces and "
-                                 "evaluation of subsets of forces."))
+                raise (ValueError("Splitting string includes an evaluation of all forces and "
+                                  "evaluation of subsets of forces."))
 
         # Define substep functions
         def R_step():
@@ -148,8 +150,11 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
                 self.addComputeSum("old_ke", kinetic_energy)
 
             # update velocities
-            if mts: self.addComputePerDof("v", "v + ((dt / {}) * f{} / m)".format(n_Vs[fg], fg))
-            else: self.addComputePerDof("v", "v + (dt / {}) * f / m".format(n_V))
+            if mts:
+                self.addComputePerDof("v", "v + ((dt / {}) * f{} / m)".format(n_Vs[fg], fg))
+            else:
+                self.addComputePerDof("v", "v + (dt / {}) * f / m".format(n_V))
+
             self.addConstrainVelocities()
 
             if measure_shadow_work:
@@ -212,3 +217,6 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
         self.addUpdateContextState()
         for i, step in enumerate(splitting):
             substep_function(step)
+
+
+# Now, some specific integrators of interest:
