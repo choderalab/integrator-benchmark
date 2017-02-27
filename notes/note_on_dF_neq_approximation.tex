@@ -11,6 +11,7 @@
 \usepackage{heuristica}
 \usepackage{cancel}
 \usepackage{float}
+\usepackage[colorlinks=true,linkcolor=blue]{hyperref}
 
 \usepackage{graphicx}
 \usepackage{caption}
@@ -23,17 +24,25 @@
 \newcommand{\ind}{\mathbb{I}} % indicator function, since I'm getting tired of using deltas everywhere
 \newcommand{\pair}[1]{(\x_{#1}, \vel_{#1})} 
 
+\newcommand{\feq}{F_\text{eq}}
+\newcommand{\fneq}{F_\text{neq}}
+\newcommand{\pneq}{P_\text{neq}}
+\newcommand{\peq}{P_\text{eq}}
+\newcommand{\sneq}{S_\text{neq}}
+
 
 \newcommand{\conf}{\rho_\text{conf}}
 
 \graphicspath{{/Users/joshuafass/Documents/Code/integrator-benchmark/code/toy/figures/}}
 
-\begin{document}
 
-\section{Goal}
+\begin{document}
+\tableofcontents
+\section{Introduction}
+\subsection{Goal: Approximating configuration-space bias of Langevin integrators}
 Our goal is to approximate the KL divergence $\kldiv(\conf \| p)$ between the equilibrium configuration distribution $p$ and the one sampled by a discrete-time Langevin integrator $\conf$.
 We will estimate this quantity by relating the KL divergence to a nonequilibrium free energy difference. This free energy difference, in turn, can be measured near equilibrium by estimating the average work performed by the Langevin integrator, applied to specially prepared ensembles of starting conditions.
-
+\subsection{Outline of argument}
 To justify this procedure, we will:
 \begin{itemize}
 \item Express the desired KL divergence as a nonequilibrium free energy difference.
@@ -44,19 +53,23 @@ To justify this procedure, we will:
 
 \subsection{Notation: ensembles}
 \begin{itemize}
-\item the equilibrium distribution is $\pi$
+\item the \textbf{equilibrium distribution} is $\pi$ (and the configuration distribution and velocity distribution are independent)
 $$\pi(\x, \vel) \equiv p(\x) q(\vel)$$
-\item the nonequilibrium steady state sampled by our Langevin integrator is $\rho$
+\item the \textbf{nonequilibrium steady state} sampled by our Langevin integrator is $\rho$ (where there may be arbitrary correlations between $\x$ and $\vel$, and we can't compute the density)
 $$\rho(\x, \vel) = \; ?$$
-\item the configuration-marginal of the nonequilibrium steady state is $\conf$
+\item the \textbf{configuration-marginal of the nonequilibrium steady state} sampled by the Langevin integrator is $\conf$
 $$\conf(\x) \equiv \int d\vel \rho(\x, \vel)$$
-\item the ``midpoint'' nonequilibrium macrostate is $\omega$
+\item the \textbf{nonequilibrium macrostate} we will prepare with re-sampled velocities is $\omega$
 $$\omega(\x, \vel) \equiv \conf (\x) q(\vel)$$
 \end{itemize}
 
-\subsection{Configuration space bias is equivalent to $F_\omega - F_\pi$}
-We're interested in approximating the KL divergence between the configuration distribution at equilibrium and the configuration distribution in the nonequilibrium steady state: $\kldiv(\conf \| p)$.
-We've constructed $\omega$ so that $\kldiv(\conf \| p) = \kldiv( \omega \| \pi)$:
+\section{Expressing configuration space bias in terms of the nonequilibrium free energy difference $F_\omega - F_\pi$}
+We would like to express the KL divergence between the configuration distribution at equilibrium and the configuration distribution in the nonequilibrium steady state $\kldiv(\conf \| p)$.
+First, we show that the KL divergence of the configuration marginals is equivalent to the full phase space KL divergence.
+Next, we show that the 
+
+\subsection{$\kldiv(\conf \| p) = \kldiv( \omega \| \pi)$}
+We've constructed the ensemble $\omega$ so that the KL divergence $\omega$ and $\pi$ equals the KL divergence between $\conf$ and $p$:
 $$\begin{aligned}
 \kldiv(\omega \| \pi) &\equiv \int \int d \x d\vel \left( \omega(\x, \vel) \log \frac{\omega(\x, \vel)}{\pi(\x, \vel)} \right)\\
 &= \int \int d \x d\vel \left( \omega(\x, \vel) \log \frac{\conf (\x)}{p(\x)}  \cancelto{1}{\frac{q(\vel)}{q(\vel)}}\right)\\
@@ -72,17 +85,47 @@ $$
 %Since nonequilibrium free energy differences are equal to KL divergences, 
 Note that $\kldiv(\omega \| \pi) = \beta (F_\omega - F_\pi)$ where $\beta = \frac{1}{k_B T}$ (see proof proceeding eq. 1 of \url{http://threeplusone.com/Sivak2012a.pdf}).
 
+\subsection{Relation between KL divergence and  free energy difference}
+The free energy $F$ of any distribution over microstates $P(x)$ is:
+$$ F \equiv \langle E \rangle - S / \beta$$
+where
+\begin{enumerate}
+\item $\langle E \rangle$ is the mean energy $\langle E \rangle = \sum_x P(x) E(x)$
+\item $S$ is the entropy $S = \sum_x P(x) \log P(x)$
+\item $\beta$ is the inverse temperature
+\end{enumerate}
+
+Let $\peq(x) = \exp [-\beta (E (x) - \feq)]$ and let $\pneq$ be a nonequilibrium distribution that's close to $\peq$.
+
+\begin{align}
+D( \pneq \| \peq) &\equiv \sum_x \pneq(x) \log \left[\frac{\pneq(x)}{\peq (x)} \right]\\
+&=\underbrace{ \sum_x \pneq(x) \log \pneq(x) }_{- \sneq } - \sum_x \pneq(x) \log \peq (x)\\
+&= - \sneq - \sum_x \pneq(x) \beta (\feq - E(x)\\
+&= - \sneq - \underbrace{\sum_x \pneq(x) \beta \feq}_{\beta \feq} + \underbrace{\sum_x \pneq(x) \beta E(x)}_{\beta \langle E \rangle_\text{neq}}\\
+&= \beta (\feq - \fneq)\\
+&= \beta \Delta \fneq
+\end{align}
+
 Thus, if we can approximate the nonequilibrium free energy difference $F_\omega - F_\pi$, then we can approximate the configuration-space bias.
 
-\subsection{Approximating $F_\omega - F_\pi$}
+% To-do: reproduce argument here.
+
+\section{Approximating $F_\omega - F_\pi$}
+\subsection{A nonequilibrium protocol that transforms $\pi$ into $\omega$}
 We can write down a nonequilibrium protocol that transforms $\pi$ into $\omega$:
 \begin{enumerate}
+\item \textbf{Randomize velocities} by taking a single O-step with infinite friction parameter $\gamma$.
 \item \textbf{Simulate Langevin dynamics} for $N$ steps (performs ``shadow work'' to turn $\pi$ into $\rho$)
-\item \textbf{Randomize velocities} by sampling $\vel \sim q$ (performs no work, turns $\rho$ into $\omega$)
+\item \textbf{Randomize velocities} by taking a single O-step with infinite friction parameter $\gamma$.
 \end{enumerate}
 where $N$ is chosen sufficiently large to reach steady state $\rho$.
 
-Call the procedure [1,2] the ``forward protocol'' and the procedure [2,1] the ``reverse protocol.''
+Note that the velocity-randomization substeps:
+\begin{itemize}
+\item Perform no work.
+\end{itemize}
+
+Call the procedure [1,2,3] the ``forward protocol'' and the procedure [3,2,1] the ``reverse protocol.'' When we consider palindromic operator splittings, the forward and reverse protocols are identical.
 
 Using the near-equilibrium approximation in \url{http://threeplusone.com/Sivak2012a.pdf}, we can approximate $\Delta F_\text{neq} \equiv F_\omega - F_\pi$  in terms of quantities we can compute from simulation.
 
@@ -121,7 +164,9 @@ Where we can approximate:
 \item $\langle W_\text{shad} \rangle_{\omega \to \rho}$ by starting in nonequilibrium steady state with velocities resampled from equilibrium, and measuring the shadow work accumulated by simulating for $N$ steps.
 \end{itemize}
 
-\section{Interpreting Langevin integrators as protocols}
+The work performed by the velocity randomization steps is zero.
+
+\section{Interpreting Langevin integrators as nonequilibrium protocols}
 \subsection{More notation: Nonequilibrium protocols and work}
 We'll define a \emph{protocol} as any sequence of Markov kernels: $$\Lambda=[k_0, k_1, \dots, k_T]$$
 
@@ -137,13 +182,13 @@ We define the ``work'' in terms of the differential path action:
 
 \subsection{A family of Langevin splitting integrators}
 We'll define a family of concrete integrators of the Langevin equations, indexed by splitting strings over the alphabet \{ V, R, O \}.
-First, we'll define the explicit update equations, which accept an initial state and a timestep $h$, and return a new state:
+First, we'll define the explicit update equations, which accept an initial state (including a stream of i.i.d. standard normal random variables), a timestep $h$, and a friction coefficient $\gamma$, and return a new state:
 $$\begin{aligned}
 \text{R}(\x, \vel ; h) &\equiv (\x + \vel h, \vel) \\
 \text{V}(\x, \vel ; h) &\equiv (\x, \vel + (f(\x) / m) h) \\
-\text{O}(\x, \vel ; h) &\equiv (\x, a_h \vel + b_h \sqrt{k_B T / m} \xi)\end{aligned}$$
-where $a_h = e^{-\gamma h}$,
-$b_h = \sqrt{1 - e^{-2 \gamma h}}$,
+\text{O}(\x, \vel ; h, \gamma) &\equiv (\x, a_{\gamma, h} \vel + b_{\gamma, h} \sqrt{k_B T / m} \xi)\end{aligned}$$
+where $a_{\gamma, h} = e^{-\gamma h}$,
+$b_{\gamma, h} = \sqrt{1 - e^{-2 \gamma h}}$,
 $\xi \sim \mathcal{N}(0, 1)$ per degree of freedom.
 
 Then executing a single step of the integrator indexed a splitting string $\Lambda$ is given by:
@@ -263,6 +308,7 @@ $$ (k_\text{rand} \circ \rho)(\x, \vel) = q(\vel) \int d \vel \rho(\x, \vel)$$
 \subsection{Does randomizing velocities to a fixed distribution perform ``work?''}
 How should we treat the energy change performed by applying the ``velocity-randomization'' kernel to the nonequilibrium steady state $\rho(\x, \vel)$?
 
+\subsubsection{Generic argument looks like it fails: can't randomize to an arbitrary velocity distribution}
 Using the Crooks Fluctuation Theorem definition of work:
 
 $$\begin{aligned}
@@ -286,6 +332,14 @@ Where the differential path action is only defined if $\x_1 = \x_0$.
 
 Hmm, I don't think we can compute this in closed form, and I don't think it's zero...
 
+\subsubsection{Interpreting velocity-randomization kernel as limits of O-substeps}
+Observations: The independent velocity randomization step is equivalent to other steps that we know contribute heat not work:
+\begin{enumerate}
+\item It is equivalent to taking a single O step with infinite friction coefficient ($\gamma \to +\infty$).
+\item It is equivalent to taking a single O step with the same friction coefficient but an infinitely large timestep $d t \to infty$.
+\item It is equivalent to taking an infinite number of O steps, with the current friction coefficient and timestep.
+\end{enumerate}
+
 \section{One-dimensional example}
 To demonstrate this approach, we will first check that this produces accurate estimates of the configuration-marginal KL divergence in a low-dimensional system for which precise numerical estimates are available.
 
@@ -307,7 +361,7 @@ Code to reproduce these experiments is available on Github: \url{https://github.
 \end{enumerate}
 These estimates agree to about 4 decimal places, so I just plot the second estimate in all subsequent figures.
 Perhaps cleverer baseline estimators of the KL divergence would be helpful.
-\item \textbf{Nonequilibrium protocol} Draw an equilibrium sample $(x,v) \sim \pi$, apply the Langevin integrator for $M=200$ steps to produce $(x', v') \sim \rho$. Record shadow work accumulated during that trajectory as $W_{\pi \to \rho}$. Randomize $v'' \sim q$, so that $(x', v'') \sim \omega$. Apply the integrator for $M$ steps, record shadow work performed by the second trajectory as $W_{\omega \to \rho}$. Perform 1 million such protocols, and report $\hat{\kldiv}(\conf \| p) \approx \frac{\beta}{2} [ \langle W_{\pi \to \rho} \rangle - \langle W_{\omega \to \rho} \rangle ]$.
+\item \textbf{Nonequilibrium protocol} Draw an equilibrium sample $(x,v) \sim \pi$, apply the Langevin integrator for $M=100$ steps to produce $(x', v') \sim \rho$. Record shadow work accumulated during that trajectory as $W_{\pi \to \rho}$. Randomize $v'' \sim q$, so that $(x', v'') \sim \omega$. Apply the integrator for $M$ steps, record shadow work performed by the second trajectory as $W_{\omega \to \rho}$. Perform 1 million such protocols, and report $\hat{\kldiv}(\conf \| p) \approx \frac{\beta}{2} [ \langle W_{\pi \to \rho} \rangle - \langle W_{\omega \to \rho} \rangle ]$.
 \end{enumerate}
 
 \subsection{Results}
@@ -404,7 +458,7 @@ Distortions in the velocity distribution sampled by BAOAB and the configuration 
 
 \subsubsection{Examining work trajectories}
 % work trajectories
-To visually confirm that we've reached the nonequilibrium steady state within $M=200$ integrator steps, we can inspect plots of the accumulated shadow work over time (note that the y-axes have different scales at each of the 3 timesteps.
+To visually confirm that we've reached the nonequilibrium steady state within $M=100$ integrator steps, we can inspect plots of the accumulated shadow work over time (note that the y-axes have different scales at each of the 3 timesteps.
 \begin{figure}[h] % baoab work trajectories
     \centering
     \begin{subfigure}[b]{0.3\textwidth}
@@ -480,8 +534,136 @@ Next, we can inspect the distributions of shadow work at the end-points of each 
 
 For this system, it looks like the differences between the ``forward'' and ``reverse'' work distributions are very slight, and these distributions also appear to have fatter tails with increasing step size.
 
-
 \section{Molecular Mechanics Example}
 To demonstrate that this approach is reasonable for molecular mechanics systems, we will use this procedure to estimate and compare the configuration-space bias of several Langevin integrators on a box of a few hundred TIP3P waters.
+
+% to-do: confirm by comparing with the values in testsystems.py
+Details:
+Timestep range: 4 evenly spaced timesteps between 1.5 and 2.5 femtoseconds
+
+Protocol length $M=50$
+
+Number of protocol samples: 100
+
+Temperature: 298 kelvin
+
+Collision rate: 91 / picosecond
+
+PME tolerance: $10^{-5}$
+
+Cutoff: 10 angstroms
+
+\graphicspath{{/Users/joshuafass/Documents/Code/integrator-benchmark/figures/}}
+
+\begin{figure}[h] 
+\centering
+	\begin{subfigure}[b]{0.3\textwidth}
+		\includegraphics[width=\textwidth]{waterbox_DeltaFs.pdf}
+		\caption{Linear scale}
+	\end{subfigure}
+	\begin{subfigure}[b]{0.3\textwidth}
+		\includegraphics[width=\textwidth]{waterbox_DeltaFs_log.pdf}
+		\caption{Log scale}
+	\end{subfigure}
+	\caption{Water box: Full vs. configuration-marginal $\Delta F_\text{neq}$}
+\end{figure}
+
+\section{Appendix}
+\subsection{Alternate approach to validate work accumulation scheme}
+% to-do: move transition-density based scheme here
+
+
+\subsection{Pseudocode of protocol}
+
+\subsection{Validating shadow work accumulation scheme for a specific integrator}
+Here we work through the CFT definition of work for a single step of a specific integrator: ``OVRVO.''
+\begin{enumerate}
+\item Write out the state of the system at times $t=1/4, 1/2, 3/4, 1$, as a function of the initial state $(x_0, v_0)$ and random bath variables $\xi_{1/4}$, $\xi_{3/4}$ (``forward trajectory'')
+\item Write out the state of the system after applying the time-reversed integrator to the state $(x_1, -v_1)$
+\item Write the forward and reverse path probabilities in terms of the probabilities that certain bath variables were drawn
+\item Simplify / re-write in terms of measurable substep energy changes
+\end{enumerate}
+
+Definitions:
+$$ \begin{aligned}
+\alpha &\equiv \exp (\gamma \Delta t)\\
+\beta &\equiv \sqrt{1 - \alpha^2}\\
+\xi_i &\sim \mathcal{N}(0, \sigma^2)\\
+\sigma^2 &\equiv k_B T / m\\
+a(x) &= -\nabla U(x) / m
+\end{aligned} $$
+
+\subsubsection{Forward trajectory, starting in $(x_0, v_0)$}
+Generate a sequence of states
+$[(x_0, v_0),
+(x_{1/4}, v_{1/4}),
+(x_{1/2}, v_{1/2}),
+(x_{3/4}, v_{3/4}),
+(x_1, v_1),
+]$.
+
+We'll only write down the variables that are changing (e.g. since $x_{1/2}=x_{3/4}=x_1$, we'll just write $x_1$ at time $t=1/2$ and not bother with the rest of the explicit updates).
+
+Note that the sequence is a deterministic function of the initial conditions and two bath variables: $x_0, v_0, \xi_{1/4}, \xi_{3/4}$, where $\xi_t$ are drawn i.i.d. from the equilibrium distribution of velocities.
+
+\begin{enumerate}
+\item O: $v_{1/4} = \beta v_0 + \alpha \xi_{1/4}$
+\item V: $v_{1/2} = v_{1/4} + \frac{\Delta t}{2} a(x_0)$
+\item R: $x_1 = x_0 + v_{1/2} \Delta t$
+\item V: $v_{3/4} = v_{1/2} + \frac{\Delta t}{2} a(x_1)$
+\item O: $v_{1} = \beta v_{3/4} + \alpha \xi_{3/4}$
+\end{enumerate}
+
+\subsubsection{Reverse trajectory, starting in $(x_1, -v_1)$}
+In other words, we generate a sequence of states as a deterministic function of end conditions and two new bath variables: $x_1, v_1, \tilde{\xi}_{3/4}, \tilde{\xi}_{1/2}$.
+
+\begin{enumerate}
+\item O: $-v_{3/4} = - \beta v_1 + \alpha \tilde{\xi}_{3/4}$
+\item V: $-v_{1/2} = -v_{3/4} + \frac{\Delta t}{2} a(x_1)$
+\item R: $x_0 = x_1 - v_{1/2} \Delta t$
+\item V: $-v_{1/4} = -v_{1/2} + \frac{\Delta t}{2} a(x_0)$
+\item O: $-v_{0} = - \beta v_{1/4} + \alpha \tilde{\xi}_{1/2}$
+\end{enumerate}
+
+\subsubsection{Writing the relative path action in terms of substep energy changes}
+The work is defined in terms of the probability of the forward trajectory, given the forward protocol, and the probability of the time-reversed trajectory, given the reverse protocol
+$$\begin{aligned}
+W[X] &= - \log \left[ \frac{P(\tilde{X} | \tilde{\Lambda})}{P(X | \Lambda)} \right]\\
+&= - \log \left[ 
+\frac{\pi(x_1, -v_1) J(\tilde{\xi}_{3/4})  \phi(\tilde{\xi}_{3/4}) J(\tilde{\xi}_{1/2})  \phi(\tilde{\xi}_{1/2}) }
+{\pi(x_0, v_0) J(\xi_{1/4}) \phi(\xi_{1/4}) J(\xi_{3/4}) \phi(\xi_{3/4})  } \right]
+\end{aligned}$$
+
+where $\pi(x, v)$ is the equilibrium probability as defined above, $J(\xi)$ is the determinant of the Jacobian of the change of variables $| \partial (\alpha \xi) / \partial \xi |$, and $\phi(\xi) = \frac{1}{\sqrt{2 \pi} \sigma}$ 
+
+Substituting the bath variables written in terms of state variables:
+$$\begin{aligned}
+\xi_{1/4} &= (v_{1/4} - \beta v_0) / \alpha\\
+\xi_{3/4} &= (v_1 - \beta v_{3/4}) / \alpha\\
+\tilde{\xi}_{3/4} &= (-v_{3/4} + \beta v_{1}) / \alpha\\
+\tilde{\xi}_{1/2} &= (-v_{0} + \beta v_{1/4}) / \alpha\\
+\end{aligned}$$
+and noting that the each of these substitutions are equivalent and cancel out ($J(\tilde{\xi}_{3/4}) = J(\tilde{\xi}_{1/2}) =J(\xi_{1/4}) = J(\xi_{3/4}) = \alpha^{-1}$)
+gives us:
+$$\begin{aligned}
+W[X] &= - \log \left[ 
+\frac{\pi(x_1, -v_1) \phi((-v_{3/4} + \beta v_{1}) / \alpha)  \phi((-v_{0} + \beta v_{1/4}) / \alpha) }
+{\pi(x_0, v_0) \phi((v_{1/4} - \beta v_0) / \alpha) \phi((v_1 - \beta v_{3/4}) / \alpha)  } \right]\\
+&= \log
+\left[
+\pi(x_0, v_0) \phi((v_{1/4} - \beta v_0) / \alpha) \phi((v_1 - \beta v_{3/4}) / \alpha)
+\right] \\
+&\;- \log \left[
+\pi(x_1, -v_1) \phi((-v_{3/4} + \beta v_{1}) / \alpha)  \phi((-v_{0} + \beta v_{1/4}) / \alpha)  \right]\\
+\end{aligned}$$
+
+%Next, substituting in the definition of $\Delta E$ and canceling 
+%&= \left( \underbrace{\log [ \pi(x_0, v_0) ] - \log [\pi(x_1, v_1) ]}_{- \Delta E} \right) + \log
+%\end{aligned}$$
+
+Next, taking the log of all terms yields:
+
+
+
 
 \end{document}
