@@ -252,7 +252,7 @@ def log_prob_bath_variables(trajectory, bath_variable_name="xi"):
             state_name = symbol("x_{}".format(i))
             definition = state.x
 
-            solve(Eq(state_name, definition), bath_variable_name
+            #solve(Eq(state_name, definition), bath_variable_name)
 
         if  bath_variable_name in state.v:
             state_name = symbol("v_{}".format(i))
@@ -276,7 +276,7 @@ def compute_DeltaE_decomposition(splitting):
     W_shad = DeltaE - heat
     """
 
-    energies = [total_energy(State(symbols("x_{} v_{}".format(i, i)))) for i in range(len(splitting) + 1)]
+    energies = [total_energy(State(*symbols("x_{} v_{}".format(i, i)))) for i in range(len(splitting) + 1)]
     heat = sum([energies[i+1] - energies[i] for i in range(len(splitting)) if splitting[i] == "O"])
     DeltaE = energies[-1] - energies[0]
     W_shad = DeltaE - heat
@@ -298,15 +298,13 @@ if __name__ == "__main__":
     #reverse_trajectory = flip_velocity_signs(construct_reverse_traj(splitting))
     #reverse_trajectory = construct_reverse_trajectory(forward_trajectory)
 
-    #forward_protocol = construct_forward_protocol(splitting)
-    #reverse_protocol = construct_reverse_protocol(splitting)
+    forward_protocol = construct_forward_protocol(splitting)
+    reverse_protocol = construct_reverse_protocol(splitting)
 
-    #print("Evaluating forward probability")
-    #forward_prob = evaluate_path_probability(forward_trajectory, forward_protocol)
-    #print("\nEvaluating reverse probability")
-    #reverse_prob = evaluate_path_probability(reverse_trajectory, reverse_protocol)
+    print("Evaluating forward probability")
+    forward_prob = evaluate_path_probability(forward_trajectory, forward_protocol)
+    print("\nEvaluating reverse probability")
+    reverse_prob = evaluate_path_probability(reverse_trajectory, reverse_protocol)
 
-    #print("\nForward_prob / reverse_prob:")
-    #print((forward_prob / reverse_prob).simplify())
-
-    forward_prob =
+    print("\nForward_prob / reverse_prob:")
+    print((forward_prob / reverse_prob).simplify())
