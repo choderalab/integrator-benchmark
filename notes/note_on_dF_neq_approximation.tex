@@ -66,9 +66,9 @@ $$\omega(\x, \vel) \equiv \conf (\x) q(\vel)$$
 \section{Expressing configuration space bias in terms of the nonequilibrium free energy difference $F_\omega - F_\pi$}
 We would like to express the KL divergence between the configuration distribution at equilibrium and the configuration distribution in the nonequilibrium steady state $\kldiv(\conf \| p)$.
 First, we show that the KL divergence of the configuration marginals is equivalent to the full phase space KL divergence.
-Next, we show that the 
+%Next, we show that the 
 
-\subsection{$\kldiv(\conf \| p) = \kldiv( \omega \| \pi)$}
+\subsection{The KL divergence between these ensembles is the KL divergence between their configuration marginals}
 We've constructed the ensemble $\omega$ so that the KL divergence $\omega$ and $\pi$ equals the KL divergence between $\conf$ and $p$:
 $$\begin{aligned}
 \kldiv(\omega \| \pi) &\equiv \int \int d \x d\vel \left( \omega(\x, \vel) \log \frac{\omega(\x, \vel)}{\pi(\x, \vel)} \right)\\
@@ -111,21 +111,16 @@ Thus, if we can approximate the nonequilibrium free energy difference $F_\omega 
 % To-do: reproduce argument here.
 
 \section{Approximating $F_\omega - F_\pi$}
+Next, we need to show that we can approximate the desired free energy difference in terms of computable quantities.
 \subsection{A nonequilibrium protocol that transforms $\pi$ into $\omega$}
 We can write down a nonequilibrium protocol that transforms $\pi$ into $\omega$:
 \begin{enumerate}
-\item \textbf{Randomize velocities} by taking a single O-step with infinite friction parameter $\gamma$.
 \item \textbf{Simulate Langevin dynamics} for $N$ steps (performs ``shadow work'' to turn $\pi$ into $\rho$)
 \item \textbf{Randomize velocities} by taking a single O-step with infinite friction parameter $\gamma$.
 \end{enumerate}
 where $N$ is chosen sufficiently large to reach steady state $\rho$.
 
-Note that the velocity-randomization substeps:
-\begin{itemize}
-\item Perform no work.
-\end{itemize}
-
-Call the procedure [1,2,3] the ``forward protocol'' and the procedure [3,2,1] the ``reverse protocol.'' When we consider palindromic operator splittings, the forward and reverse protocols are identical.
+Call the procedure [1,2] the ``forward protocol'' and the procedure [2,1] the ``reverse protocol.''
 
 Using the near-equilibrium approximation in \url{http://threeplusone.com/Sivak2012a.pdf}, we can approximate $\Delta F_\text{neq} \equiv F_\omega - F_\pi$  in terms of quantities we can compute from simulation.
 
@@ -164,13 +159,12 @@ Where we can approximate:
 \item $\langle W_\text{shad} \rangle_{\omega \to \rho}$ by starting in nonequilibrium steady state with velocities resampled from equilibrium, and measuring the shadow work accumulated by simulating for $N$ steps.
 \end{itemize}
 
-The work performed by the velocity randomization steps is zero.
-
 \section{Interpreting Langevin integrators as nonequilibrium protocols}
 \subsection{More notation: Nonequilibrium protocols and work}
 We'll define a \emph{protocol} as any sequence of Markov kernels: $$\Lambda=[k_0, k_1, \dots, k_T]$$
 
-We denote the time-reverse of a protocol $\Lambda$ using a tilde: $\tilde{\Lambda} = [k_T, k_{T-1}, \dots, k_0]$.
+We define the time-reverse of a protocol as the reverse sequence of kernels, where each individual kernel is time-reversed.
+We denote time-reversal using tildes: $\tilde{\Lambda} = [\tilde{k}_T, \tilde{k}_{T-1}, \dots, \tilde{k}_0]$.
 
 The probability of a given trajectory $X = (\x_0, \dots, \x_T)$, given a protocol and initial ensemble, is defined as the product of the initial state's probability and all the transition probabilities:
 $$P[X | \Lambda] = p_0 (\x_0) \prod_{t=1}^T k_t(\x_t | \x_{t-1})$$
@@ -193,6 +187,7 @@ $\xi \sim \mathcal{N}(0, 1)$ per degree of freedom.
 
 Then executing a single step of the integrator indexed a splitting string $\Lambda$ is given by:
 % to-do: format using algorithmicx
+
 Accept: $(\x_0, \vel_0)$, $\gamma$, $T$, $m$, total timestep $h$, length-$T$ splitting $\Lambda$,
 $n_\text{R}$ is the number of ``R''s in $\Lambda$, $n_\text{V}$ the number of ``V''s, etc.
 
@@ -569,11 +564,11 @@ Cutoff: 10 angstroms
 \end{figure}
 
 \section{Appendix}
-\subsection{Alternate approach to validate work accumulation scheme}
+%\subsection{Alternate approach to validate work accumulation scheme}
 % to-do: move transition-density based scheme here
 
 
-\subsection{Pseudocode of protocol}
+%\subsection{Pseudocode of protocol}
 
 \subsection{Validating shadow work accumulation scheme for a specific integrator}
 Here we work through the CFT definition of work for a single step of a specific integrator: ``OVRVO.''
@@ -661,7 +656,7 @@ W[X] &= - \log \left[
 %&= \left( \underbrace{\log [ \pi(x_0, v_0) ] - \log [\pi(x_1, v_1) ]}_{- \Delta E} \right) + \log
 %\end{aligned}$$
 
-Next, taking the log of all terms yields:
+%Next, taking the log of all terms yields:
 
 
 
