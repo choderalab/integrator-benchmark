@@ -1,5 +1,16 @@
-figure_directory = "../figures/"
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+import os
+from benchmark import FIGURE_PATH
+figure_directory = FIGURE_PATH
 figure_format = ".jpg"
+
+
+def generate_figure_filename(filename):
+    return os.path.join(FIGURE_PATH, filename)
 
 def savefig(name):
     plt.savefig("{}{}{}".format(figure_directory, name, figure_format), dpi=300)
