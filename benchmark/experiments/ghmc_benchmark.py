@@ -3,7 +3,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from ..integrators.ghmc import CustomizableGHMC
+from benchmark.integrators import CustomizableGHMC
+from benchmark.plotting import generate_figure_filename
+
 from simtk import unit
 import simtk.openmm as mm
 import numpy as np
@@ -348,11 +350,18 @@ if __name__ == "__main__":
     schemes = [("Baseline", "V R O R V")] + generate_all_BAOAB_permutation_strings(test_system.sys.getNumForces())
 
 
-    def plot_curves(curves):
+    def plot_curves(schemes, curves):
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        for scheme in curves.keys():
-            ax.plot(timesteps, curves[scheme], label=scheme)
+
+        #areas_under_curves = [np.trapz(c) for c in curves.values()]
+
+        colormap = plt.cm.gist_ncar
+        plt.gca().set_color_cycle([colormap(i) for i in np.linspace(0, 0.9, len(schemes))])
+
+        for (name, scheme) in schemes:
+
+            ax.plot(timesteps, curves[scheme], label=name)
 
         ax.set_xlabel("Timestep (fs)")
         ax.set_ylabel("GHMC acceptance rate")
@@ -362,9 +371,9 @@ if __name__ == "__main__":
 
     curves = comparison(schemes, timesteps, test_system, n_samples=n_samples_per_timestep)
 
-    fig, ax, lgd = plot_curves(curves)
+    fig, ax, lgd = plot_curves(schemes, curves)
     ax.set_title("BAOAB symmetric permutation schemes")
-    plt.savefig("baoab_symmetric_perm_comparison.pdf",
+    plt.savefig(generate_figure_filename("baoab_symmetric_perm_comparison.pdf"),
                 bbox_extra_artists=(lgd,), bbox_inches='tight')
     plt.close()
 
@@ -372,9 +381,9 @@ if __name__ == "__main__":
     schemes = [("Baseline", "V R O V R")] + generate_all_BAOAB_permutation_strings(test_system.sys.getNumForces(), symmetric=False)
     curves = comparison(schemes, timesteps, test_system, n_samples=n_samples_per_timestep)
 
-    fig, ax, lgd = plot_curves(curves)
+    fig, ax, lgd = plot_curves(schemes, curves)
     ax.set_title("BAOAB asymmetric permutation schemes")
-    plt.savefig("baoab_saymmetric_perm_comparison.pdf",
+    plt.savefig(generate_figure_filename("baoab_asymmetric_perm_comparison.pdf"),
                 bbox_extra_artists=(lgd,), bbox_inches='tight')
     plt.close()
 
