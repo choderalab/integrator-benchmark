@@ -8,7 +8,7 @@ import os
 
 W_unit = unit.kilojoule_per_mole
 
-DATA_PATH = os.path.join(os.path.dirname(__file__), '../../data/')
+from benchmark import DATA_PATH
 
 class BookkeepingSimulator():
     """Abstracts away details of storage and simulation, and supports
@@ -64,7 +64,7 @@ class EquilibriumSimulator():
             self.save_equilibrium_samples(self.x_samples)
 
     def construct_unbiased_simulation(self):
-        ghmc = GHMCIntegrator(self.temperature, self.ghmc_timestep)
+        ghmc = GHMCIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep)
         return self.construct_simulation(ghmc)
 
     def get_ghmc_acceptance_rate(self):
@@ -95,7 +95,7 @@ class EquilibriumSimulator():
         equilibrium_samples = []
         for _ in tqdm(range(self.n_samples)):
             self.unbiased_simulation.step(self.thinning_interval)
-            self.unbiased_simulation.context.getState(getPositions=True).getPositions(asNumpy=True)
+            x = self.unbiased_simulation.context.getState(getPositions=True).getPositions(asNumpy=True)
             equilibrium_samples.append(strip_unit(x))
         print("Equilibrated GHMC acceptance rate: {:.3f}%".format(100 * self.get_ghmc_acceptance_rate()))
 
@@ -118,7 +118,9 @@ class EquilibriumSimulator():
 
     def load_equilibrium_samples(self):
         """Load numpy archive of equilibrium samples"""
-        return np.load(self._path_to_samples)
+        print("Loading equilibrium samples from {}...".format(self._path_to_samples))
+        x_samples = np.load(self._path_to_samples)
+        return x_samples
 
     def sample_x_from_equilibrium(self):
         """Draw sample (uniformly, with replacement) from cache of configuration samples"""
@@ -126,10 +128,10 @@ class EquilibriumSimulator():
 
     def sample_v_from_equilibrium(self):
         """Sample velocities from Maxwell-Boltzmann distribution."""
-        self.unbiased_simulation.setVelocitiesToTemperature(self.temperature)
+        self.unbiased_simulation.context.setVelocitiesToTemperature(self.temperature)
         return get_velocities(self.unbiased_simulation)
 
-    def construct_noneq_simulation(self, integrator):
+    def construct_simulation(self, integrator):
         """Construct a simulation instance given an integrator."""
         simulation = app.Simulation(self.topology, self.system, integrator, self.platform)
         simulation.context.setPositions(self.positions)
@@ -141,7 +143,7 @@ class NonequilibriumSimulator(BookkeepingSimulator):
 
     def __init__(self, equilibrium_simulator, integrator):
         self.equilibrium_simulator, self.integrator = equilibrium_simulator, integrator
-        self.simulation = self.equilibrium_simulator.construct_noneq_simulation(self.integrator)
+        self.simulation = self.equilibrium_simulator.construct_simulation(self.integrator)
 
     def sample_x_from_equilibrium(self):
         """Draw sample (uniformly, with replacement) from cache of configuration samples"""
@@ -179,7 +181,7 @@ class NonequilibriumSimulator(BookkeepingSimulator):
     def collect_protocol_samples(self, n_protocol_samples, protocol_length, marginal="configuration"):
         """Perform nonequilibrium measurements, aimed at measuring the free energy difference for the chosen marginal."""
         W_shads_F, W_shads_R = [], []
-        for _ in range(n_protocol_samples):
+        for _ in tqdm(range(n_protocol_samples)):
             x_0, v_0 = self.sample_x_from_equilibrium(), self.sample_v_from_equilibrium()
             W_shads_F.append(self.accumulate_shadow_work(x_0, v_0, protocol_length))
 
