@@ -1,5 +1,6 @@
 import numpy as np
 from pickle import load
+from entropy import estimate_marginal_entropies, estimate_entropy
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -15,6 +16,31 @@ def estimate_nonequilibrium_free_energy(W_shads_F, W_shads_R, N_eff=None):
     sq_uncertainty = (np.var(W_shads_F) + np.var(W_shads_R) - 2 * np.cov(W_shads_F, W_shads_R)[0,1]) / (4 * N_eff)
     return DeltaF_neq, sq_uncertainty
 
+def compute_free_energy(xv, potential, kinetic_energy, beta):
+    """Given a potential energy function, kinetic energy function, and inverse-temperature beta,
+    compute the free energy as
+        F = <E> - S / beta
+    and the configuration-marginal free energy as
+        F_conf = <U> - S_conf / beta
+    """
+    x_samples, v_samples = xv[:,0], xv[:,1]
+    # print average potential energy
+    avg_potential = np.mean(potential(x_samples))
+    print("\t<U> = {:.5f}".format(avg_potential))
+    avg_ke = np.mean(kinetic_energy(v_samples))
+    print("\t<KE> = {:.5f}".format(avg_ke))
+    avg_energy = np.mean(potential(x_samples) + kinetic_energy(v_samples))
+    print("\t<E> = {:.5f}".format(avg_energy))
+
+    entropy_x, entropy_v = estimate_marginal_entropies(xv)
+    entropy = estimate_entropy(xv)
+    print("\tS_configurations = {:.5f}".format(entropy_x))
+    print("\tS_momenta = {:.5f}".format(entropy_v))
+    print("\tS = {:.5f}".format(entropy))
+
+    F = avg_energy - entropy / beta
+    F_conf = avg_potential - entropy_x / beta
+    return F, F_conf
 
 
 # also estimate configurational temperature
