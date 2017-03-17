@@ -134,6 +134,7 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
             self.addConstrainVelocities()
 
             if measure_shadow_work:
+                self.addComputeGlobal("new_pe", "energy")
                 self.addComputeSum("new_ke", kinetic_energy)
                 self.addComputeGlobal("W_shad", "W_shad + (new_ke + new_pe) - (old_ke + old_pe)")
 
