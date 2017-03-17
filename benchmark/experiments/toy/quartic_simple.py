@@ -238,9 +238,9 @@ def compute_free_energy_potential_and_entropy(x_samples, hist_args):
     print("\t<U> = {:.5f}".format(avg_potential))
 
     # now, what's the entropy
-    hist, _ = np.histogram(x_samples, **hist_args)
+    hist, bin_edges = np.histogram(x_samples, **hist_args)
     #hist, _ = np.histogram(x_samples, bins="auto")
-    ent = entropy(hist, base=np.e)
+    ent = entropy(hist, base=np.e) / (bin_edges[-1] - bin_edges[0])
     print("\tS = {:.5f} (using {}-bin histogram)".format(ent, len(hist)))
 
     return avg_potential - ent / beta
