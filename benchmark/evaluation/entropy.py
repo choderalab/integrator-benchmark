@@ -4,7 +4,7 @@ from sklearn.neighbors import KDTree
 from scipy.special import digamma
 
 def get_nearest_neighbor_distances(X, k=1):
-    """For each point in X, get the distance to it's k-th nearest neighbor"""
+    """For each point in X, get the distance to its k-th nearest neighbor"""
     tree = KDTree(X, p=np.inf)
     dist, ind = tree.query(X, k=k+1)
     return dist[:,-1]
