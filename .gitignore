@@ -96,3 +96,6 @@ ENV/
 
 # Numpy results
 *.npy
+
+# Figures
+figures/
