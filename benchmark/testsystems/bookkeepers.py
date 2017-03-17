@@ -1,4 +1,4 @@
-from openmmtools.integrators import GHMCIntegrator
+from openmmtools.integrators import GHMCIntegrator, GradientDescentMinimizationIntegrator
 import numpy as np
 from simtk import unit
 from simtk.openmm import app
@@ -82,6 +82,15 @@ class EquilibriumSimulator():
 
     def collect_equilibrium_samples(self):
         """Collect equilibrium samples, return as (n_samples, n_atoms, 3) numpy array"""
+        # Minimize energy by gradient descent
+        print("Minimizing...")
+        minimizer = GradientDescentMinimizationIntegrator()
+        min_sim = self.construct_simulation(minimizer)
+        min_sim.context.setPositions(self.positions)
+        min_sim.context.setVelocitiesToTemperature(self.temperature)
+        for _ in tqdm(range(100)):
+            min_sim.step(1)
+
         # "Equilibrate" / "burn-in"
         print('"Burning in" unbiased GHMC sampler for {:.3}ps...'.format(
             (self.burn_in_length * self.ghmc_timestep).value_in_unit(unit.picoseconds)))
