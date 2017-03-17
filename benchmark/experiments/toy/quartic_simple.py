@@ -8,6 +8,8 @@ from time import time
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from scipy.stats import entropy
+from benchmark import DATA_PATH
+import os
 
 # define system
 np.random.seed(0)
@@ -246,7 +248,6 @@ def compute_free_energy_potential_and_entropy(x_samples, hist_args):
     return avg_potential - ent / beta
 
 
-
 @jit
 def estimate_Delta_F_neq_conf_vvvr(x_samples, gamma, dt, protocol_length=100, n_samples=1000):
 
@@ -391,10 +392,12 @@ if __name__ == "__main__":
         KLs_prot = []
         KLs_prot_err = []
 
-        timesteps_to_try = np.array([0.25, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1])
+        timesteps_to_try = np.array([0.25, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2])
 
         for i, dt in enumerate(timesteps_to_try):
             print(dt)
+            print("\nTesting {} with timestep dt={}".format(scheme, dt))
+
             if scheme == "VVVR":
                 xs, vs, Q, W_shad = fast_simulate(x_0, v_0, n_steps, gamma, dt, thinning_factor)
             elif scheme == "BAOAB":
@@ -410,7 +413,10 @@ if __name__ == "__main__":
                 xs = xs[:max_ind - 10]
                 vs = vs[:max_ind - 10]
 
-            print("\nTesting {} with timestep dt={}".format(scheme, dt))
+            xv = np.vstack((xs, vs)).T
+            np.save(os.path.join(DATA_PATH, "quartic_xv_{}_{}.npy".format(scheme, dt)), xv)
+
+
 
             # plot x histogram
             plt.figure()
