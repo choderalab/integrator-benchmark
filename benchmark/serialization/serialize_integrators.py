@@ -1,5 +1,7 @@
 from simtk.openmm import XmlSerializer
 from benchmark.integrators.langevin import LangevinSplittingIntegrator
+from benchmark import DATA_PATH
+import os
 
 schemes = ["V R O R V", "O R V R O", "R V O V R",
            "O V R V O", "R R V O V R R",
@@ -23,7 +25,7 @@ for scheme in schemes:
     integrator = LangevinSplittingIntegrator(scheme)
 
     # Export integrator to XML
-    with open("serialized_integrators/{}.xml".format(scheme), "w") as f:
+    with open(os.path.join(DATA_PATH, "serialized_integrators/{}.xml".format(scheme), "w")) as f:
         f.writelines(XmlSerializer.serialize(integrator))
 
     # Also pretty-print (using `step_type_dict`)
@@ -34,5 +36,5 @@ for scheme in schemes:
     print(readable_lines)
 
     # Save pretty-printed results to .txt
-    with open("serialized_integrators/readable_{}.txt".format(scheme), "w") as f:
+    with open(os.path.join(DATA_PATH, "serialized_integrators/{}.txt".format(scheme), "w")) as f:
         f.writelines(readable_lines)
