@@ -56,16 +56,19 @@ def q(x): return np.exp(log_q(x))
 
 # normalized density
 x = np.linspace(-3, 3, 1000)
-Z = np.trapz(map(q, x), x)
+x_ = np.linspace(-10,10,10000)
+Z = np.trapz(q(x_))
+log_Z = np.log(Z)
 
 def p(x): return q(x) / Z
-
+def log_p(x): return log_q(x) - log_Z
 
 # example initial conditions
 x_0, v_0 = np.random.randn(), np.random.randn()
 
 m = 10.0  # mass
 velocity_scale = np.sqrt(1.0 / (beta * m))
+sigma2 = velocity_scale**2
 timestep = 1.0
 gamma = 100.0
 
@@ -296,9 +299,11 @@ def estimate_Delta_F_neq_conf_baoab(x_samples, gamma, dt, protocol_length=100, n
 
     return W_shads_F, W_shads_R
 
+def log_v_density(v):
+    return -v ** 2 / (2 * sigma2) - np.log((np.sqrt(2 * np.pi * sigma2)))
 
-def v_density(x):
-    return (1 / (np.sqrt(2 * np.pi * sigma2))) * np.exp(-x ** 2 / (2 * sigma2))
+def v_density(v):
+    return np.exp(log_v_density(v))
 
 def normalize_histogram(hist, bin_edges):
     x_range = bin_edges[-1] - bin_edges[0]
@@ -340,7 +345,6 @@ if __name__ == "__main__":
     # generate plots
     left, right = -3, 3
     x = np.linspace(left, right, 1000)
-    sigma2 = velocity_scale**2
     v_p = v_density(x)
 
     histstyle = {"bins" : 200,
