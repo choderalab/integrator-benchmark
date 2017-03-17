@@ -20,7 +20,8 @@ def estimate_entropy(X, k=1):
     n, dimension = X.shape
     const = digamma(n) - digamma(k) + dimension * np.log(2)
     nearest_neighbor_distances = get_nearest_neighbor_distances(X, k)
-    return (const + dimension * np.mean(np.log(nearest_neighbor_distances)))
+    eps = np.random.rand(n) * 1e-10
+    return (const + dimension * np.mean(np.log(nearest_neighbor_distances + eps)))
 
 def estimate_marginal_entropies(X, k=1):
     """Estimate the entropy of each marginal of X."""
