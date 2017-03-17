@@ -3,13 +3,13 @@ import numpy as np
 from sklearn.neighbors import KDTree
 from scipy.special import digamma
 
-def get_nearest_neighbor_distances(X, k=1):
+def get_nearest_neighbor_distances(X, k=3):
     """For each point in X, get the distance to its k-th nearest neighbor"""
     tree = KDTree(X, p=np.inf)
     dist, ind = tree.query(X, k=k+1)
     return dist[:,-1]
 
-def estimate_entropy(X, k=1):
+def estimate_entropy(X, k=3):
     """Estimate the differential entropy, using the distribution of k-nearest-neighbor
     distances
 
@@ -23,7 +23,7 @@ def estimate_entropy(X, k=1):
     eps = np.random.rand(n) * 1e-10
     return (const + dimension * np.mean(np.log(nearest_neighbor_distances + eps)))
 
-def estimate_marginal_entropies(X, k=1):
+def estimate_marginal_entropies(X, k=3):
     """Estimate the entropy of each marginal of X."""
     marginal_entropies = np.zeros(X.shape[1])
     for i in range(X.shape[1]):
