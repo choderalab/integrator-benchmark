@@ -7,7 +7,7 @@ from benchmark.utilities import keep_only_some_forces
 from benchmark import DATA_PATH
 
 def load_waterbox(constrained=True):
-    """Load WaterBox test system with non-default PME cutoff and error tolerance... """
+    """Load WaterBox test system with non-default PME cutoff and error tolerance"""
     testsystem = WaterBox(constrained=constrained, ewaldErrorTolerance=1e-5, cutoff=10*unit.angstroms)
     (topology, system, positions) = testsystem.topology, testsystem.system, testsystem.positions
     return topology, system, positions
