@@ -93,3 +93,6 @@ ENV/
 
 # Pickled results
 *.pkl
+
+# Numpy results
+*.npy
