@@ -166,3 +166,55 @@ def generate_random_mts_string(n_updates_per_forcegroup, n_R_steps, n_O_steps):
     np.random.shuffle(ingredients)
 
     return " ".join(ingredients)
+
+def generate_gbaoab_string(K_r=1):
+    """K_r=1 --> 'V R O R V
+    K_r=2 --> 'V R R O R R V'
+    etc.
+    """
+    Rs = ["R"] * K_r
+    return " ".join(["V"] + Rs + ["O"] + Rs + ["V"])
+
+
+def generate_baoab_mts_string(groups, K_r=1):
+    """Multi timestep generalization of the solvent-solute splitting scheme presented above...
+
+    In the solvent-solute splitting, we have a "fast" group and a "slow" group.
+    What if we have more than two groups?
+
+    In the the straightforard generalization of the solvent-solute scheme, we do something like this:
+
+    Accept groups, a list of 2-tuples, where each tuple contains an iterable of force group indices and
+    an execution-frequency ratio.
+
+    For example, groups=[([0], 1), ([1], 2), ([2], 2)] should be taken to mean:
+        execute V1 twice as often as V0, and execute V2 twices as often as V1....
+
+        To be concrete:
+
+        If groups=[([0], 1), ([1], 2), ([2], 2)], K_r=1 we would have:
+
+                V0 (V1 (V2 R^K_r O R^K_r V2)^2 V1)^2 V0
+
+    """
+    Rs = ["R"] * K_r
+
+    ratios = [group[1] for group in groups]
+    forces = [["V{}".format(i) for i in group[0]] for group in groups]
+
+    inner_loop_string = (forces[-1] + Rs + ["O"] + Rs + forces[-1]) * ratios[-1]
+
+    for i in range(len(ratios))[::-1][1:]:
+        inner_loop_string = (forces[i] + inner_loop_string + forces[i]) * ratios[i]
+
+    return " ".join(inner_loop_string)
+
+
+def generate_baoab_mts_string_from_ratios(bond_steps_per_angle_step=5, angle_steps=7):
+    """Assuming there are just four groups.
+    0: Bonds (Cheap)
+    1,2: Angles and torsions (let's say that's ~5x more expensive than bonds)
+    3: Nonbonded (~wayyyy more expensive than bonded interactions)
+    """
+    return generate_baoab_mts_string([([3], 1), ([1, 2], angle_steps), ([0], bond_steps_per_angle_step)])
+
