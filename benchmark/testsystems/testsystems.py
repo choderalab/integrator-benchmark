@@ -1,5 +1,5 @@
 import numpy as np
-from openmmtools.testsystems import CustomExternalForcesTestSystem, AlanineDipeptideVacuum, WaterBox, AlanineDipeptideExplicit, SrcImplicit
+from openmmtools.testsystems import SrcImplicit, DHFRExplicit
 from simtk.openmm import app
 from simtk import unit
 from configuration import configure_platform
@@ -25,6 +25,23 @@ def load_src_implicit(constrained=True):
     keep_only_some_forces(system, extra_forces_to_keep=["GBSAOBCForce"])
 
     return topology, system, positions
+
+def load_dhfr_explicit(constrained=True):
+    if constrained:
+        constraints = app.HBonds
+        rigid_water = True
+    else:
+        constraints = None
+        rigid_water = False
+
+
+    testsystem = DHFRExplicit(constraints=constraints, rigid_water=rigid_water)
+    topology, system, positions = testsystem.topology, testsystem.system, testsystem.positions
+
+    keep_only_some_forces(system)
+
+    return topology, system, positions
+
 
 simple_params = {
     "platform": configure_platform("Reference"),
