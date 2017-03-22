@@ -51,8 +51,8 @@ def estimate_ground_truth_kl_divergences():
         scheme, timestep = parse_condition_from_filename(fname)
 
         i = index_of_timestep[timestep]
-        
-        xv = np.load(fname)[::50]
+
+        xv = np.load(fname)[::25]
         print(len(xv))
         F, F_conf = compute_free_energy(xv, potential, kinetic_energy, beta)
 
