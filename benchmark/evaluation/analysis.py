@@ -26,28 +26,32 @@ def compute_free_energy(xv, potential, kinetic_energy, beta):
     x_samples, v_samples = xv[:,0], xv[:,1]
     # print average potential energy
     avg_potential = np.mean(potential(x_samples))
-    print("\t<U> = {:.5f}".format(avg_potential))
+
     avg_ke = np.mean(kinetic_energy(v_samples))
-    print("\t<KE> = {:.5f}".format(avg_ke))
+
     avg_energy = np.mean(potential(x_samples) + kinetic_energy(v_samples))
-    print("\t<E> = {:.5f}".format(avg_energy))
+
 
     entropy_x, entropy_v = estimate_marginal_entropies(xv)
     entropy = estimate_entropy(xv)
-    print("\tS_configurations = {:.5f}".format(entropy_x))
-    print("\tS_momenta = {:.5f}".format(entropy_v))
-    print("\tS = {:.5f}".format(entropy))
+
 
     F = avg_energy - entropy / beta
     F_conf = avg_potential - entropy_x / beta
+    print("\tF = {:.5f}".format(F))
+    print("\tF_conf = {:.5f}".format(F_conf))
+
+    print("\t\t<U> = {:.5f}".format(avg_potential))
+    print("\t\t<KE> = {:.5f}".format(avg_ke))
+    print("\t\t<E> = {:.5f}".format(avg_energy))
+    print("\t\tS_configurations = {:.5f}".format(entropy_x))
+    print("\t\tS_momenta = {:.5f}".format(entropy_v))
+    print("\t\tS = {:.5f}".format(entropy))
+
     return F, F_conf
 
 
 # also estimate configurational temperature
-
-# also add KL divergence tools
-
-# rephrase nonequilibrium free energy in terms of KL divergence
 
 # can also add bootstrapped confidence interval, if we use a different estimator
 
