@@ -58,8 +58,3 @@ def plot_results(target_filename, name):
         plt.close()
 
     plot_curves(results)
-
-if __name__ == "__main__":
-    name = "waterbox_constrained"
-    target_filename = os.path.join(DATA_PATH, "baoab_vs_aboba_{}.pkl".format(name))
-    plot_results(target_filename, name)
