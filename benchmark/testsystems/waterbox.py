@@ -20,13 +20,13 @@ waterbox_constrained = EquilibriumSimulator(platform=configure_platform("OpenCL"
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
                                            ghmc_timestep=2.0 * unit.femtosecond,
-                                           burn_in_length=100, n_samples=100,
-                                           thinning_interval=10, name="waterbox_constrained")
+                                           burn_in_length=1000, n_samples=500,
+                                           thinning_interval=2, name="waterbox_constrained")
 
 top, sys, pos = load_waterbox(constrained=False)
 flexible_waterbox = EquilibriumSimulator(platform=configure_platform("OpenCL"),
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
                                            ghmc_timestep=1.0 * unit.femtosecond,
-                                           burn_in_length=100, n_samples=100,
-                                           thinning_interval=10, name="flexible_waterbox")
+                                           burn_in_length=1000, n_samples=500,
+                                           thinning_interval=2, name="flexible_waterbox")
