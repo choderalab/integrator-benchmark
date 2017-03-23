@@ -3,7 +3,8 @@ import numpy as np
 from simtk import unit
 from simtk.openmm import app
 from tqdm import tqdm
-from benchmark.utilities import strip_unit, get_total_energy, get_velocities, get_positions
+from benchmark.utilities import strip_unit, get_total_energy, get_velocities, get_positions,\
+    set_positions, set_velocities
 import os
 
 W_unit = unit.kilojoule_per_mole
@@ -172,12 +173,15 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         get_energy = lambda: get_total_energy(self.simulation)
         get_heat = lambda: self.simulation.integrator.getGlobalVariableByName("heat")
 
+        set_positions(self.simulation, x_0)
+        set_velocities(self.simulation, v_0)
+
         E_0 = get_energy()
         Q_0 = get_heat()
 
-        W_shads = []
+        W_shads = np.zeros(n_steps)
 
-        for _ in range(n_steps):
+        for i in range(n_steps):
             self.simulation.step(1)
 
             E_1 = get_energy()
@@ -186,10 +190,9 @@ class NonequilibriumSimulator(BookkeepingSimulator):
             delta_E = E_1 - E_0
             delta_Q = Q_1 - Q_0
 
-            W_shad = delta_E.value_in_unit(W_unit) - delta_Q
-            W_shads.append(W_shad)
+            W_shads[i] = delta_E.value_in_unit(W_unit) - delta_Q
 
-        return np.array(W_shads)
+        return W_shads
 
 
     def collect_protocol_samples(self, n_protocol_samples, protocol_length, marginal="configuration"):
@@ -199,19 +202,17 @@ class NonequilibriumSimulator(BookkeepingSimulator):
             x_0, v_0 = self.sample_x_from_equilibrium(), self.sample_v_from_equilibrium()
             W_shads_F.append(self.accumulate_shadow_work(x_0, v_0, protocol_length))
 
-
+            x_1 = get_positions(self.simulation)
             if marginal == "configuration":
-                x_1 = get_positions(self.simulation)
                 v_1  = self.sample_v_from_equilibrium()
             elif marginal == "full":
-                x_1 = get_positions(self.simulation)
                 v_1 = get_velocities(self.simulation)
             else:
                 raise NotImplementedError("`marginal` must be either 'configuration' or 'full'")
 
             W_shads_R.append(self.accumulate_shadow_work(x_1, v_1, protocol_length))
 
-        return W_shads_F, W_shads_R
+        return np.array(W_shads_F), np.array(W_shads_R)
 
 
 if __name__ == "__main__":
