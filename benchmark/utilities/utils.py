@@ -7,22 +7,9 @@ from simtk import unit
 import simtk.openmm as mm
 import numpy as np
 
-
-def get_positions(simulation):
-    return simulation.context.getState(getPositions=True).getPositions(asNumpy=True)
-
-def get_velocities(simulation):
-    return simulation.context.getState(getVelocities=True).getVelocities(asNumpy=True)
-
 def strip_unit(quantity):
     """Take a unit'd quantity and return just its value."""
     return quantity.value_in_unit(quantity.unit)
-
-def get_total_energy(simulation):
-    """Compute the kinetic energy + potential energy of the simulation."""
-    state = simulation.context.getState(getEnergy=True)
-    ke, pe = state.getKineticEnergy(), state.getPotentialEnergy()
-    return ke + pe
 
 def stderr(array):
     """Compute the standard error of an array."""
