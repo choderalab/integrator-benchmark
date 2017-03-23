@@ -49,9 +49,9 @@ def plot_results(target_filename, name):
                 sq_uncs = np.array(sq_uncs)
                 uncs = 1.96 * np.sqrt(sq_uncs)
 
-
-                plt.plot(timesteps, DeltaF_neqs, label="{} ({})".format(scheme, marginal))
-                plt.fill_between(timesteps, DeltaF_neqs - uncs, DeltaF_neqs + uncs, alpha=0.3, color='grey')
+                plt.errorbar(timesteps, DeltaF_neqs, yerr=uncs, label="{} ({})".format(scheme, marginal))
+                #plt.plot(timesteps, DeltaF_neqs, label="{} ({})".format(scheme, marginal))
+                #plt.fill_between(timesteps, DeltaF_neqs - uncs, DeltaF_neqs + uncs, alpha=0.3, color='grey')
 
         plt.legend(loc='best', fancybox=True)
         plt.savefig(generate_figure_filename("baoab_vs_aboba_{}.jpg".format(name)))
