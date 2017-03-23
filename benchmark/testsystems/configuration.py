@@ -6,6 +6,8 @@ def configure_platform(platform_name='Reference'):
     """Set precision, etc..."""
     if platform_name.upper() == 'Reference'.upper():
         platform = mm.Platform.getPlatformByName('Reference')
+    elif platform_name.upper() == "CPU":
+        platform = mm.Platform.getPlatformByName("CPU")
     elif platform_name.upper() == 'OpenCL'.upper():
         platform = mm.Platform.getPlatformByName('OpenCL')
         platform.setPropertyDefaultValue('OpenCLPrecision', 'mixed')
