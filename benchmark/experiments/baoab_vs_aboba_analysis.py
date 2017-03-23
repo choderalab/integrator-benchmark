@@ -41,7 +41,7 @@ def plot_results(target_filename, name):
                     W_shads_F, W_shads_R = results[marginal][(scheme, timestep)]
                     W_shads_F = np.array(W_shads_F)
                     W_shads_R = np.array(W_shads_R)
-                    DeltaF_neq, sq_unc = estimate_nonequilibrium_free_energy(W_shads_F[:,-1], W_shads_R[:,-1])
+                    DeltaF_neq, sq_unc = estimate_nonequilibrium_free_energy(W_shads_F, W_shads_R)
                     DeltaF_neqs.append(DeltaF_neq)
                     sq_uncs.append(sq_unc)
 
