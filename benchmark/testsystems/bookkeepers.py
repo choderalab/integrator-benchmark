@@ -169,7 +169,7 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         return self.equilibrium_simulator.sample_v_from_equilibrium()
 
     def accumulate_shadow_work(self, x_0, v_0, n_steps):
-        """Run the integrator for n_steps and return a vector of the change in energy - the heat."""
+        """Run the integrator for n_steps and return the change in energy - the heat."""
         get_energy = lambda: get_total_energy(self.simulation)
         get_heat = lambda: self.simulation.integrator.getGlobalVariableByName("heat")
 
@@ -179,20 +179,15 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         E_0 = get_energy()
         Q_0 = get_heat()
 
-        W_shads = np.zeros(n_steps)
+        self.simulation.step(n_steps)
 
-        for i in range(n_steps):
-            self.simulation.step(1)
+        E_1 = get_energy()
+        Q_1 = get_heat()
 
-            E_1 = get_energy()
-            Q_1 = get_heat()
+        delta_E = E_1 - E_0
+        delta_Q = Q_1 - Q_0
 
-            delta_E = E_1 - E_0
-            delta_Q = Q_1 - Q_0
-
-            W_shads[i] = delta_E.value_in_unit(W_unit) - delta_Q
-
-        return W_shads
+        return delta_E.value_in_unit(W_unit) - delta_Q
 
 
     def collect_protocol_samples(self, n_protocol_samples, protocol_length, marginal="configuration"):
