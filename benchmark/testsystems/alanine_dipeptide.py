@@ -50,3 +50,11 @@ alanine_unconstrained = EquilibriumSimulator(platform=configure_platform("Refere
                                            ghmc_timestep=2.0 * unit.femtosecond,
                                            burn_in_length=1000, n_samples=10000,
                                            thinning_interval=100, name="alanine_unconstrained")
+
+top, sys, pos = load_solvated_alanine(constrained=False)
+solvated_alanine_unconstrained = EquilibriumSimulator(platform=configure_platform("CPU"),
+                                           topology=top, system=sys, positions=pos,
+                                           temperature=temperature,
+                                           ghmc_timestep=0.25 * unit.femtosecond,
+                                           burn_in_length=1000, n_samples=1000,
+                                           thinning_interval=5, name="solvated_alanine_unconstrained")
