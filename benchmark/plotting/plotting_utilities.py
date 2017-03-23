@@ -1,20 +1,21 @@
+import numpy as np
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-
+import pickle
 import os
 from benchmark import FIGURE_PATH
 figure_directory = FIGURE_PATH
 figure_format = ".jpg"
 
+from benchmark.evaluation.analysis import estimate_nonequilibrium_free_energy
 
 def generate_figure_filename(filename):
     return os.path.join(FIGURE_PATH, filename)
 
 def savefig(name):
     plt.savefig("{}{}{}".format(figure_directory, name, figure_format), dpi=300)
-
 
 def plot_results(results, name=""):
     """Given a list of (label, data) results, plot histograms
@@ -118,3 +119,57 @@ def plot(results, name=""):
     plt.legend(fancybox=True, loc='best')
     savefig('{}_averaged_work_trajectories_comparison'.format(name))
     plt.close()
+
+
+def plot_scheme_comparison(target_filename, name):
+    """Plot timestep on the x axis vs. DeltaF_neq on the y axis,
+    with a separate curve for each scheme.
+
+    results is a dictionary containing two dictionaries, one for the configuration marginal
+    and one for the
+        i.e. results[marginal][(name, timestep)] = W_shads_F, W_shads_R
+    """
+    with open(target_filename, "r") as f:
+        results = pickle.load(f)
+
+    def get_schemes(result_dict):
+        schemes = sorted(list(set([key[0] for key in result_dict.keys()])))
+        return schemes
+
+    def get_timesteps(result_dict):
+        timesteps = sorted(list(set([key[1] for key in result_dict.keys()])))
+        return timesteps
+
+    def plot_curves(results):
+        plt.figure()
+        for marginal in results.keys():
+            schemes = get_schemes(results[marginal])
+            timesteps = get_timesteps(results[marginal])
+
+            for scheme in schemes:
+                DeltaF_neqs = []
+                sq_uncs = []
+
+                for timestep in timesteps:
+                    W_shads_F, W_shads_R = results[marginal][(scheme, timestep)]
+                    W_shads_F = np.array(W_shads_F)
+                    W_shads_R = np.array(W_shads_R)
+                    DeltaF_neq, sq_unc = estimate_nonequilibrium_free_energy(W_shads_F, W_shads_R)
+                    DeltaF_neqs.append(DeltaF_neq)
+                    sq_uncs.append(sq_unc)
+
+                DeltaF_neqs = np.array(DeltaF_neqs)
+                sq_uncs = np.array(sq_uncs)
+                uncs = 1.96 * np.sqrt(sq_uncs)
+
+                plt.errorbar(timesteps, DeltaF_neqs, yerr=uncs, label="{} ({})".format(scheme, marginal))
+                # plt.plot(timesteps, DeltaF_neqs, label="{} ({})".format(scheme, marginal))
+                # plt.fill_between(timesteps, DeltaF_neqs - uncs, DeltaF_neqs + uncs, alpha=0.3, color='grey')
+
+        plt.legend(loc='best', fancybox=True)
+        plt.xlabel("$\Delta t$")
+        plt.ylabel("$\Delta F_{neq}$")
+        plt.savefig(generate_figure_filename("scheme_comparison_{}.jpg".format(name)))
+        plt.close()
+
+    plot_curves(results)
