@@ -6,17 +6,18 @@ import os
 import pickle
 import numpy as np
 from simtk import unit
-from baoab_vs_aboba_analysis import plot_results
+from benchmark.plotting import plot_scheme_comparison
 from benchmark.evaluation.analysis import estimate_nonequilibrium_free_energy
 
 if __name__ == "__main__":
     n_protocol_samples, protocol_length = 1000, 50
     system_name = "alanine_unconstrained"
     equilibrium_simulator = benchmark.testsystems.alanine_unconstrained
-    target_filename = os.path.join(DATA_PATH, "baoab_vs_aboba_{}.pkl".format(system_name))
+    target_filename = os.path.join(DATA_PATH, "scheme_comparison_{}.pkl".format(system_name))
 
-    schemes = {"BAOAB": "V R O R V", "VVVR": "O V R V O"}
-    timesteps = np.linspace(0.1, 3.0, 10)
+    schemes = {"BAO": "V R O", "BABO": "V R V O",
+               "ABO": "R V O", "ABAO": "R V R O"}
+    timesteps = np.linspace(0.1, 1.5, 5)
     noneq_simulators = {}
     for name, scheme in schemes.items():
         for timestep in timesteps:
@@ -42,4 +43,4 @@ if __name__ == "__main__":
     with open(target_filename, "w") as f:
         pickle.dump(results, f)
 
-    plot_results(target_filename, system_name)
+    plot_scheme_comparison(target_filename, system_name)
