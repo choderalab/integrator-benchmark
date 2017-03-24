@@ -14,70 +14,8 @@ import itertools
 
 from openmmtools.testsystems import AlanineDipeptideVacuum, SrcImplicit, SrcExplicit
 from simtk.openmm import app
-
-print('OpenMM version: ', mm.version.full_version)
-
-
-class TestSystem():
-    def __init__(self, samples, temperature, mm_topology, mm_sys, mm_platform):
-        self.samples = samples
-        self.temperature = temperature
-        self.top = mm_topology
-        self.sys = mm_sys
-        self.platform = mm_platform
-
-    def draw_sample(self):
-        return self.samples[np.random.randint(len(self.samples))]
-
-
-from openmmtools.integrators import GHMCIntegrator, GradientDescentMinimizationIntegrator
-
-
-def get_equilibrium_samples(topology, system, positions,
-                            platform, temperature,
-                            burn_in_length, n_samples, thinning_interval,
-                            ghmc_timestep=1.5 * unit.femtoseconds, **kwargs):
-    """Minimize energy for 100 steps, run GHMC for burn_in_length steps, then
-    run GHMC for thinning_interval * n_samples steps, storing snapshots every
-    thinning_interval frames.
-
-    Return list of configuration samples and the GHMC simulation.
-    """
-
-    # Minimize energy by gradient descent
-    print("Minimizing...")
-    minimizer = GradientDescentMinimizationIntegrator()
-    min_simulation = app.Simulation(topology, system, minimizer, platform)
-    min_simulation.context.setPositions(positions)
-    min_simulation.context.setVelocitiesToTemperature(temperature)
-    min_simulation.step(100)
-
-    # Define unbiased simulation...
-    ghmc = GHMCIntegrator(temperature, timestep=ghmc_timestep)
-    get_acceptance_rate = lambda: ghmc.getGlobalVariableByName("naccept") / ghmc.getGlobalVariableByName("ntrials")
-    unbiased_simulation = app.Simulation(topology, system, ghmc, platform)
-    unbiased_simulation.context.setPositions(positions)
-    unbiased_simulation.context.setVelocitiesToTemperature(temperature)
-
-    # Equilibrate
-    print('"Burning in" unbiased GHMC sampler for {:.3}ps...'.format(
-        (burn_in_length * ghmc_timestep).value_in_unit(unit.picoseconds)))
-    unbiased_simulation.step(burn_in_length)
-    print("Burn-in GHMC acceptance rate: {:.3f}%".format(100 * get_acceptance_rate()))
-    ghmc.setGlobalVariableByName("naccept", 0)
-    ghmc.setGlobalVariableByName("ntrials", 0)
-
-    # Collect equilibrium samples
-    print("Collecting equilibrium samples...")
-    equilibrium_samples = []
-    for _ in tqdm(range(n_samples)):
-        unbiased_simulation.step(thinning_interval)
-        equilibrium_samples.append(
-            unbiased_simulation.context.getState(getPositions=True).getPositions(asNumpy=True))
-    print("Equilibrated GHMC acceptance rate: {:.3f}%".format(100 * get_acceptance_rate()))
-
-    return equilibrium_samples, unbiased_simulation
-
+from benchmark.integrators import condense_splitting, generate_sequential_BAOAB_string, generate_all_BAOAB_permutation_strings
+from benchmark.utilities import keep_only_some_forces
 
 def estimate_acceptance_rate(scheme, timestep, test_system, n_samples=500):
     """Estimate the average acceptance rate for the scheme by drawing `n_samples`
@@ -136,20 +74,6 @@ def comparison(schemes, timesteps, test_system, n_samples=500):
     return curves
 
 
-def keep_only_some_forces(system):
-    """Remove unwanted forces, e.g. center-of-mass motion removal"""
-    forces_to_keep = ["HarmonicBondForce", "HarmonicAngleForce",
-                      "PeriodicTorsionForce", "NonbondedForce"]
-    force_indices_to_remove = list()
-    for force_index in range(system.getNumForces()):
-        force = system.getForce(force_index)
-        if force.__class__.__name__ not in forces_to_keep:
-            force_indices_to_remove.append(force_index)
-    for force_index in force_indices_to_remove[::-1]:
-        print('   Removing %s' % system.getForce(force_index).__class__.__name__)
-        system.removeForce(force_index)
-
-
 def load_alanine(constrained=True):
     """Load AlanineDipeptide vacuum, optionally with hydrogen bonds constrained"""
     if constrained:
@@ -162,62 +86,6 @@ def load_alanine(constrained=True):
     keep_only_some_forces(system)
 
     return topology, system, positions
-
-def condense_splitting(splitting_string):
-    """Since some operators commute, we can simplify some splittings.
-
-    Here, we replace repeated O steps or V{i} steps.
-
-    Splitting is a list of steps.
-
-    Examples:
-
-        O V R V V V O should condense to
-        O V R V O
-
-        and O V O O V R V
-        should condense to:
-        O V R V
-
-        since
-    """
-
-    # first split into chunks of either velocity or position updates
-    # don't collapse position updates, do collapse velocity updates
-
-    splitting = splitting_string.upper().split()
-
-    equivalence_classes = {"R":{"R"}, "V":{"O", "V"}, "O":{"O", "V"}}
-
-    current_chunk = [splitting[0]]
-    collapsed = []
-
-    def collapse_chunk(current_chunk):
-
-        if current_chunk[0] == "R":
-            return current_chunk
-        else:
-            return list(set(current_chunk))
-
-    for i in range(1, len(splitting)):
-
-        # if the next step in the splitting is
-        if splitting[i][0] in equivalence_classes[splitting[i-1][0]]:
-            current_chunk.append(splitting[i])
-        else:
-            collapsed += collapse_chunk(current_chunk)
-            current_chunk = [splitting[i]]
-
-
-    collapsed = collapsed + collapse_chunk(current_chunk)
-
-    collapsed_string = " ".join(collapsed)
-    if len(collapsed) < len(splitting):
-        print("Shortened the splitting from {} steps to {} steps ({} --> {})".format(
-            len(splitting), len(collapsed), splitting_string, collapsed_string
-        ))
-
-    return collapsed_string
 
 
 def get_alanine_test_system(temperature):
@@ -254,34 +122,6 @@ def get_src_explicit_test_system(temperature):
     test_system = TestSystem(samples, temperature, top, sys, platform)
     return test_system
 
-
-def generate_sequential_BAOAB_string(force_group_list, symmetric=True):
-    """Generate BAOAB-like schemes that break up the "V R" step
-    into multiple sequential updates
-
-    E.g. force_group_list=(0,1,2), symmetric=True -->
-        "V0 R V1 R V2 R O R V2 R V1 R V0"
-    force_group_list=(0,1,2), symmetric=False -->
-        "V0 R V1 R V2 R O V0 R V1 R V2 R"
-    """
-
-    VR = []
-    for i in force_group_list:
-        VR.append("V{}".format(i))
-        VR.append("R")
-
-
-    if symmetric:
-        return " ".join(VR + ["O"] + VR[::-1])
-    else:
-        return " ".join(VR + ["O"] + VR)
-
-
-def generate_all_BAOAB_permutation_strings(n_force_groups, symmetric=True):
-    """Generate all of the permutations of range(n_force_groups), and evaluate their
-    acceptance rates
-    """
-    return [(perm, generate_sequential_BAOAB_string(perm, symmetric)) for perm in itertools.permutations(range(n_force_groups))]
 
 if __name__ == "__main__":
 

@@ -274,3 +274,32 @@ def condense_splitting(splitting_string):
         ))
 
     return collapsed_string
+
+
+def generate_sequential_BAOAB_string(force_group_list, symmetric=True):
+    """Generate BAOAB-like schemes that break up the "V R" step
+    into multiple sequential updates
+
+    E.g. force_group_list=(0,1,2), symmetric=True -->
+        "V0 R V1 R V2 R O R V2 R V1 R V0"
+    force_group_list=(0,1,2), symmetric=False -->
+        "V0 R V1 R V2 R O V0 R V1 R V2 R"
+    """
+
+    VR = []
+    for i in force_group_list:
+        VR.append("V{}".format(i))
+        VR.append("R")
+
+
+    if symmetric:
+        return " ".join(VR + ["O"] + VR[::-1])
+    else:
+        return " ".join(VR + ["O"] + VR)
+
+
+def generate_all_BAOAB_permutation_strings(n_force_groups, symmetric=True):
+    """Generate all of the permutations of range(n_force_groups), and evaluate their
+    acceptance rates
+    """
+    return [(perm, generate_sequential_BAOAB_string(perm, symmetric)) for perm in itertools.permutations(range(n_force_groups))]
