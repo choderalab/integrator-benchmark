@@ -49,3 +49,7 @@ def unpack_trajs(result):
         Rs.append(traj_R)
 
     return x_F, x_R, Fs, Rs
+
+def print_array(array, decimal_places=3):
+    format_string = "{:." + str(decimal_places) + "f}"
+    return "[" + ", ".join([format_string.format(i) for i in array]) + "]"

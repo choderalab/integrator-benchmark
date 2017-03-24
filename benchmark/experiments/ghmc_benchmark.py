@@ -15,6 +15,7 @@ import itertools
 from openmmtools.testsystems import AlanineDipeptideVacuum, SrcImplicit, SrcExplicit
 from simtk.openmm import app
 from benchmark.integrators import condense_splitting, generate_sequential_BAOAB_string, generate_all_BAOAB_permutation_strings
+from benchmark.utilities import print_array
 
 def estimate_acceptance_rate(scheme, timestep, test_system, n_samples=500):
     """Estimate the average acceptance rate for the scheme by drawing `n_samples`
@@ -37,12 +38,6 @@ def estimate_acceptance_rate(scheme, timestep, test_system, n_samples=500):
         acc_ratios.append(min(1.0, np.nan_to_num(acc_ratio)))
 
     return np.mean(acc_ratios)
-
-
-def print_array(array, decimal_places=3):
-    format_string = "{:." + str(decimal_places) + "f}"
-    return "[" + ", ".join([format_string.format(i) for i in array]) + "]"
-
 
 def sweep_over_timesteps(scheme, timesteps, test_system, n_samples=50):
     """If we reach a timestep with a 0.0 accept rate, then don't try
