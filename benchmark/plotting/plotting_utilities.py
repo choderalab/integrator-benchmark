@@ -161,7 +161,7 @@ def plot_scheme_comparison(target_filename, name):
                 DeltaF_neqs = np.array(DeltaF_neqs)
                 sq_uncs = np.array(sq_uncs)
                 uncs = 1.96 * np.sqrt(sq_uncs)
-
+                plt.hlines(0, min(timesteps), max(timesteps), linestyles="--")
                 plt.errorbar(timesteps, DeltaF_neqs, yerr=uncs, label="{} ({})".format(scheme, marginal))
                 # plt.plot(timesteps, DeltaF_neqs, label="{} ({})".format(scheme, marginal))
                 # plt.fill_between(timesteps, DeltaF_neqs - uncs, DeltaF_neqs + uncs, alpha=0.3, color='grey')
@@ -169,7 +169,7 @@ def plot_scheme_comparison(target_filename, name):
         plt.legend(loc='best', fancybox=True)
         plt.xlabel("$\Delta t$")
         plt.ylabel("$\Delta F_{neq}$")
-        plt.savefig(generate_figure_filename("scheme_comparison_{}.jpg".format(name)))
+        plt.savefig(generate_figure_filename("scheme_comparison_{}.jpg".format(name)), dpi=300)
         plt.close()
 
     plot_curves(results)
