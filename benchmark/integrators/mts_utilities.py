@@ -218,3 +218,59 @@ def generate_baoab_mts_string_from_ratios(bond_steps_per_angle_step=5, angle_ste
     """
     return generate_baoab_mts_string([([3], 1), ([1, 2], angle_steps), ([0], bond_steps_per_angle_step)])
 
+
+def condense_splitting(splitting_string):
+    """Since some operators commute, we can simplify some splittings.
+
+    Here, we replace repeated O steps or V{i} steps.
+
+    Splitting is a list of steps.
+
+    Examples:
+
+        O V R V V V O should condense to
+        O V R V O
+
+        and O V O O V R V
+        should condense to:
+        O V R V
+
+        since
+    """
+
+    # first split into chunks of either velocity or position updates
+    # don't collapse position updates, do collapse velocity updates
+
+    splitting = splitting_string.upper().split()
+
+    equivalence_classes = {"R":{"R"}, "V":{"O", "V"}, "O":{"O", "V"}}
+
+    current_chunk = [splitting[0]]
+    collapsed = []
+
+    def collapse_chunk(current_chunk):
+
+        if current_chunk[0] == "R":
+            return current_chunk
+        else:
+            return list(set(current_chunk))
+
+    for i in range(1, len(splitting)):
+
+        # if the next step in the splitting is
+        if splitting[i][0] in equivalence_classes[splitting[i-1][0]]:
+            current_chunk.append(splitting[i])
+        else:
+            collapsed += collapse_chunk(current_chunk)
+            current_chunk = [splitting[i]]
+
+
+    collapsed = collapsed + collapse_chunk(current_chunk)
+
+    collapsed_string = " ".join(collapsed)
+    if len(collapsed) < len(splitting):
+        print("Shortened the splitting from {} steps to {} steps ({} --> {})".format(
+            len(splitting), len(collapsed), splitting_string, collapsed_string
+        ))
+
+    return collapsed_string
