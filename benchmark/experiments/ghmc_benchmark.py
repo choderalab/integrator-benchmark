@@ -15,7 +15,6 @@ import itertools
 from openmmtools.testsystems import AlanineDipeptideVacuum, SrcImplicit, SrcExplicit
 from simtk.openmm import app
 from benchmark.integrators import condense_splitting, generate_sequential_BAOAB_string, generate_all_BAOAB_permutation_strings
-from benchmark.utilities import keep_only_some_forces
 
 def estimate_acceptance_rate(scheme, timestep, test_system, n_samples=500):
     """Estimate the average acceptance rate for the scheme by drawing `n_samples`
@@ -72,55 +71,6 @@ def comparison(schemes, timesteps, test_system, n_samples=500):
     #plt.xlabel("Timestep (fs)")
     #plt.ylabel("GHMC acceptance rate")
     return curves
-
-
-def load_alanine(constrained=True):
-    """Load AlanineDipeptide vacuum, optionally with hydrogen bonds constrained"""
-    if constrained:
-        constraints = app.HBonds
-    else:
-        constraints = None
-    testsystem = AlanineDipeptideVacuum(constraints=constraints)
-    topology, system, positions = testsystem.topology, testsystem.system, testsystem.positions
-
-    keep_only_some_forces(system)
-
-    return topology, system, positions
-
-
-def get_alanine_test_system(temperature):
-    top, sys, pos = load_alanine(constrained=True)
-    platform = mm.Platform.getPlatformByName("Reference")
-    samples, unbiased_simulation = get_equilibrium_samples(top, sys, pos, platform, temperature,
-                                                           ghmc_timestep=1.5 * unit.femtoseconds,
-                                                           burn_in_length=1000, n_samples=1000, thinning_interval=100)
-    test_system = TestSystem(samples, temperature, top, sys, platform)
-    return test_system
-
-def get_src_implicit_test_system(temperature):
-    testsystem = SrcImplicit()
-    top, sys, pos = testsystem.topology, testsystem.system, testsystem.positions
-    platform = mm.Platform.getPlatformByName("OpenCL")
-    platform.setPropertyDefaultValue('OpenCLPrecision', 'double')
-
-    samples, unbiased_simulation = get_equilibrium_samples(top, sys, pos, platform, temperature,
-                                                           ghmc_timestep=0.5 * unit.femtoseconds,
-                                                           burn_in_length=500, n_samples=500, thinning_interval=5)
-    test_system = TestSystem(samples, temperature, top, sys, platform)
-    return test_system
-
-
-def get_src_explicit_test_system(temperature):
-    testsystem = SrcExplicit()
-    top, sys, pos = testsystem.topology, testsystem.system, testsystem.positions
-    platform = mm.Platform.getPlatformByName("OpenCL")
-    platform.setPropertyDefaultValue('OpenCLPrecision', 'mixed')
-
-    samples, unbiased_simulation = get_equilibrium_samples(top, sys, pos, platform, temperature,
-                                                           ghmc_timestep=0.5 * unit.femtoseconds,
-                                                           burn_in_length=100, n_samples=100, thinning_interval=5)
-    test_system = TestSystem(samples, temperature, top, sys, platform)
-    return test_system
 
 
 if __name__ == "__main__":
