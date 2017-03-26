@@ -6,6 +6,9 @@ from simtk.openmm import app
 
 from openmmtools.testsystems import TestSystem
 
+from bookkeepers import EquilibriumSimulator
+from configuration import configure_platform
+
 
 class CoupledPowerOscillators(TestSystem):
     """Create a 3D grid of power oscillators.
@@ -49,7 +52,7 @@ class CoupledPowerOscillators(TestSystem):
 
         TestSystem.__init__(self, **kwargs)
         # Set unit of well-depth appropriately
-        K *= unit.kilocalories_per_mole / unit.angstroms ** b
+        #K *= unit.kilocalories_per_mole / unit.angstroms ** b
 
         # Determine total number of atoms.
         natoms = nx * ny * nz
@@ -65,21 +68,24 @@ class CoupledPowerOscillators(TestSystem):
 
         # Store the atom indices in a 3-way array
         # so that we can conveniently determine nearest neighbors
-        atom_indices = np.zeros((nx, ny, nz))
+        atom_indices = np.zeros((nx, ny, nz), dtype=int)
 
         for i in range(nx):
             for j in range(ny):
                 for k in range(nz):
                     system.addParticle(mass)
 
-                    xyz = grid_spacing * np.array([i, j, k], dtype=float)
-                    positions[atom_index] = xyz
+                    xyz = (grid_spacing.value_in_unit(unit.angstrom)) * np.array([i, j, k], dtype=float)
+                    positions[atom_index] = xyz * unit.angstrom
 
                     atom_indices[i, j, k] = atom_index
 
                     # Add this particle's well
-                    energy_expression = "{K} * ((x-{x0})^{b} + (y-{y0})^{b} + (z-{z0})^{b});".format(
-                        x0=xyz[0], y0=xyz[1], z0=xyz[2], b=b, K=K)
+
+                    energy_expression = "{K} * ((x - {x0})^{b} + (y - {y0})^{b} + (z - {y0})^{b});".format(
+                        b=b, K=K, x0=xyz[0], y0=xyz[1], z0=xyz[2])
+
+                    #energy_expression = "x^{b} + y^{b} + z^{b};".format(b=b)
                     force = openmm.CustomExternalForce(energy_expression)
                     force.addParticle(atom_index)
                     system.addForce(force)
@@ -98,9 +104,9 @@ class CoupledPowerOscillators(TestSystem):
                 for k in range(nz):
                     if (i + 1) < nx:
                         bonds.append((atom_indices[i, j, k], atom_indices[i + 1, j, k]))
-                    if (j + 1) < nx:
+                    if (j + 1) < ny:
                         bonds.append((atom_indices[i, j, k], atom_indices[i, j + 1, k]))
-                    if (k + 1) < nx:
+                    if (k + 1) < nz:
                         bonds.append((atom_indices[i, j, k], atom_indices[i, j, k + 1]))
 
         # Add these HarmonicBondForces to the system
@@ -121,3 +127,13 @@ class CoupledPowerOscillators(TestSystem):
         self.topology = topology
         self.positions = positions
         self.system = system
+
+temperature = 298 * unit.kelvin
+testsystem = CoupledPowerOscillators(nx=5, ny=5, nz=5)
+top, sys, pos = testsystem.topology, testsystem.system, testsystem.positions
+coupled_power_oscillators = EquilibriumSimulator(platform=configure_platform("CPU"),
+                                           topology=top, system=sys, positions=pos,
+                                           temperature=temperature,
+                                           ghmc_timestep=1.0 * unit.femtosecond,
+                                           burn_in_length=1000, n_samples=1000,
+                                           thinning_interval=10, name="coupled_power_oscillators")
