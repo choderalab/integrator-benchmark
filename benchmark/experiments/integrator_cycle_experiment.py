@@ -13,9 +13,6 @@ matplotlib.use('agg')
 # define system
 np.random.seed(0)
 
-figure_directory = "figures/"  # relative to script
-figure_format = ".pdf"
-
 # Define system
 beta = 1.0  # inverse temperature
 dim = 1  # system dimension
@@ -95,14 +92,14 @@ def simulate_all():
     vvvr = vvvr_factory(potential, force, velocity_scale, m)
     vvvr_joint_hists, vvvr_x_hists = get_hists(vvvr)
 
-    for i in range(5):
+    for i in range(6):
         np.save("vvvr_joint_hist_{}.npy".format(i), vvvr_joint_hists[i])
         np.save("vvvr_x_hist_{}.npy".format(i), vvvr_x_hists[i])
 
     baoab = baoab_factory(potential, force, velocity_scale, m)
     baoab_joint_hists, baoab_x_hists = get_hists(baoab)
 
-    for i in range(5):
+    for i in range(6):
         np.save("baoab_joint_hist_{}.npy".format(i), baoab_joint_hists[i])
         np.save("baoab_x_hist_{}.npy".format(i), baoab_x_hists[i])
 

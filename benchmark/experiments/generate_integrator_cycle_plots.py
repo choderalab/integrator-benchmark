@@ -105,7 +105,7 @@ def plot_array_of_joint_errors(baoab_joint_hists, baoab_x_hists,
 
 def plot_all():
     baoab_joint_hists, baoab_x_hists, vvvr_joint_hists, vvvr_x_hists = [], [], [], []
-    for i in range(5):
+    for i in range(6):
         vvvr_joint_hists.append(np.load("vvvr_joint_hist_{}.npy".format(i)))
 
         baoab_joint_hists.append(np.load("baoab_joint_hist_{}.npy".format(i)))
