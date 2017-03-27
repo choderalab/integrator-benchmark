@@ -151,6 +151,75 @@ def baoab_factory(potential, force, velocity_scale, m):
 
     return jit(simulate_baoab)
 
+def aboba_factory(potential, force, velocity_scale, m):
+    """R V O O V R"""
+    potential = jit_if_possible(potential)
+    force = jit_if_possible(force)
+
+    def simulate_aboba(x0, v0, n_steps, gamma, dt):
+        """Simulate n_steps of ABOBA, accumulating heat
+        """
+        Q = 0
+        W_shads = np.zeros(n_steps)
+        x, v = x0, v0
+        xs, vs = np.zeros((n_steps, 6)), np.zeros((n_steps, 6))
+        xs[0, 0] = x0
+        vs[0, 0] = v0
+        E_old = potential(x) + 0.5 * m * v**2
+
+        # Mixing parameters for half O step
+        a = np.exp(-gamma * (dt / 2.0))
+        b = np.sqrt(1 - np.exp(-2 * gamma * (dt / 2.0)))
+
+        for i in range(1, n_steps):
+            # R step
+            x = x + ((dt / 2.0) * v)
+
+            xs[i, 0] = x
+            vs[i, 0] = v
+
+            # V step
+            v = v + ((dt / 2.0) * force(x) / m)
+
+            xs[i, 1] = x
+            vs[i, 1] = v
+
+            # half O step
+            ke_old = 0.5 * m * v**2
+            v = (a * v) + b * velocity_scale * np.random.randn()
+
+            xs[i, 2] = x
+            vs[i, 2] = v
+
+            # half O step
+            v = (a * v) + b * velocity_scale * np.random.randn()
+
+            xs[i, 3] = x
+            vs[i, 3] = v
+
+            ke_new = 0.5 * m * v ** 2
+            Q += (ke_new - ke_old)
+
+            # V step
+            v = v + ((dt / 2.0) * force(x) / m)
+
+            xs[i, 4] = x
+            vs[i, 4] = v
+
+            # R step
+            x = x + ((dt / 2.0) * v)
+
+            xs[i, 5] = x
+            vs[i, 5] = v
+
+            # Update W_shads
+            E_new = potential(x) + 0.5 * m * v ** 2
+            W_shads[i] = (E_new - E_old) - Q
+
+        return xs, vs, Q, W_shads
+
+    return jit(simulate_aboba)
+
 def metropolis_hastings_factory(q):
     q = jit_if_possible(q)
 
