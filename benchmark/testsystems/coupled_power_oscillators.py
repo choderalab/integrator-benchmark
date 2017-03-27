@@ -17,7 +17,7 @@ class CoupledPowerOscillators(TestSystem):
     """
 
     def __init__(self, nx=3, ny=3, nz=3,
-                 K=100.0, b=2.0, mass=39.948 * unit.amu,
+                 K=100.0, b=2.0, mass=39.948 * unit.amu, well_radius=1.0,
                  grid_spacing=1.0 * unit.angstrom,
                  coupling_strength=100.0 * unit.kilocalories_per_mole / unit.angstrom,
                  **kwargs):
@@ -44,7 +44,7 @@ class CoupledPowerOscillators(TestSystem):
         """
 
         # 1. Initialize
-        # 2. Set particles on a 3D grid, and assign a CustomExternalForce to each particle.
+        # 2. Set particles on a 3D grid, use a CustomExternalForce to place each particle in a well
         # 3. Add a HarmonicBondForce to each neighboring pair of particles.
 
 
@@ -69,6 +69,12 @@ class CoupledPowerOscillators(TestSystem):
         # Store the atom indices in a 3-way array
         # so that we can conveniently determine nearest neighbors
         atom_indices = np.zeros((nx, ny, nz), dtype=int)
+        energy_expression = "{K} * (sqrt((x - x0)^2 + (y - y0)^2 + (z - z0)^2) / {r})^{b};".format(
+            b=b, K=K, r=well_radius)
+        force = openmm.CustomExternalForce(energy_expression)
+        force.addPerParticleParameter("x0")
+        force.addPerParticleParameter("y0")
+        force.addPerParticleParameter("z0")
 
         for i in range(nx):
             for j in range(ny):
@@ -76,21 +82,15 @@ class CoupledPowerOscillators(TestSystem):
                     system.addParticle(mass)
 
                     xyz = (grid_spacing.value_in_unit(unit.angstrom)) * np.array([i, j, k], dtype=float)
-                    positions[atom_index] = xyz * unit.angstrom
+                    positions[atom_index] = (xyz + np.random.randn(3)*0.01) * unit.angstrom
 
                     atom_indices[i, j, k] = atom_index
 
                     # Add this particle's well
-
-                    energy_expression = "{K} * ((x - {x0})^{b} + (y - {y0})^{b} + (z - {y0})^{b});".format(
-                        b=b, K=K, x0=xyz[0], y0=xyz[1], z0=xyz[2])
-
-                    #energy_expression = "x^{b} + y^{b} + z^{b};".format(b=b)
-                    force = openmm.CustomExternalForce(energy_expression)
-                    force.addParticle(atom_index)
-                    system.addForce(force)
+                    force.addParticle(atom_index, xyz)
 
                     atom_index += 1
+        system.addForce(force)
 
         ### 3. Couple each pair of neighbors
 
@@ -112,7 +112,7 @@ class CoupledPowerOscillators(TestSystem):
         # Add these HarmonicBondForces to the system
         force = openmm.HarmonicBondForce()
         for bond in bonds:
-            force.addBond(bond[0], bond[1], length=grid_spacing, k=coupling_strength)
+            force.addBond(bond[0], bond[1], grid_spacing, coupling_strength)
         system.addForce(force)
 
         # Create topology.
