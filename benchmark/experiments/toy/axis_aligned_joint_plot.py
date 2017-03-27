@@ -142,7 +142,9 @@ def process_image(xv):
 def plot_image(ax, image, vmin, vmax):
     #ax.imshow(image, origin='lower', extent=list(data_range) * 2, aspect=1, cmap="bwr",
     #          vmin=vmin, vmax=vmax, alpha=0.1)
-    ax.contour(image, extent=list(data_range) * 2, vmin=vmin, vmax=vmax, cmap="bwr", alpha=1, linewidths=1, aspect=1)
+
+    ax.contour(image, extent=list(data_range) * 2,
+               vmin=vmin, vmax=vmax, cmap="bwr", alpha=1, linewidths=1, aspect=1)
 
     v_scale = 0.5
     ax.hlines(0, data_range[0], data_range[1], linewidth=0.5)
@@ -185,13 +187,13 @@ def plot_array_of_joint_errors(timesteps, xv_dict_baoab, xv_dict_aboba):
 
     xv_dict_aboba : maps timestep -> xv array
     """
-    image_height_factor = 4 # in multiples of the height of the x-marginal plot
+    image_height_factor = 1 # in multiples of the height of the x-marginal plot
 
     plt.figure()
     n_plots = len(timesteps)
 
     # each column contains x-marginal, image, image, x-marginal
-    gs = gridspec.GridSpec(nrows=4, ncols=n_plots, height_ratios=[1, image_height_factor, 1, image_height_factor])
+    gs = gridspec.GridSpec(nrows=4, ncols=n_plots, hspace=0, wspace=0, height_ratios=[1, image_height_factor, 1, image_height_factor])
 
 
     data = []
@@ -223,8 +225,8 @@ def plot_array_of_joint_errors(timesteps, xv_dict_baoab, xv_dict_aboba):
 
     # generate plots
     for i, (baoab_image, aboba_image, baoab_marginal, aboba_marginal) in enumerate(tqdm(data)):
-        upper_image_ax = plt.subplot(gs[1, i])
-        upper_marginal_ax = plt.subplot(gs[0, i], sharex=upper_image_ax)
+        upper_image_ax = plt.subplot(gs[1, i], figsize=(3,3))
+        upper_marginal_ax = plt.subplot(gs[0, i], sharex=upper_image_ax, figsize=(3,3))
 
 
         lower_image_ax = plt.subplot(gs[3, i], sharex=upper_image_ax)
@@ -285,7 +287,7 @@ def plot_kl_divergences(timesteps, baoab_conf, baoab_joint, aboba_conf, aboba_jo
     plt.ylabel("$\mathcal{D}_{KL}$")
 
     plt.legend(loc="best", fancybox=True)
-    plt.savefig("kl-divergences-from-histograms.jpg", dpi=300)
+    plt.savefig("kl-divergences-from-histograms.jpg", dpi=600)
     plt.close()
 
 if __name__ == "__main__":
@@ -297,4 +299,4 @@ if __name__ == "__main__":
     xv_dict_baoab, xv_dict_aboba = load_dictionaries(fnames)
     print("plotting...")
     timesteps, data = plot_array_of_joint_errors([0.6, 0.8, 1.0, 1.2], xv_dict_baoab, xv_dict_aboba)
-    plot_kl_divergences(timesteps, *get_kl_divergences(data))
+    #plot_kl_divergences(timesteps, *get_kl_divergences(data))

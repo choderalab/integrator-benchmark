@@ -46,7 +46,7 @@ def plot_array_of_joint_errors(baoab_joint_hists, baoab_x_hists,
     xv_dict_baoab : maps timestep -> xv array
 
     """
-    image_height_factor = 4 # in multiples of the height of the x-marginal plot
+    image_height_factor = 5 # in multiples of the height of the x-marginal plot
 
     plt.figure()
     n_plots = len(baoab_joint_hists)
@@ -90,6 +90,9 @@ def plot_array_of_joint_errors(baoab_joint_hists, baoab_x_hists,
 
         lower_image_ax = plt.subplot(gs[3, i], sharex=upper_image_ax)
         lower_marginal_ax = plt.subplot(gs[2, i], sharex=upper_image_ax)
+
+        #for ax in [upper_image_ax, lower_image_ax]:
+        #    ax.set_aspect(2)
 
         # plot errors in joint distribution
         plot_image(upper_image_ax, baoab_image, vmin, vmax)
