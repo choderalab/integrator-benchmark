@@ -38,21 +38,18 @@ def get_marginal_error_curve(sampled_x_hist):
     curve = difference_between_histograms(rho_x, pi_x)
     return curve
 
-def plot_array_of_joint_errors(baoab_joint_hists, baoab_x_hists,
-                               vvvr_joint_hists, vvvr_x_hists):
+def plot_array_of_joint_errors(scheme, joint_hists, x_hists):
     """
     timesteps : array
-
-    xv_dict_baoab : maps timestep -> xv array
 
     """
     image_height_factor = 5 # in multiples of the height of the x-marginal plot
 
     plt.figure()
-    n_plots = len(baoab_joint_hists)
+    n_plots = len(joint_hists)
 
     # each column contains x-marginal, image, image, x-marginal
-    gs = gridspec.GridSpec(nrows=4, ncols=n_plots, height_ratios=[1, image_height_factor, 1, image_height_factor])
+    gs = gridspec.GridSpec(nrows=2, ncols=n_plots, height_ratios=[1, image_height_factor])
 
 
     data = []
@@ -64,63 +61,45 @@ def plot_array_of_joint_errors(baoab_joint_hists, baoab_x_hists,
     # load data / generate images
     for i in range(n_plots):
 
-        baoab_image = process_image(baoab_joint_hists[i])
-        vvvr_image = process_image(vvvr_joint_hists[i])
+        image = process_image(joint_hists[i])
 
-        max_image_abs_val = update_running_max(max_image_abs_val, baoab_image)
-        max_image_abs_val = update_running_max(max_image_abs_val, vvvr_image)
+        max_image_abs_val = update_running_max(max_image_abs_val, image)
 
-        baoab_marginal = get_marginal_error_curve(baoab_x_hists[i])
-        vvvr_marginal = get_marginal_error_curve(vvvr_x_hists[i])
+        marginal = get_marginal_error_curve(x_hists[i])
 
-        max_marginal_abs_val = update_running_max(max_marginal_abs_val, baoab_marginal)
-        max_marginal_abs_val = update_running_max(max_marginal_abs_val, vvvr_marginal)
+        max_marginal_abs_val = update_running_max(max_marginal_abs_val, marginal)
 
-        data.append((baoab_image, vvvr_image, baoab_marginal, vvvr_marginal))
+        data.append((image, marginal))
 
     # get the scales to use
     vmin, vmax = - max_image_abs_val, max_image_abs_val
     ymin, ymax = - max_marginal_abs_val, max_marginal_abs_val
 
     # generate plots
-    for i, (baoab_image, vvvr_image, baoab_marginal, vvvr_marginal) in enumerate(tqdm(data)):
-        upper_image_ax = plt.subplot(gs[1, i])
-        upper_marginal_ax = plt.subplot(gs[0, i], sharex=upper_image_ax)
-
-
-        lower_image_ax = plt.subplot(gs[3, i], sharex=upper_image_ax)
-        lower_marginal_ax = plt.subplot(gs[2, i], sharex=upper_image_ax)
-
-        #for ax in [upper_image_ax, lower_image_ax]:
-        #    ax.set_aspect(2)
+    for i, (image, marginal) in enumerate(tqdm(data)):
+        image_ax = plt.subplot(gs[1, i])
+        marginal_ax = plt.subplot(gs[0, i], sharex=image_ax)
 
         # plot errors in joint distribution
-        plot_image(upper_image_ax, baoab_image, vmin, vmax)
-        plot_image(lower_image_ax, vvvr_image, vmin, vmax)
+        plot_image(image_ax, image, vmin, vmax)
 
         # plot x-marginal errors
-        plot_marginal_error_curve(upper_marginal_ax, baoab_marginal, ymin, ymax)
-        plot_marginal_error_curve(lower_marginal_ax, vvvr_marginal, ymin, ymax)
+        plot_marginal_error_curve(marginal_ax, marginal, ymin, ymax)
 
-    plt.tight_layout(pad=0.0)
-    plt.savefig(generate_figure_filename('quartic_eq_joint_dist_array_w_x_marginals_cycle.jpg'), dpi=300)
+    #plt.tight_layout(pad=0.0)
+    plt.savefig(generate_figure_filename('quartic_eq_joint_dist_array_w_x_marginals_cycle_{}.jpg'.format(scheme)), dpi=300)
     plt.close()
 
-def plot_all():
-    baoab_joint_hists, baoab_x_hists, vvvr_joint_hists, vvvr_x_hists = [], [], [], []
-    for i in range(6):
-        vvvr_joint_hists.append(np.load("vvvr_joint_hist_{}.npy".format(i)))
+def plot_all(schemes):
 
-        baoab_joint_hists.append(np.load("baoab_joint_hist_{}.npy".format(i)))
+    for scheme in schemes:
+        joint_hists, x_hists = [], []
+        for i in range(6):
+            joint_hists.append(np.load("{}_joint_hist_{}.npy".format(scheme, i)))
+            x_hists.append(np.load("{}_x_hist_{}.npy".format(scheme, i)))
 
-        vvvr_x_hists.append(np.load("vvvr_x_hist_{}.npy".format(i)))
 
-        baoab_x_hists.append(np.load("baoab_x_hist_{}.npy".format(i)))
-
-    plot_array_of_joint_errors(baoab_joint_hists=baoab_joint_hists,
-                               baoab_x_hists=baoab_x_hists,
-                               vvvr_joint_hists=vvvr_joint_hists,
-                               vvvr_x_hists=vvvr_x_hists)
+        plot_array_of_joint_errors(scheme, joint_hists=joint_hists, x_hists=x_hists)
 
 if __name__ == "__main__":
-    plot_all()
+    plot_all(schemes=["vvvr", "baoab", "aboba"])

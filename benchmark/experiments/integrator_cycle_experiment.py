@@ -4,7 +4,7 @@ import matplotlib
 from benchmark.experiments.toy.axis_aligned_joint_plot import bin_edges, one_d_hist_args
 # one_d_hist_args["density"] = False
 
-from benchmark.integrators.numba_integrators import vvvr_factory, baoab_factory
+from benchmark.integrators.numba_integrators import vvvr_factory, baoab_factory, aboba_factory
 from generate_integrator_cycle_plots import plot_all
 
 matplotlib.use('agg')
@@ -103,7 +103,14 @@ def simulate_all():
         np.save("baoab_joint_hist_{}.npy".format(i), baoab_joint_hists[i])
         np.save("baoab_x_hist_{}.npy".format(i), baoab_x_hists[i])
 
+    aboba = aboba_factory(potential, force, velocity_scale, m)
+    aboba_joint_hists, aboba_x_hists = get_hists(aboba)
+
+    for i in range(6):
+        np.save("aboba_joint_hist_{}.npy".format(i), aboba_joint_hists[i])
+        np.save("aboba_x_hist_{}.npy".format(i), aboba_x_hists[i])
+
 if __name__ == "__main__":
     simulate_all()
-    plot_all()
+    plot_all(["vvvr", "baoab", "aboba"])
 
