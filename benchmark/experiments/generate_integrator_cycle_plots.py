@@ -10,12 +10,11 @@ import os
 from glob import glob
 from tqdm import tqdm
 
-from benchmark.experiments.toy.axis_aligned_joint_plot import joint_eq_hist, plot_marginal_error_curve, plot_image, difference_between_histograms, pi_x
+from benchmark.experiments.toy.axis_aligned_joint_plot import joint_eq_hist, plot_marginal_error_curve, difference_between_histograms, pi_x, plot_image, data_range
 
 from benchmark.experiments.toy.axis_aligned_joint_plot import process_1d_histogram, process_2d_histogram
 def normalize(x):
     return x / np.sum(x)
-
 
 
 #pi_x = process_1d_histogram(normalize(pi_x))

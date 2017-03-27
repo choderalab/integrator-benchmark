@@ -140,8 +140,13 @@ def process_image(xv):
     return image
 
 def plot_image(ax, image, vmin, vmax):
-    ax.imshow(image, origin='lower', extent=list(data_range) * 2, aspect=1, cmap="bwr",
-              vmin=vmin, vmax=vmax)
+    #ax.imshow(image, origin='lower', extent=list(data_range) * 2, aspect=1, cmap="bwr",
+    #          vmin=vmin, vmax=vmax, alpha=0.1)
+    ax.contour(image, extent=list(data_range) * 2, vmin=vmin, vmax=vmax, cmap="bwr", alpha=1, linewidths=1, aspect=1)
+
+    v_scale = 0.5
+    ax.hlines(0, data_range[0], data_range[1], linewidth=0.5)
+    ax.vlines(0, data_range[0]*v_scale, data_range[1]*v_scale, linewidth=0.5)
     ax.axis('off')
 
 def plot_marginal_error_curve(ax, curve, ymin, ymax):
@@ -149,9 +154,12 @@ def plot_marginal_error_curve(ax, curve, ymin, ymax):
     and shading the area between the curve and the x-axis red for positive, blue for negative"""
 
     #ax.plot(x_space, curve, linewidth=0.5, color="grey", clip_on=False)
-    ax.hlines(0, x_space[0], x_space[-1], color="grey", linestyles="--")
-    ax.fill_between(x_space, np.maximum(curve, 0), color="red", alpha=0.3)
-    ax.fill_between(x_space, np.minimum(curve, 0), color="blue", alpha=0.3)
+    #ax.hlines(0, x_space[0], x_space[-1], color="grey", linestyles="--")
+    ax.vlines(0, ymin, ymax, linewidth=0.5)
+    ax.plot(x_space, np.maximum(curve, 0), color="red")
+    ax.plot(x_space, np.minimum(curve, 0), color="blue")
+    ax.fill_between(x_space, np.maximum(curve, 0), color="red", alpha=0.1)
+    ax.fill_between(x_space, np.minimum(curve, 0), color="blue", alpha=0.1)
     ax.axis("off")
     ax.set_ylim(ymin, ymax)
 
@@ -239,6 +247,7 @@ def plot_array_of_joint_errors(timesteps, xv_dict_baoab, xv_dict_aboba):
 def load_samples(fname):
     """Load the (x,v) samples from fname, and fetch the condition_name"""
     xv = np.load(fname)
+    print(xv.shape)
     condition_name = fname[fname.find("quartic_xv") + 10:-4]
     return xv, condition_name
 
