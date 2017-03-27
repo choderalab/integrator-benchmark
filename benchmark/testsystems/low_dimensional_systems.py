@@ -1,8 +1,9 @@
 import numpy as np
 from openmmtools.testsystems import CustomExternalForcesTestSystem, AlanineDipeptideVacuum, WaterBox, AlanineDipeptideExplicit, SrcImplicit
 import os
+from tqdm import tqdm
 
-from bookkeepers import BookkeepingSimulator
+from bookkeepers import BookkeepingSimulator, NonequilibriumSimulator
 from benchmark.integrators import metropolis_hastings_factory
 from benchmark import DATA_PATH
 
@@ -37,11 +38,13 @@ def load_mts_test(**args):
                                                 n_particles=n_particles)
     return testsystem.topology, testsystem.system, testsystem.positions
 
-class NumbaBookkeepingQuarticSimulator(BookkeepingSimulator):
+class NumbaBookkeepingQuarticSimulator():
     def __init__(self, mass=10.0, beta=1.0):
+        self.mass = mass
         self.beta = beta
         self.velocity_scale =np.sqrt(1.0 / (beta * mass))
         sigma2 = self.velocity_scale ** 2
+
 
         self.q = lambda x : np.exp(-x**4)
         # timestep = 1.0
@@ -62,6 +65,11 @@ class NumbaBookkeepingQuarticSimulator(BookkeepingSimulator):
         def q(x):
             return np.exp(log_q(x))
 
+        self.potential = potential
+        self.force = force
+        self.reduced_potential = reduced_potential
+        self.log_q = log_q
+        self.q = q
         self.equilibrium_simulator = metropolis_hastings_factory(q)
         self.name = "quartic"
         self._path_to_samples = self.get_path_to_samples()
@@ -79,7 +87,7 @@ class NumbaBookkeepingQuarticSimulator(BookkeepingSimulator):
             self.x_samples = self.collect_equilibrium_samples()
             self.save_equilibrium_samples(self.x_samples)
 
-    def collect_equilibrium_samples(self, n_samples=10000):
+    def collect_equilibrium_samples(self, n_samples=1000000):
         """Collect equilibrium samples, return as (n_samples, ) numpy array"""
         equilibrium_samples = self.equilibrium_simulator(x0=np.random.randn(), n_steps=n_samples)
         return np.array(equilibrium_samples)
@@ -113,8 +121,46 @@ class NumbaBookkeepingQuarticSimulator(BookkeepingSimulator):
         """Sample velocity marginal."""
         return np.random.randn() * self.velocity_scale
 
+quartic = NumbaBookkeepingQuarticSimulator()
+
+class NumbaNonequilibriumSimulator():
+    """Nonequilibrium simulator, supporting shadow_work accumulation, and drawing x, v, from equilibrium.
+
+    Numba integrators do this: xs, vs, Q, W_shads = numba_integrator(x0, v0, n_steps)
+    """
+
+    def __init__(self, equilibrium_simulator, integrator):
+        self.equilibrium_simulator, self.integrator = equilibrium_simulator, integrator
+
+    def sample_x_from_equilibrium(self):
+        """Draw sample (uniformly, with replacement) from cache of configuration samples"""
+        return self.equilibrium_simulator.sample_x_from_equilibrium()
+
+    def sample_v_from_equilibrium(self):
+        """Sample velocities from Maxwell-Boltzmann distribution."""
+        return self.equilibrium_simulator.sample_v_from_equilibrium()
+
     def accumulate_shadow_work(self, x_0, v_0, n_steps):
-        """Simulate for n_steps, starting at x_0, v_0.
-        Returns a length n_steps numpy array of shadow_work values"""
+        """Run the integrator for n_steps and return the shadow work accumulated"""
+        return self.integrator(x_0, v_0, n_steps)[-1][-1]
 
 
+    def collect_protocol_samples(self, n_protocol_samples, protocol_length, marginal="configuration"):
+        """Perform nonequilibrium measurements, aimed at measuring the free energy difference for the chosen marginal."""
+        W_shads_F, W_shads_R = [], []
+        for _ in tqdm(range(n_protocol_samples)):
+            x_0, v_0 = self.sample_x_from_equilibrium(), self.sample_v_from_equilibrium()
+            xs, vs, Q, W_shads = self.integrator(x0=x_0, v0=v_0, n_steps=protocol_length)
+            W_shads_F.append(W_shads[-1])
+
+            x_1 = xs[-1][-1]
+            if marginal == "configuration":
+                v_1  = self.sample_v_from_equilibrium()
+            elif marginal == "full":
+                v_1 = vs[-1][-1]
+            else:
+                raise NotImplementedError("`marginal` must be either 'configuration' or 'full'")
+
+            W_shads_R.append(self.accumulate_shadow_work(x_1, v_1, protocol_length))
+
+        return np.array(W_shads_F), np.array(W_shads_R)
