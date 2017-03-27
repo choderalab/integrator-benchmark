@@ -20,7 +20,7 @@ def vvvr_factory(potential, force, velocity_scale, m):
         Q = 0
         W_shads = np.zeros(n_steps)
         x, v = x0, v0
-        xs, vs = np.zeros((n_steps, 5)), np.zeros((n_steps, 5))
+        xs, vs = np.zeros((n_steps, 6)), np.zeros((n_steps, 6))
         xs[0, 0] = x0
         vs[0, 0] = v0
         E_old = potential(x) + 0.5 * m * v**2
@@ -44,17 +44,23 @@ def vvvr_factory(potential, force, velocity_scale, m):
             xs[i, 1] = x
             vs[i, 1] = v
 
-            # R step
-            x = x + (dt * v)
+            # half R step
+            x = x + ((dt/2.0) * v)
 
             xs[i, 2] = x
             vs[i, 2] = v
 
-            # V step
-            v = v + ((dt / 2.0) * force(x) / m)
+            # half R step
+            x = x + ((dt/2.0) * v)
 
             xs[i, 3] = x
             vs[i, 3] = v
+
+            # V step
+            v = v + ((dt / 2.0) * force(x) / m)
+
+            xs[i, 4] = x
+            vs[i, 4] = v
 
             # O step
             ke_old = 0.5 * m * v ** 2
@@ -62,8 +68,8 @@ def vvvr_factory(potential, force, velocity_scale, m):
             ke_new = 0.5 * m * v ** 2
             Q += (ke_new - ke_old)
 
-            xs[i, 4] = x
-            vs[i, 4] = v
+            xs[i, 5] = x
+            vs[i, 5] = v
 
             # Update W_shads
             E_new = potential(x) + 0.5 * m * v ** 2
@@ -87,13 +93,14 @@ def baoab_factory(potential, force, velocity_scale, m):
         Q = 0
         W_shads = np.zeros(n_steps)
         x, v = x0, v0
-        xs, vs = np.zeros((n_steps, 5)), np.zeros((n_steps, 5))
+        xs, vs = np.zeros((n_steps, 6)), np.zeros((n_steps, 6))
         xs[0, 0] = x0
         vs[0, 0] = v0
         E_old = potential(x) + 0.5 * m * v**2
 
-        a = np.exp(-gamma * (dt))
-        b = np.sqrt(1 - np.exp(-2 * gamma * (dt)))
+        # Mixing parameters for half O step
+        a = np.exp(-gamma * (dt / 2.0))
+        b = np.sqrt(1 - np.exp(-2 * gamma * (dt / 2.0)))
 
         for i in range(1, n_steps):
             # V step
@@ -108,26 +115,33 @@ def baoab_factory(potential, force, velocity_scale, m):
             xs[i, 1] = x
             vs[i, 1] = v
 
-            # O step
+            # half O step
             ke_old = 0.5 * m * v**2
             v = (a * v) + b * velocity_scale * np.random.randn()
-            ke_new = 0.5 * m * v ** 2
-            Q += (ke_new - ke_old)
 
             xs[i, 2] = x
             vs[i, 2] = v
 
-            # R step
-            x = x + ((dt / 2.0) * v)
+            # half O step
+            v = (a * v) + b * velocity_scale * np.random.randn()
 
             xs[i, 3] = x
             vs[i, 3] = v
 
-            # V step
-            v = v + ((dt / 2.0) * force(x) / m)
+            ke_new = 0.5 * m * v ** 2
+            Q += (ke_new - ke_old)
+
+            # R step
+            x = x + ((dt / 2.0) * v)
 
             xs[i, 4] = x
             vs[i, 4] = v
+
+            # V step
+            v = v + ((dt / 2.0) * force(x) / m)
+
+            xs[i, 5] = x
+            vs[i, 5] = v
 
             # Update W_shads
             E_new = potential(x) + 0.5 * m * v ** 2
