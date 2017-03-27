@@ -99,3 +99,4 @@ ENV/
 
 # Figures
 figures/
+benchmark/experiments/toy/figures/
