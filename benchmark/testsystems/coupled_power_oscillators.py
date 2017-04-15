@@ -6,8 +6,8 @@ from simtk.openmm import app
 
 from openmmtools.testsystems import TestSystem
 
-from bookkeepers import EquilibriumSimulator
-from configuration import configure_platform
+from benchmark.testsystems.bookkeepers import EquilibriumSimulator
+from benchmark.testsystems.configuration import configure_platform
 
 
 class CoupledPowerOscillators(TestSystem):

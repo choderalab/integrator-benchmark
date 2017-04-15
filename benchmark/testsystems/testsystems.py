@@ -2,7 +2,7 @@ import numpy as np
 from openmmtools.testsystems import SrcImplicit, DHFRExplicit
 from simtk.openmm import app
 from simtk import unit
-from configuration import configure_platform
+from benchmark.testsystems.configuration import configure_platform
 from benchmark.utilities import keep_only_some_forces
 
 

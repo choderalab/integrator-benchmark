@@ -4,7 +4,7 @@ import numpy as np
 from openmmtools.testsystems import CustomExternalForcesTestSystem, AlanineDipeptideVacuum, WaterBox, AlanineDipeptideExplicit, SrcImplicit
 from simtk.openmm import app
 from simtk import unit
-from configuration import configure_platform
+from benchmark.testsystems.configuration import configure_platform
 from benchmark.utilities import keep_only_some_forces
 
 
@@ -34,7 +34,7 @@ def load_solvated_alanine(constrained=True):
 
 
 temperature = 298 * unit.kelvin
-from bookkeepers import EquilibriumSimulator
+from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 top, sys, pos = load_alanine(constrained=True)
 alanine_constrained = EquilibriumSimulator(platform=configure_platform("Reference"),
                                            topology=top, system=sys, positions=pos,
