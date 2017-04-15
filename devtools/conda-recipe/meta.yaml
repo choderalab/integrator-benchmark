@@ -1,6 +1,6 @@
 package:
-  name: integrator-benchmark-dev
-  version: !!str 0.0.0
+  name: benchmark-dev
+  version: 0.0.0
 
 source:
   path: ../..
