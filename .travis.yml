@@ -1,16 +1,5 @@
 language: c
 sudo: false
-addons:
-  apt:
-    sources:
-    - ubuntu-toolchain-r-test
-    packages:
-      - g++
-      - gfortran
-      - valgrind
-      - csh
-      - g++-multilib
-      - gcc-multilib
 
 branches:
   only:
@@ -39,6 +28,10 @@ script:
   - cd devtools && nosetests $PACKAGENAME --nocapture --verbosity=2 --with-timer -a '!slow' && cd ..
   # Test the examples
   - python benchmark/examples/baoab_vs_vvvr.py
+
+os:
+  - osx
+  - linux
 
 env:
   matrix:
