@@ -88,6 +88,7 @@ class EquilibriumSimulator():
 
     def collect_equilibrium_samples(self):
         """Collect equilibrium samples, return as (n_samples, n_atoms, 3) numpy array"""
+        print("Collecting equilibrium samples for '%s'..." % self.name)
         # Minimize energy by gradient descent
         print("Minimizing...")
         minimizer = GradientDescentMinimizationIntegrator()
@@ -183,6 +184,11 @@ class NonequilibriumSimulator(BookkeepingSimulator):
 
         set_positions(self.simulation, x_0)
         set_velocities(self.simulation, v_0)
+
+        # Apply position and velocity constraints.
+        tol = self.simulation.context.getIntegrator().getConstraintTolerance()
+        self.simulation.context.applyConstraints(tol)
+        self.simulation.context.applyVelocityConstraints(tol)
 
         E_0 = get_energy()
         Q_0 = get_heat()
