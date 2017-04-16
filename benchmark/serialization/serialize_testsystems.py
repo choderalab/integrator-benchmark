@@ -8,5 +8,5 @@ for name in system_params.keys():
         top, sys, pos = system_params[name]["loader"](constrained)
         c = "constrained"
         if not constrained: c = "unconstrained"
-        with open("serialized_testsystems/{}_{}.xml".format(name, c), "w") as f:
+        with open("serialized_testsystems/{}_{}.xml".format(name, c), "wb") as f:
             f.writelines(XmlSerializer.serialize(sys))

@@ -6,18 +6,17 @@ import os
 import pickle
 import numpy as np
 from simtk import unit
-from benchmark.plotting import plot_scheme_comparison
+#from baoab_vs_aboba_analysis import plot_results
 from benchmark.evaluation.analysis import estimate_nonequilibrium_free_energy
 
 if __name__ == "__main__":
     n_protocol_samples, protocol_length = 1000, 50
     system_name = "alanine_unconstrained"
     equilibrium_simulator = benchmark.testsystems.alanine_unconstrained
-    target_filename = os.path.join(DATA_PATH, "scheme_comparison_{}.pkl".format(system_name))
+    target_filename = os.path.join(DATA_PATH, "baoab_vs_aboba_{}.pkl".format(system_name))
 
-    schemes = {"BAO": "V R O", "BABO": "V R V O",
-               "ABO": "R V O", "ABAO": "R V R O"}
-    timesteps = np.linspace(0.1, 1.5, 5)
+    schemes = {"BAOAB": "V R O R V", "VVVR": "O V R V O"}
+    timesteps = np.linspace(0.1, 3.0, 10)
     noneq_simulators = {}
     for name, scheme in schemes.items():
         for timestep in timesteps:
@@ -40,7 +39,7 @@ if __name__ == "__main__":
             DeltaF_neq, squared_uncertainty = estimate_nonequilibrium_free_energy(W_shads_F, W_shads_R)
             print("\t{:.3f} +/- {:.3f}".format(DeltaF_neq, np.sqrt(squared_uncertainty)))
 
-    with open(target_filename, "w") as f:
+    with open(target_filename, "wb") as f:
         pickle.dump(results, f)
 
-    plot_scheme_comparison(target_filename, system_name)
+    plot_results(target_filename, system_name)

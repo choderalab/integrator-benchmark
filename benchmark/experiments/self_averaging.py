@@ -51,5 +51,5 @@ if __name__ == "__main__":
         results[coupling_strength] = W_shads
 
 
-    with open(target_filename, "w") as f:
+    with open(target_filename, "wb") as f:
         pickle.dump(results, f)

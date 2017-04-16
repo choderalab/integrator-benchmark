@@ -98,4 +98,4 @@ if __name__ == "__main__":
 
     from pickle import dump
 
-    with open("constrained_energies.pkl", "w") as f: dump(results, f)
+    with open("constrained_energies.pkl", "wb") as f: dump(results, f)

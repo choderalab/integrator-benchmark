@@ -58,7 +58,7 @@ if __name__ == "__main__":
             DeltaF_neq, squared_uncertainty = estimate_nonequilibrium_free_energy(W_shads_F, W_shads_R)
             print("\t{:.5f} +/- {:.5f}".format(DeltaF_neq, np.sqrt(squared_uncertainty)))
 
-    with open(target_filename, "w") as f:
+    with open(target_filename, "wb") as f:
         pickle.dump(results, f)
 
     plot_scheme_comparison(target_filename, system_name)

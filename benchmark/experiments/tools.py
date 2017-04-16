@@ -95,7 +95,7 @@ def collect_and_save_results(schemes, simulation_factory, equilibrium_samples,
                            M=M, midpoint_operator=midpoint_operator, temperature=temperature)
         print("\n".join((scheme, get_summary_string(results[scheme], linebreaks=True))))
 
-    with open("{}_results.pkl".format(name), "w") as f: dump(results, f)
+    with open("{}_results.pkl".format(name), "wb") as f: dump(results, f)
 
     return results
 

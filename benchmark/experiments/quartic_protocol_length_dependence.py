@@ -48,7 +48,7 @@ if __name__ == "__main__":
         errors.append(np.sqrt(squared_uncertainty))
         print("\t{:.5f} +/- {:.5f}".format(DeltaF_neq, np.sqrt(squared_uncertainty)))
 
-    with open(data_filename, "w") as f:
+    with open(data_filename, "wb") as f:
         pickle.dump(results, f)
 
     plt.figure()
