@@ -12,7 +12,8 @@ from openmmtools.integrators import GHMCIntegrator
 from tqdm import tqdm
 
 from benchmark.plotting import plot
-from benchmark.utilities import get_total_energy, get_summary_string, measure_shadow_work
+from benchmark.utilities import get_total_energy, get_summary_string
+from benchmark.tests.measure_shadow_work import measure_shadow_work
 
 
 def randomization_midpoint_operator(simulation, temperature):
