@@ -23,6 +23,7 @@ requirements:
     - pymbar
     - seaborn
     - tqdm
+    - scikit-learn
 
   run:
     - python
@@ -37,6 +38,7 @@ requirements:
     - pymbar
     - seaborn
     - tqdm
+    - scikit-learn
 
 test:
   requires:
