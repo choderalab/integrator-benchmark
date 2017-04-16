@@ -12,8 +12,8 @@ from simtk import unit
 from simtk.openmm import app
 from tqdm import tqdm
 
-from benchmark.experiments.benchmark import estimate_nonequilibrium_free_energy
-from benchmark.experiments.benchmark import get_equilibrium_samples, \
+from benchmark.experiments.tools import estimate_nonequilibrium_free_energy
+from benchmark.experiments.tools import get_equilibrium_samples, \
     randomization_midpoint_operator, apply_protocol
 from benchmark.integrators.integrators import LangevinSplittingIntegrator
 from code.testsystems import system_params

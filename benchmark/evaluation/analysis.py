@@ -1,6 +1,6 @@
 import numpy as np
 from pickle import load
-from entropy import estimate_marginal_entropies, estimate_entropy
+from .entropy import estimate_marginal_entropies, estimate_entropy
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
