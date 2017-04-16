@@ -24,6 +24,7 @@ requirements:
     - seaborn
     - tqdm
     - scikit-learn
+    - numba
 
   run:
     - python
@@ -39,6 +40,7 @@ requirements:
     - seaborn
     - tqdm
     - scikit-learn
+    - numba
 
 test:
   requires:
