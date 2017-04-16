@@ -27,9 +27,10 @@ script:
   # Install the package
   - conda install --yes --use-local ${PACKAGENAME}-dev
   # Test the package
-  - cd devtools && nosetests $PACKAGENAME --nocapture --verbosity=2 --with-timer -a '!slow' && cd ..
+  #- cd devtools && nosetests $PACKAGENAME --nocapture --verbosity=2 --with-timer -a '!slow' && cd ..
+  - nosetests $PACKAGENAME --nocapture --verbosity=2 --with-timer
   # Test the examples
-  - python benchmark/examples/baoab_vs_vvvr.py
+  - python benchmark/experiments/baoab_vs_vvvr.py
 
 os:
   - osx
