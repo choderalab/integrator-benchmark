@@ -3,7 +3,7 @@
 
 import matplotlib
 
-from code.testsystems import system_params
+from benchmark.testsystems import system_params
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -13,7 +13,7 @@ from simtk.openmm import app
 from simtk import unit
 import numpy as np
 from tqdm import tqdm
-from code.utils import stderr
+from benchmark.utilities import stderr
 histstyle = {"alpha":0.3,
              "histtype":"stepfilled",
              "bins":50

@@ -80,14 +80,19 @@ simple_params = {
 }
 
 harmonic_oscillator_params = simple_params.copy()
+from .low_dimensional_systems import load_harmonic_oscillator
 harmonic_oscillator_params["loader"] = load_harmonic_oscillator
 
 quartic_params = simple_params.copy()
+from .low_dimensional_systems import load_quartic_potential
 quartic_params["loader"] = load_quartic_potential
 
 mts_params = simple_params.copy()
+from .low_dimensional_systems import load_mts_test
 mts_params["loader"] = load_mts_test
 
+from .waterbox import load_waterbox
+from .alanine_dipeptide import load_alanine
 system_params = {
     "harmonic_oscillator": harmonic_oscillator_params,
     "quartic_potential": quartic_params,

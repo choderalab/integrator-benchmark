@@ -11,7 +11,8 @@ from pickle import dump
 from openmmtools.integrators import GHMCIntegrator
 from tqdm import tqdm
 
-from benchmark.utils import plot, get_total_energy, get_summary_string, measure_shadow_work
+from benchmark.plotting import plot
+from benchmark.utilities import get_total_energy, get_summary_string, measure_shadow_work
 
 
 def randomization_midpoint_operator(simulation, temperature):
