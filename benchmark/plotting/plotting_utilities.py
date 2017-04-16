@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import pickle
 import os
 from benchmark import FIGURE_PATH
+from benchmark.utilities import unpack_trajs
 figure_directory = FIGURE_PATH
 figure_format = ".jpg"
 

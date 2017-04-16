@@ -8,21 +8,24 @@ import numpy as np
 from simtk import unit
 #from baoab_vs_aboba_analysis import plot_results
 from benchmark.evaluation.analysis import estimate_nonequilibrium_free_energy
+from benchmark.plotting import plot, savefig
 
 if __name__ == "__main__":
     n_protocol_samples, protocol_length = 1000, 50
-    system_name = "alanine_unconstrained"
-    equilibrium_simulator = benchmark.testsystems.alanine_unconstrained
+    system_name = "alanine_constrained"
+    equilibrium_simulator = benchmark.testsystems.alanine_constrained
     target_filename = os.path.join(DATA_PATH, "baoab_vs_aboba_{}.pkl".format(system_name))
 
-    schemes = {"BAOAB": "V R O R V", "VVVR": "O V R V O"}
+    schemes = {"BAOAB": "V R O O R V", "VVVR": "O V R R V O"}
     timesteps = np.linspace(0.1, 3.0, 10)
     noneq_simulators = {}
     for name, scheme in schemes.items():
         for timestep in timesteps:
             noneq_simulators[(name, timestep)] = NonequilibriumSimulator(equilibrium_simulator,
                                                          LangevinSplittingIntegrator(
-                                                             splitting=scheme, timestep=timestep * unit.femtosecond))
+                                                             splitting=scheme,
+                                                             timestep=timestep * unit.femtosecond,
+                                                             collision_rate=1.0/unit.picoseconds))
     # need to catch "Exception: Particle coordinate is nan"
 
     results = {}
@@ -42,4 +45,4 @@ if __name__ == "__main__":
     with open(target_filename, "wb") as f:
         pickle.dump(results, f)
 
-    plot_results(target_filename, system_name)
+    # TODO: Plot stuff
