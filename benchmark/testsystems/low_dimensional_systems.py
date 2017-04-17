@@ -3,7 +3,7 @@ from openmmtools.testsystems import CustomExternalForcesTestSystem, AlanineDipep
 import os
 from tqdm import tqdm
 
-from bookkeepers import BookkeepingSimulator, NonequilibriumSimulator
+from benchmark.testsystems.bookkeepers import BookkeepingSimulator, NonequilibriumSimulator
 from benchmark.integrators import metropolis_hastings_factory
 from benchmark import DATA_PATH
 

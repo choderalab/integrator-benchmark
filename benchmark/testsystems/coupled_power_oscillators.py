@@ -6,8 +6,8 @@ from simtk.openmm import app
 
 from openmmtools.testsystems import TestSystem
 
-from bookkeepers import EquilibriumSimulator
-from configuration import configure_platform
+from benchmark.testsystems.bookkeepers import EquilibriumSimulator
+from benchmark.testsystems.configuration import configure_platform
 
 
 class CoupledPowerOscillators(TestSystem):
@@ -112,7 +112,7 @@ class CoupledPowerOscillators(TestSystem):
         # Add these HarmonicBondForces to the system
         force = openmm.HarmonicBondForce()
         for bond in bonds:
-            force.addBond(bond[0], bond[1], grid_spacing, coupling_strength)
+            force.addBond(int(bond[0]), int(bond[1]), grid_spacing, coupling_strength)
         system.addForce(force)
 
         # Create topology.

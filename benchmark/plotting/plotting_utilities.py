@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import pickle
 import os
 from benchmark import FIGURE_PATH
+from benchmark.utilities import unpack_trajs
 figure_directory = FIGURE_PATH
 figure_format = ".jpg"
 
@@ -129,7 +130,7 @@ def plot_scheme_comparison(target_filename, name):
     and one for the
         i.e. results[marginal][(name, timestep)] = W_shads_F, W_shads_R
     """
-    with open(target_filename, "r") as f:
+    with open(target_filename, "rb") as f:
         results = pickle.load(f)
 
     def get_schemes(result_dict):

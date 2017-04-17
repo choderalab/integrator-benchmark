@@ -1,6 +1,6 @@
 import numpy as np
 from pickle import load
-from entropy import estimate_marginal_entropies, estimate_entropy
+from .entropy import estimate_marginal_entropies, estimate_entropy
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -58,7 +58,7 @@ def compute_free_energy(xv, potential, kinetic_energy, beta):
 if __name__ == "__main__":
     print("reading and re-analyzing results")
     name = "alanine_unconstrained_null_results.pkl"
-    with open(name, "r") as f: results = load(f)
+    with open(name, "rb") as f: results = load(f)
     for scheme in results.keys():
         print(scheme)
         W_shads_F, W_shads_R, DeltaF_neq, sq_uncertainty, W_midpoints = results[scheme]

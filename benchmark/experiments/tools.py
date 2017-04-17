@@ -2,8 +2,8 @@ import numpy as np
 from simtk import unit
 from simtk.openmm import app
 
-from code.integrators import LangevinSplittingIntegrator
-from code.testsystems import system_params
+from benchmark.integrators import LangevinSplittingIntegrator
+from benchmark.testsystems import system_params
 
 W_unit = unit.kilojoule_per_mole
 from benchmark.evaluation.analysis import estimate_nonequilibrium_free_energy
@@ -11,7 +11,9 @@ from pickle import dump
 from openmmtools.integrators import GHMCIntegrator
 from tqdm import tqdm
 
-from code.utils import plot, get_total_energy, get_summary_string, measure_shadow_work
+from benchmark.plotting import plot
+from benchmark.utilities import get_total_energy, get_summary_string
+from benchmark.tests.measure_shadow_work import measure_shadow_work
 
 
 def randomization_midpoint_operator(simulation, temperature):
@@ -93,7 +95,7 @@ def collect_and_save_results(schemes, simulation_factory, equilibrium_samples,
                            M=M, midpoint_operator=midpoint_operator, temperature=temperature)
         print("\n".join((scheme, get_summary_string(results[scheme], linebreaks=True))))
 
-    with open("{}_results.pkl".format(name), "w") as f: dump(results, f)
+    with open("{}_results.pkl".format(name), "wb") as f: dump(results, f)
 
     return results
 

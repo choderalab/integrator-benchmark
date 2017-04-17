@@ -4,7 +4,7 @@ import numpy as np
 from openmmtools.testsystems import CustomExternalForcesTestSystem, AlanineDipeptideVacuum, WaterBox, AlanineDipeptideExplicit, SrcImplicit
 from simtk.openmm import app
 from simtk import unit
-from configuration import configure_platform
+from benchmark.testsystems.configuration import configure_platform
 from benchmark.utilities import keep_only_some_forces
 
 
@@ -34,27 +34,35 @@ def load_solvated_alanine(constrained=True):
 
 
 temperature = 298 * unit.kelvin
-from bookkeepers import EquilibriumSimulator
+from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 top, sys, pos = load_alanine(constrained=True)
 alanine_constrained = EquilibriumSimulator(platform=configure_platform("Reference"),
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
-                                           ghmc_timestep=2.5 * unit.femtosecond,
-                                           burn_in_length=1000, n_samples=10000,
-                                           thinning_interval=100, name="alanine_constrained")
+                                           ghmc_timestep=1.0 * unit.femtosecond,
+                                           burn_in_length=50000, n_samples=1000,
+                                           thinning_interval=10000, name="alanine_constrained")
 
 top, sys, pos = load_alanine(constrained=False)
 alanine_unconstrained = EquilibriumSimulator(platform=configure_platform("Reference"),
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
-                                           ghmc_timestep=2.0 * unit.femtosecond,
-                                           burn_in_length=1000, n_samples=10000,
-                                           thinning_interval=100, name="alanine_unconstrained")
+                                           ghmc_timestep=1.0 * unit.femtosecond,
+                                           burn_in_length=50000, n_samples=1000,
+                                           thinning_interval=10000, name="alanine_unconstrained")
 
-top, sys, pos = load_solvated_alanine(constrained=False)
-solvated_alanine_unconstrained = EquilibriumSimulator(platform=configure_platform("CPU"),
-                                           topology=top, system=sys, positions=pos,
-                                           temperature=temperature,
-                                           ghmc_timestep=0.25 * unit.femtosecond,
-                                           burn_in_length=1000, n_samples=1000,
-                                           thinning_interval=5, name="solvated_alanine_unconstrained")
+#top, sys, pos = load_solvated_alanine(constrained=False)
+#solvated_alanine_unconstrained = EquilibriumSimulator(platform=configure_platform("CPU"),
+#                                           topology=top, system=sys, positions=pos,
+#                                           temperature=temperature,
+#                                           ghmc_timestep=0.25 * unit.femtosecond,
+#                                           burn_in_length=200000, n_samples=1000,
+#                                           thinning_interval=200000, name="solvated_alanine_unconstrained")
+#
+#top, sys, pos = load_solvated_alanine(constrained=True)
+#solvated_alanine_constrained = EquilibriumSimulator(platform=configure_platform("CPU"),
+#                                           topology=top, system=sys, positions=pos,
+#                                           temperature=temperature,
+#                                           ghmc_timestep=0.25 * unit.femtosecond,
+#                                           burn_in_length=200000, n_samples=1000,
+#                                           thinning_interval=200000, name="solvated_alanine_constrained")

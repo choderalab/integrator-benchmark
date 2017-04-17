@@ -5,12 +5,12 @@ from simtk.openmm import app
 
 from benchmark.experiments.benchmark import get_equilibrium_samples, null_midpoint_operator
 from benchmark.integrators.integrators import LangevinSplittingIntegrator
-from code.testsystems import system_params
+from benchmark.testsystems import system_params
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from code.timestep_search import sweep_over_timesteps
+from benchmark.experiments.timestep_search import sweep_over_timesteps
 
 if __name__ == "__main__":
     unconstrained_timesteps_to_try = [0.5, 0.75, 1, 1.25, 1.5]

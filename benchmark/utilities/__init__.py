@@ -1,7 +1,7 @@
-from utils import strip_unit, stderr,\
-    summarize, print_array
+from .utils import strip_unit, stderr,\
+    summarize, print_array, get_summary_string, unpack_trajs
 
-from openmm_utilities import keep_only_some_forces,\
+from .openmm_utilities import keep_only_some_forces,\
     get_total_energy, get_positions, get_velocities,\
     set_positions, set_velocities
 
