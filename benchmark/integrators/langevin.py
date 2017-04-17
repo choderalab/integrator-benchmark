@@ -122,6 +122,9 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
 
         # Define substep functions
         def R_step():
+            self.addConstrainPositions()  # TODO: Constrain initial step only?
+            self.addConstrainVelocities() # TODO: Constrain initial step only?
+
             if measure_shadow_work:
                 self.addComputeGlobal("old_pe", "energy")
                 self.addComputeSum("old_ke", kinetic_energy)
@@ -147,6 +150,9 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
                 Force group to use in this substep.
                 "" means all forces, "0" means force-group 0, etc.
             """
+            self.addConstrainPositions()  # TODO: Constrain initial step only?
+            self.addConstrainVelocities() # TODO: Constrain initial step only?
+
             if measure_shadow_work:
                 self.addComputeSum("old_ke", kinetic_energy)
 
@@ -163,6 +169,9 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
                 self.addComputeGlobal("shadow_work", "shadow_work + (new_ke - old_ke)")
 
         def O_step():
+            self.addConstrainPositions()  # TODO: Constrain initial step only?
+            self.addConstrainVelocities() # TODO: Constrain initial step only?
+
             if measure_heat:
                 self.addComputeSum("old_ke", kinetic_energy)
 

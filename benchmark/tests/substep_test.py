@@ -1,5 +1,5 @@
-from tests import compare_substep_energy_changes, simulation_factory
-from code.utils import generate_solvent_solute_splitting_string
+from .tests import compare_substep_energy_changes, simulation_factory
+from benchmark.integrators import generate_solvent_solute_splitting_string
 
 for constrained in [True, False]:
     if constrained: print("\n\nWith constraints\n")

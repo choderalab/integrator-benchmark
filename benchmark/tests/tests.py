@@ -1,11 +1,13 @@
 import numpy as np
-from benchmark.integrators.integrators import LangevinSplittingIntegrator
+from benchmark.integrators import LangevinSplittingIntegrator
 from openmmtools.testsystems import AlanineDipeptideVacuum
 from simtk import unit
 from simtk.openmm import app
 
 W_unit = unit.kilojoule_per_mole
-from code.utils import configure_platform, get_total_energy, strip_unit, generate_solvent_solute_splitting_string
+from benchmark.testsystems.configuration import configure_platform
+from benchmark.utilities import get_total_energy, strip_unit
+from benchmark.integrators import generate_solvent_solute_splitting_string
 from benchmark.testsystems.testsystems import load_alanine
 
 

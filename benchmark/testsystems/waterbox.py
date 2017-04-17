@@ -2,7 +2,7 @@ import numpy as np
 from openmmtools.testsystems import CustomExternalForcesTestSystem, AlanineDipeptideVacuum, WaterBox, AlanineDipeptideExplicit, SrcImplicit
 from simtk.openmm import app
 from simtk import unit
-from configuration import configure_platform
+from benchmark.testsystems.configuration import configure_platform
 from benchmark.utilities import keep_only_some_forces
 from benchmark import DATA_PATH
 
@@ -14,7 +14,7 @@ def load_waterbox(constrained=True):
 
 
 temperature = 298 * unit.kelvin
-from bookkeepers import EquilibriumSimulator
+from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 top, sys, pos = load_waterbox(constrained=True)
 waterbox_constrained = EquilibriumSimulator(platform=configure_platform("OpenCL"),
                                            topology=top, system=sys, positions=pos,

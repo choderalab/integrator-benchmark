@@ -2,7 +2,7 @@ import numpy as np
 from openmmtools.testsystems import SrcImplicit, DHFRExplicit
 from simtk.openmm import app
 from simtk import unit
-from configuration import configure_platform
+from benchmark.testsystems.configuration import configure_platform
 from benchmark.utilities import keep_only_some_forces
 
 
@@ -43,6 +43,31 @@ def load_dhfr_explicit(constrained=True):
     return topology, system, positions
 
 
+def get_src_implicit_test_system(temperature):
+    testsystem = SrcImplicit()
+    top, sys, pos = testsystem.topology, testsystem.system, testsystem.positions
+    platform = mm.Platform.getPlatformByName("OpenCL")
+    platform.setPropertyDefaultValue('OpenCLPrecision', 'double')
+
+    samples, unbiased_simulation = get_equilibrium_samples(top, sys, pos, platform, temperature,
+                                                           ghmc_timestep=0.5 * unit.femtoseconds,
+                                                           burn_in_length=500, n_samples=500, thinning_interval=5)
+    test_system = TestSystem(samples, temperature, top, sys, platform)
+    return test_system
+
+
+def get_src_explicit_test_system(temperature):
+    testsystem = SrcExplicit()
+    top, sys, pos = testsystem.topology, testsystem.system, testsystem.positions
+    platform = mm.Platform.getPlatformByName("OpenCL")
+    platform.setPropertyDefaultValue('OpenCLPrecision', 'mixed')
+
+    samples, unbiased_simulation = get_equilibrium_samples(top, sys, pos, platform, temperature,
+                                                           ghmc_timestep=0.5 * unit.femtoseconds,
+                                                           burn_in_length=100, n_samples=100, thinning_interval=5)
+    test_system = TestSystem(samples, temperature, top, sys, platform)
+    return test_system
+
 simple_params = {
     "platform": configure_platform("Reference"),
     "burn_in_length": 1000,
@@ -55,14 +80,19 @@ simple_params = {
 }
 
 harmonic_oscillator_params = simple_params.copy()
+from .low_dimensional_systems import load_harmonic_oscillator
 harmonic_oscillator_params["loader"] = load_harmonic_oscillator
 
 quartic_params = simple_params.copy()
+from .low_dimensional_systems import load_quartic_potential
 quartic_params["loader"] = load_quartic_potential
 
 mts_params = simple_params.copy()
+from .low_dimensional_systems import load_mts_test
 mts_params["loader"] = load_mts_test
 
+from .waterbox import load_waterbox
+from .alanine_dipeptide import load_alanine
 system_params = {
     "harmonic_oscillator": harmonic_oscillator_params,
     "quartic_potential": quartic_params,
