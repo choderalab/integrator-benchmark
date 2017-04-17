@@ -26,8 +26,8 @@ class BookkeepingSimulator():
         """Sample configuration marginal."""
         pass
 
-    def sample_v_from_equilibrium(self):
-        """Sample velocity marginal."""
+    def sample_v_given_x(self, x):
+        """Sample velocities conditioned on x."""
         pass
 
     def accumulate_shadow_work(self, x_0, v_0, n_steps):
@@ -150,8 +150,9 @@ class EquilibriumSimulator():
         """Draw sample (uniformly, with replacement) from cache of configuration samples"""
         return self.x_samples[np.random.randint(len(self.x_samples))]
 
-    def sample_v_from_equilibrium(self):
-        """Sample velocities from Maxwell-Boltzmann distribution."""
+    def sample_v_given_x(self, x):
+        """Sample velocities from (constrained) Maxwell-Boltzmann distribution."""
+        self.unbiased_simulation.context.setPositions(x)
         self.unbiased_simulation.context.setVelocitiesToTemperature(self.temperature)
         return get_velocities(self.unbiased_simulation)
 
@@ -173,9 +174,9 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         """Draw sample (uniformly, with replacement) from cache of configuration samples"""
         return self.equilibrium_simulator.sample_x_from_equilibrium()
 
-    def sample_v_from_equilibrium(self):
-        """Sample velocities from Maxwell-Boltzmann distribution."""
-        return self.equilibrium_simulator.sample_v_from_equilibrium()
+    def sample_v_given_x(self, x):
+        """Sample velocities from (constrained) Maxwell-Boltzmann distribution."""
+        return self.equilibrium_simulator.sample_v_given_x(x)
 
     def accumulate_shadow_work(self, x_0, v_0, n_steps):
         """Run the integrator for n_steps and return the change in energy - the heat."""
@@ -208,12 +209,13 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         """Perform nonequilibrium measurements, aimed at measuring the free energy difference for the chosen marginal."""
         W_shads_F, W_shads_R = [], []
         for _ in tqdm(range(n_protocol_samples)):
-            x_0, v_0 = self.sample_x_from_equilibrium(), self.sample_v_from_equilibrium()
+            x_0 = self.sample_x_from_equilibrium()
+            v_0 = self.sample_v_given_x(x_0)
             W_shads_F.append(self.accumulate_shadow_work(x_0, v_0, protocol_length))
 
             x_1 = get_positions(self.simulation)
             if marginal == "configuration":
-                v_1  = self.sample_v_from_equilibrium()
+                v_1  = self.sample_v_given_x(x_1)
             elif marginal == "full":
                 v_1 = get_velocities(self.simulation)
             else:

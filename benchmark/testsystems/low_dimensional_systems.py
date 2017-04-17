@@ -117,8 +117,8 @@ class NumbaBookkeepingQuarticSimulator():
         """Draw sample (uniformly, with replacement) from cache of configuration samples"""
         return self.x_samples[np.random.randint(len(self.x_samples))]
 
-    def sample_v_from_equilibrium(self):
-        """Sample velocity marginal."""
+    def sample_v_given_x(self, x):
+        """Sample velocity marginal. (Here, p(v) = p(v|x).)"""
         return np.random.randn() * self.velocity_scale
 
 quartic = NumbaBookkeepingQuarticSimulator()
@@ -136,9 +136,9 @@ class NumbaNonequilibriumSimulator():
         """Draw sample (uniformly, with replacement) from cache of configuration samples"""
         return self.equilibrium_simulator.sample_x_from_equilibrium()
 
-    def sample_v_from_equilibrium(self):
+    def sample_v_given_x(self, x):
         """Sample velocities from Maxwell-Boltzmann distribution."""
-        return self.equilibrium_simulator.sample_v_from_equilibrium()
+        return self.equilibrium_simulator.sample_v_given_x(x)
 
     def accumulate_shadow_work(self, x_0, v_0, n_steps):
         """Run the integrator for n_steps and return the shadow work accumulated"""
@@ -149,13 +149,14 @@ class NumbaNonequilibriumSimulator():
         """Perform nonequilibrium measurements, aimed at measuring the free energy difference for the chosen marginal."""
         W_shads_F, W_shads_R = [], []
         for _ in tqdm(range(n_protocol_samples)):
-            x_0, v_0 = self.sample_x_from_equilibrium(), self.sample_v_from_equilibrium()
+            x_0 = self.sample_x_from_equilibrium()
+            v_0 = self.sample_v_given_x(x_0)
             xs, vs, Q, W_shads = self.integrator(x0=x_0, v0=v_0, n_steps=protocol_length)
             W_shads_F.append(W_shads[-1])
 
             x_1 = xs[-1][-1]
             if marginal == "configuration":
-                v_1  = self.sample_v_from_equilibrium()
+                v_1  = self.sample_v_given_x(x_1)
             elif marginal == "full":
                 v_1 = vs[-1][-1]
             else:
