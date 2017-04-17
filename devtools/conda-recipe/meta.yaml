@@ -1,0 +1,54 @@
+package:
+  name: benchmark-dev
+  version: 0.0.0
+
+source:
+  path: ../..
+
+build:
+  preserve_egg_dir: True
+  number: 0
+
+requirements:
+  build:
+    - python
+    - cython
+    - numpy
+    - scipy
+    - setuptools
+    - netcdf4
+    - openmm >=7.1
+    - mdtraj >=1.7.2
+    - openmmtools
+    - pymbar
+    - seaborn
+    - tqdm
+    - scikit-learn
+    - numba
+
+  run:
+    - python
+    - pandas
+    - numpy
+    - scipy
+    - cython
+    - netcdf4
+    - openmm >=7.1
+    - mdtraj >=1.7.2
+    - openmmtools
+    - pymbar
+    - seaborn
+    - tqdm
+    - scikit-learn
+    - numba
+
+test:
+  requires:
+    - nose
+    - nose-timer
+  imports:
+    - benchmark
+
+about:
+  home: https://github.com/choderalab/integrator-benchmark
+  license: MIT License
