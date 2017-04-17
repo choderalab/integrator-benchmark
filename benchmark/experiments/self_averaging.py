@@ -44,7 +44,7 @@ if __name__ == "__main__":
         W_shads = np.zeros(n_protocol_samples)
         for i in tqdm(range(n_protocol_samples)):
             x_0 = eq_sim.sample_x_from_equilibrium()
-            v_0 = eq_sim.sample_v_from_equilibrium()
+            v_0 = eq_sim.sample_v_given_x(x_0)
             W_shads[i] = noneq_sim.accumulate_shadow_work(x_0, v_0, protocol_length)
 
         print("\n\nmean(W) = {:.3f}, stdev(W) = {:.3f}\n\n".format(np.mean(W_shads), np.std(W_shads)))
