@@ -25,8 +25,8 @@ Checklist for all Updates
 - [ ] Get the PR merged in
 
 
-Checklist for Major Revisions (YANK X.Y+1.0)
-------------------------------------------
+Checklist for Major Revisions (`integrator-benchmark` X.Y+1.0)
+--------------------------------------------------------------
 - [ ] Make sure all issues related to the milestone will be closed by this commit or moved to future releases
 - [ ] Update `docs/whatsnew.rst`
 - [ ] Update `setup.py` with version number and `ISRELEASED` to `True`
@@ -35,12 +35,12 @@ Checklist for Major Revisions (YANK X.Y+1.0)
 - [ ] Update the `omnia-md/conda-recipies` repo by creating a new PR with updated versions
   * Be sure to pin dependencies to fixed version
 
-Checklist for Minor Revisions (YANK X.Y.Z+1)
+Checklist for Minor Revisions (`integrator-benchmark` X.Y.Z+1)
 --------------------------------------------
 - [ ] Update `setup.py` with the correct Z version number in X.Y.Z
 - [ ] In `setup.py`, set `ISRELEASED` to `False`
 - [ ] Do all the steps for All Updates
-  * If this is a critical bugfix (i.e. YANK X.Y.0 is broken and/or flat out wrong without the fix):
+  * If this is a critical bugfix (i.e. `integrator-benchmark` X.Y.0 is broken and/or flat out wrong without the fix):
 - [ ] Update `docs/whatsnew.rst`
 - [ ] Update the released version on the site to this version, adjusting the tag and note that this is a critical bugfix which corrects the X.Y release
 - [ ] Update the `omnia-md/conda-recipies` repo to point at the corrected version
