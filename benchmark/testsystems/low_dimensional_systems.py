@@ -114,6 +114,10 @@ class NumbaBookkeepingSimulator():
         return np.random.randn() * self.velocity_scale
 
 quartic = NumbaBookkeepingSimulator()
+double_well = NumbaBookkeepingSimulator(potential=lambda x: x**6 + 2 * np.cos(5 * (x+1)),
+                                        force= lambda x: - (6 * x**5 - 10 * np.sin(5 * (x+1))),
+                                        name='double_well'
+                                        )
 
 class NumbaNonequilibriumSimulator():
     """Nonequilibrium simulator, supporting shadow_work accumulation, and drawing x, v, from equilibrium.
