@@ -38,23 +38,15 @@ def load_mts_test(**args):
                                                 n_particles=n_particles)
     return testsystem.topology, testsystem.system, testsystem.positions
 
-class NumbaBookkeepingQuarticSimulator():
-    def __init__(self, mass=10.0, beta=1.0):
+class NumbaBookkeepingSimulator():
+    def __init__(self, mass=10.0, beta=1.0,
+                 potential=lambda x:x**4,
+                 force=lambda x: -4.0 * x**3,
+                 name='quartic'
+                 ):
         self.mass = mass
         self.beta = beta
         self.velocity_scale =np.sqrt(1.0 / (beta * mass))
-        sigma2 = self.velocity_scale ** 2
-
-
-        self.q = lambda x : np.exp(-x**4)
-        # timestep = 1.0
-        # gamma = 100.0
-
-        def potential(x):
-            return x ** 4
-
-        def force(x):
-            return - 4.0 * x ** 3
 
         def reduced_potential(x):
             return potential(x) * beta
@@ -71,7 +63,7 @@ class NumbaBookkeepingQuarticSimulator():
         self.log_q = log_q
         self.q = q
         self.equilibrium_simulator = metropolis_hastings_factory(q)
-        self.name = "quartic"
+        self.name = name
         self._path_to_samples = self.get_path_to_samples()
 
         # Load or simulate
@@ -121,7 +113,7 @@ class NumbaBookkeepingQuarticSimulator():
         """Sample velocity marginal."""
         return np.random.randn() * self.velocity_scale
 
-quartic = NumbaBookkeepingQuarticSimulator()
+quartic = NumbaBookkeepingSimulator()
 
 class NumbaNonequilibriumSimulator():
     """Nonequilibrium simulator, supporting shadow_work accumulation, and drawing x, v, from equilibrium.
