@@ -19,11 +19,15 @@ We will refer to a numerical scheme by its encoding string and finite timestep $
 
 ## This introduces error that can be sensitive to details
 Subtly different numerical schemes for the same continuous equations can have drastically different behavior at finite timesteps.
-As a prototypical example, consider the difference between the schemes `VRORV` and `OVRVO`:
+As a prototypical example, consider the difference between the behavior of schemes `VRORV` and `OVRVO` on a 1D quartic system:
 
 ![quartic_eq_joint_dist_array_w_x_marginals](https://cloud.githubusercontent.com/assets/5759036/25289560/147862fa-2698-11e7-8f95-9b463953f2de.jpg)
 
-They have the same computational cost, and introduce nearly identical levels of error into the sampled phase-space distribution -- but one of these methods introduces nearly 100x more error in the `x` marginal than the other.
+($\rho$ is the density sampled by the numerical scheme, and $\pi$ is the exact target density.
+Each column illustrates an increasing finite timestep $\Delta t$, below the "stability threshold."
+Rows 2 and 4 illustrate error in the sampled joint distribution, and rows 1 and 3 illustrate error in the sampled $\mathbf{x}$-marginal distribution.)
+
+The two schemes have the same computational cost per iteration, and introduce nearly identical levels of error into the sampled joint $(\mathbf{x}, \mathbf{v})$ distribution -- but one of these methods introduces nearly 100x more error in the $\mathbf{x}$ marginal than the other at large timesteps!
 
 ### Velocity verlet with velocity randomization (`OVRVO`)
 For concreteness, here's a toy Python implementation of the inner-loop of the scheme denoted `OVRVO`:
