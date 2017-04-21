@@ -19,7 +19,7 @@ We will refer to a numerical scheme by its encoding string, i.e. `OVRVO` means s
 
 ## This introduces error that can be sensitive to details
 Subtly different numerical schemes for the same continuous equations can have drastically different behavior at finite timesteps.
-As a prototypical example, consider the difference between the schemes `OVRVO` and `VRORV`.
+As a prototypical example, consider the difference between the schemes `VRORV` and `OVRVO`:
 
 ![quartic_eq_joint_dist_array_w_x_marginals](https://cloud.githubusercontent.com/assets/5759036/25289560/147862fa-2698-11e7-8f95-9b463953f2de.jpg)
 
