@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 from benchmark.evaluation.analysis import compute_free_energy
 
 from estimate_equilibrium_free_energy import x_marginal_free_energy, equilibrium_free_energy
-from quartic_simple import potential, kinetic_energy, beta
+from quartic_simple import potential, beta
+from quartic import kinetic_energy
 
 def parse_condition_from_filename(fname):
     """
