@@ -30,7 +30,7 @@ Rows 2 and 4 illustrate error in the sampled joint distribution, and rows 1 and 
 The two schemes have the same computational cost per iteration, and introduce nearly identical levels of error into the sampled joint $(\mathbf{x}, \mathbf{v})$ distribution -- but one of these methods introduces about 100x more error in the $\mathbf{x}$ marginal than the other at large timesteps!
 
 ### Toy implementation
-To illustrate the scheme, here is a toy Python implementation for each of the explicit updates, and a 
+To illustrate the scheme, here is a toy Python implementation for each of the explicit updates:
 ```python
 # Defined elsewhere: friction coefficient `gamma`, mass `m`
 
