@@ -13,6 +13,8 @@ To simulate those equations on a computer, we need to provide explicit instructi
 
 Here, we will consider the family of methods that can be derived by splitting the Langevin system into a sum of three simpler systems, labeled `O`, `R`, and `V`, and approximately propagating each of those simpler systems for small increments of time.
 
+(TODO: Add LaTeX-rendered Langevin system with underbraces around `O`, `R`, `V` components, using `readme2tex`)
+
 We will refer to a numerical scheme by its encoding string, i.e. `OVRVO` means simulate the `O` component for an increment of `dt/2`, then the `V` component for an increment of `dt/2`, then the `R` component for an increment of `dt`, then the `V` component for an increment of `dt/2`, the `O` component for an increment of `dt/2`. This approximately propagates the entire system for a total time increment of `dt`.
 
 ## This introduces error that can be sensitive to details
@@ -24,7 +26,7 @@ As a prototypical example, consider the difference between the schemes `OVRVO` a
 They have the same computational cost, and introduce nearly identical levels of error into the sampled phase-space distribution -- but one of these methods introduces nearly 100x more error in the `x` marginal than the other.
 
 ### Velocity verlet with velocity randomization (`OVRVO`)
-For concreteness, here's a toy Python implementation of the scheme indexed by the string `OVRVO`:
+For concreteness, here's a toy Python implementation of the inner-loop of the scheme denoted `OVRVO`:
 ```python
 # O step (dt/2)
 v = (a * v) + b * (velocity_scale * randn())
@@ -55,9 +57,8 @@ b = np.sqrt(1 - np.exp(-2 * gamma * (dt / 2.0)))
 
 
 ### BAOAB (`VRORV`)
-And here's code for `VRORV`:
+And here's code for the `VRORV` inner-loop:
 ```python
-# ... sampling inner loop
 # V step (dt/2)
 v = v + ((dt / 2.0) * force(x) / m)
 
