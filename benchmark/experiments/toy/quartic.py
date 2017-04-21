@@ -32,11 +32,10 @@ beta = 1.0  # inverse temperature
 dim = 1  # system dimension
 
 
-@jit
-def potential(x): return np.sum(x ** 4)
+def potential(x):
+    return x**4
 
 
-@jit
 def reduced_potential(x): return potential(x) * beta
 
 
@@ -48,8 +47,8 @@ def log_q(x): return - reduced_potential(x)
 def q(x): return np.exp(log_q(x))
 
 
-@jit
-def force(x): return - 4.0 * np.sum(x ** 3)
+def force(x):
+    return - 4.0 * x ** 3
 
 
 # normalized density
@@ -71,24 +70,25 @@ def savefig(name):
     plt.savefig("{}{}{}".format(figure_directory, name, figure_format), dpi=300)
 
 
-print("Plotting system...")
+def plot_system():
+    print("Plotting system...")
 
-plt.figure()
-plt.subplot(1, 3, 1)
-plot(x, map(reduced_potential, x))
-plt.title('Reduced potential\n$u(x)=\\beta U(x)$')
+    plt.figure()
+    plt.subplot(1, 3, 1)
+    plot(x, map(reduced_potential, x))
+    plt.title('Reduced potential\n$u(x)=\\beta U(x)$')
 
-plt.subplot(1, 3, 2)
-plot(x, map(p, x))
-plt.title('Equilibrium\ndistribution\n$p(x)\propto e^{-u(x)}$')
+    plt.subplot(1, 3, 2)
+    plot(x, map(p, x))
+    plt.title('Equilibrium\ndistribution\n$p(x)\propto e^{-u(x)}$')
 
-plt.subplot(1, 3, 3)
-plot(x, map(force, x))
-plt.title('Force\n$F(x)=-\\nabla U(x)$')
+    plt.subplot(1, 3, 3)
+    plot(x, map(force, x))
+    plt.title('Force\n$F(x)=-\\nabla U(x)$')
 
-plt.tight_layout()
-savefig("quartic_system")
-plt.close()
+    plt.tight_layout()
+    savefig("quartic_system")
+    plt.close()
 
 # example initial conditions
 x_0, v_0 = np.zeros(dim), np.ones(dim)
@@ -186,7 +186,6 @@ bookkeeping_map = {'R': bookkeeping_R_map,
                    'O': bookkeeping_O_map}
 
 
-@jit
 def bookkeeping_langevin_map(x, v, h, splitting, gamma):
     W_shad, Q = 0, 0
     n_R = sum([l == "R" for l in splitting])
@@ -217,7 +216,6 @@ def bookkeeping_langevin_map(x, v, h, splitting, gamma):
 
 
 def bookkeeping_langevin_factory(n_steps, splitting='VRORV'):
-    @jit
     def multistep_langevin(x, v, h, gamma):
         xs, vs = np.zeros((n_steps, len(x))), np.zeros((n_steps, len(x)))
         xs[0], xs[0] = x, v
@@ -267,19 +265,18 @@ def test_scheme(x_0, v_0, n_steps, scheme, h, gamma):
 
     return xs, vs, W_shad, Q
 
-
-schemes = "VRORV RVOVR OVRVO".split()
-results = dict()
-print("Simulating long trajectories using {} integrators".format(schemes))
-for scheme in schemes:
-    results[scheme] = test_scheme(np.random.randn(dim), draw_velocities(),
-                                  n_steps=int(1e4), scheme=scheme, h=timestep,
-                                  gamma=gamma
-                                  )
+#schemes = "VRORV RVOVR OVRVO".split()
+#results = dict()
+#print("Simulating long trajectories using {} integrators".format(schemes))
+#for scheme in schemes:
+#    results[scheme] = test_scheme(np.random.randn(dim), draw_velocities(),
+#                                  n_steps=int(1e4), scheme=scheme, h=timestep,
+#                                  gamma=gamma
+#                                  )
 
 # let's confirm that energy change accumulated by the bookkeeper is the same as the
 # actual energy change
-print("Confirming that bookkeeping is self-consistent...")
+#print("Confirming that bookkeeping is self-consistent...")
 
 
 def check_bookkeeping(results):
@@ -298,28 +295,28 @@ def check_bookkeeping(results):
               'accumulated and actual energy change: {:.5f}'.format(scheme, np.mean(np.linalg.norm(discrepancy))))
 
 
-check_bookkeeping(results)
+#check_bookkeeping(results)
 
 ### Estimate nonequilibrium free energy difference
+def collect_equilibrium_samples():
+    print("Collecting equilibrium samples...")
+    # collect equilibrium samples
+    import emcee
 
-print("Collecting equilibrium samples...")
-# collect equilibrium samples
-import emcee
-
-n_walkers = 2 * dim
-sampler = emcee.EnsembleSampler(nwalkers=n_walkers, dim=dim, lnpostfn=log_q)
-sampler.run_mcmc(pos0=np.random.randn(n_walkers, dim), N=50000)
-equilibrium_samples = sampler.flatchain[1000:]
-draw_configuration = lambda: equilibrium_samples[np.random.randint(len(equilibrium_samples))]
-plt.figure()
-plt.title('Equilibrium samples')
-plt.hist(equilibrium_samples.flatten(), bins=50, normed=True, histtype='stepfilled', alpha=0.5);
-x = np.linspace(-3, 3, 1000)
-plt.plot(x, map(p, x))
-plt.xlabel(r'$x$')
-plt.ylabel('Sampled P(x)')
-savefig("quartic_equilibrium_samples")
-plt.close()
+    n_walkers = 2 * dim
+    sampler = emcee.EnsembleSampler(nwalkers=n_walkers, dim=dim, lnpostfn=log_q)
+    sampler.run_mcmc(pos0=np.random.randn(n_walkers, dim), N=50000)
+    equilibrium_samples = sampler.flatchain[1000:]
+    draw_configuration = lambda: equilibrium_samples[np.random.randint(len(equilibrium_samples))]
+    plt.figure()
+    plt.title('Equilibrium samples')
+    plt.hist(equilibrium_samples.flatten(), bins=50, normed=True, histtype='stepfilled', alpha=0.5);
+    x = np.linspace(-3, 3, 1000)
+    plt.plot(x, map(p, x))
+    plt.xlabel(r'$x$')
+    plt.ylabel('Sampled P(x)')
+    savefig("quartic_equilibrium_samples")
+    plt.close()
 
 
 def run_protocol(integrator, midpoint_operator):
