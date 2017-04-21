@@ -44,24 +44,9 @@ plt.plot(timesteps, joint_KL_vvvr, label="OVRVO (full)", color=colors["OVRVO"], 
 plt.plot(timesteps, marginal_KL_baoab, label="VRORV (conf)", color=colors["VRORV"], linestyle='--', **line_style)
 plt.plot(timesteps, marginal_KL_vvvr, label="OVRVO (conf)", color=colors["OVRVO"], linestyle='--', **line_style)
 
-# maybe I should also shade under each
-#fill_style = {"alpha":0.1}
-#plt.fill_between(timesteps, joint_KL_baoab, color=colors["VRORV"], **fill_style)
-#plt.fill_between(timesteps, joint_KL_vvvr, color=colors["OVRVO"], **fill_style)
-#plt.fill_between(timesteps, marginal_KL_baoab, color=colors["VRORV"], **fill_style)
-#plt.fill_between(timesteps, marginal_KL_vvvr, color=colors["OVRVO"], **fill_style)
-
-
 plt.xlabel(r'$\Delta t$')
 plt.ylabel(r"$D_{KL}$")
-#plt.yscale('log')j
 plt.legend(loc="best", fancybox=True)
 plt.tight_layout()
 plt.savefig(os.path.join(FIGURE_PATH, "ground_truth_KL_divs.pdf"))
 plt.close()
-
-#plt.figure()
-#plt.imshow(KL_integrand_between_histograms(process_sampled_hist(xv_vvvr), joint_eq_hist), cmap='Blues')
-#plt.colorbar()
-#plt.savefig(os.path.join(FIGURE_PATH, "KL_integrand.jpg"))
-#plt.close()
