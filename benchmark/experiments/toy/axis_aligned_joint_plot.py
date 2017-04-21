@@ -10,7 +10,7 @@ import os
 from glob import glob
 from tqdm import tqdm
 
-from quartic_simple import beta, velocity_scale, p, log_p, potential, m, sigma2, v_density
+from quartic_simple import p, v_density
 
 data_range = (-2.5, 2.5)
 n_bins = 100
@@ -110,25 +110,30 @@ def log_difference_between_histograms(p, q):
 def KL_integrand_between_histograms(p, q):
     return p * log_difference_between_histograms(p, q)
 
-def process_2d_histogram(histogram):
-    Z = np.sum(joint_eq_hist)
-    smoothed = histogram
-    smoothed = gaussian_filter(histogram, 3.0)
-    return Z * smoothed / np.sum(smoothed)
-    #return normalize(smoothed)
+def process_2d_histogram(histogram, smoothing=True):
+    Z = (data_range[1] - data_range[0])**2
+    if smoothing:
+        histogram = gaussian_filter(histogram, 3.0)
+    return Z * histogram / np.sum(histogram)
 
-def process_1d_histogram(histogram):
-    smoothed = gaussian_filter1d(histogram, 20.0)
-    return normalize(smoothed)
 
 hi_res_bin_edges = np.linspace(data_range[0], data_range[1], one_d_hist_args["bins"] + 1)
 hi_res_marginal = compute_exact_histogram(p, hi_res_bin_edges)
-pi_x = process_1d_histogram(hi_res_marginal)
+
+
+def process_1d_histogram(histogram, smoothing=True):
+    Z = np.abs(data_range[1] - data_range[0])
+    if smoothing:
+        histogram = gaussian_filter1d(histogram, 20.0)
+    return Z * histogram / np.sum(histogram)
+
+pi_x = process_1d_histogram(hi_res_marginal, smoothing=False)
+
 x_space = hi_res_bin_edges[1:]
 
-def process_sampled_hist(xv):
+def process_sampled_hist(xv, smoothing=True):
     joint_sampled_hist = get_sampled_joint_histogram(xv)
-    return process_2d_histogram(joint_sampled_hist)
+    return process_2d_histogram(joint_sampled_hist, smoothing)
 
 def process_image(xv):
     joint_eq_hist_ = process_2d_histogram(joint_eq_hist)
@@ -145,7 +150,7 @@ def process_image(xv):
     return image
 
 def plot_image(ax, image, vmin, vmax):
-    #ax.imshow(image, origin='lower', extent=list(data_range) * 2, aspect=1, cmap="bwr",
+    # ax.imshow(image, origin='lower', extent=list(data_range) * 2, aspect=1, cmap="bwr",
     #          vmin=vmin, vmax=vmax, alpha=0.1)
 
     ax.contour(image, extent=list(data_range) * 2,
@@ -170,21 +175,26 @@ def plot_marginal_error_curve(ax, curve, ymin, ymax):
     ax.axis("off")
     ax.set_ylim(ymin, ymax)
 
-def get_x_marginal_density(xv):
+def get_sampled_x_marginal_density(xv):
     sampled_x_hist, bin_edges = np.histogram(xv[:, 0], **one_d_hist_args)
-    rho_x = process_1d_histogram(sampled_x_hist)
+    rho_x = process_1d_histogram(sampled_x_hist, smoothing=False)
     return rho_x
 
+def get_sampled_joint_density(xv):
+    return process_sampled_hist(xv, smoothing=False)
+
 def get_x_marginal_kl_div_from_eq(xv):
-    rho_x = get_x_marginal_density(xv)
+    rho_x = get_sampled_x_marginal_density(xv)
+    pi_x = process_1d_histogram(hi_res_marginal, smoothing=False)
     return np.mean(KL_integrand_between_histograms(rho_x, pi_x))
 
 def get_joint_kl_div_from_eq(xv):
-    hist2d = process_sampled_hist(xv)
-    return np.mean(KL_integrand_between_histograms(hist2d, joint_eq_hist))
+    rho_xv = get_sampled_joint_density(xv)
+    pi_xv = process_2d_histogram(joint_eq_hist, smoothing=False)
+    return np.mean(KL_integrand_between_histograms(rho_xv, pi_xv))
 
 def get_marginal_error_curve(xv):
-    rho_x = get_x_marginal_density(xv)
+    rho_x = get_sampled_x_marginal_density(xv)
 
     # curve = KL_integrand_between_histograms(rho_x, pi_x)
     curve = difference_between_histograms(rho_x, pi_x)

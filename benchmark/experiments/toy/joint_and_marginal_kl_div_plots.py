@@ -38,15 +38,22 @@ import matplotlib.pyplot as plt
 colors = {"OVRVO": "blue", "VRORV": "green"}
 line_style = {"linewidth":2}
 
-plt.figure()
-plt.plot(timesteps, joint_KL_baoab, label="VRORV (full)", color=colors["VRORV"], **line_style)
-plt.plot(timesteps, joint_KL_vvvr, label="OVRVO (full)", color=colors["OVRVO"], **line_style)
-plt.plot(timesteps, marginal_KL_baoab, label="VRORV (conf)", color=colors["VRORV"], linestyle='--', **line_style)
-plt.plot(timesteps, marginal_KL_vvvr, label="OVRVO (conf)", color=colors["OVRVO"], linestyle='--', **line_style)
+def plot(xscale='log', yscale='linear'):
+    plt.figure()
+    plt.plot(timesteps, joint_KL_baoab, label="VRORV (full)", color=colors["VRORV"], **line_style)
+    plt.plot(timesteps, joint_KL_vvvr, label="OVRVO (full)", color=colors["OVRVO"], **line_style)
+    plt.plot(timesteps, marginal_KL_baoab, label="VRORV (conf)", color=colors["VRORV"], linestyle='--', **line_style)
+    plt.plot(timesteps, marginal_KL_vvvr, label="OVRVO (conf)", color=colors["OVRVO"], linestyle='--', **line_style)
 
-plt.xlabel(r'$\Delta t$')
-plt.ylabel(r"$D_{KL}$")
-plt.legend(loc="best", fancybox=True)
-plt.tight_layout()
-plt.savefig(os.path.join(FIGURE_PATH, "ground_truth_KL_divs.pdf"))
-plt.close()
+    plt.xlabel(r'$\Delta t$')
+    plt.xscale(xscale)
+    plt.yscale(yscale)
+    plt.ylabel(r"$D_{KL}$")
+    plt.legend(loc="best", fancybox=True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIGURE_PATH, "quartic_histogram_KL_divs_({}_x_{}_y).pdf".format(xscale, yscale)))
+    plt.close()
+
+for xscale in ['linear', 'log']:
+    for yscale in ['linear', 'log']:
+        plot(xscale, yscale)
