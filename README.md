@@ -11,14 +11,14 @@ Langevin dynamics is a system of stochastic differential equations defined on a 
 
 To simulate those equations on a computer, we need to provide explicit instructions for advancing the state of the system $(\mathbf{x},\mathbf{v})$` by very small time increments.
 
-Here, we will consider the family of methods that can be derived by splitting the Langevin system into a sum of three simpler systems, labeled `O`, `R`, and `V`, and approximately propagating each of those simpler systems for small increments of time.
+Here, we will consider the family of methods that can be derived by splitting the Langevin system into a sum of three simpler systems, labeled `O`, `R`, and `V`. We then define a numerical method by approximately propagating each of those simpler systems for small increments of time in a specified order.
 
 (TODO: Add LaTeX-rendered Langevin system with underbraces around `O`, `R`, `V` components, using `readme2tex`)
 
-We will refer to a numerical scheme by its encoding string and finite timestep $\Delta t$, i.e. `OVRVO` means simulate the `O` component for an increment of $\Delta t/2$`, then the `V` component for an increment of $\Delta t/2$, then the `R` component for an increment of $\Delta t$, then the `V` component for an increment of $\Delta t/2$, the `O` component for an increment of $\Delta t/2$. This approximately propagates the entire system for a total time increment of $\Delta t$.
+We will refer to a numerical scheme by its encoding string. For example, `OVRVO` means: simulate the `O` component for a time increment of $\Delta t/2$, then the `V` component for $\Delta t/2$, then the `R` component for $\Delta t$, then the `V` component for $\Delta t/2$, and finally the `O` component for $\Delta t/2$. This approximately propagates the entire system for a total time increment of $\Delta t$.
 
 ## This introduces error that can be sensitive to details
-Subtly different numerical schemes for the same continuous equations can have drastically different behavior at finite timesteps.
+Using subtly different numerical schemes for the same continuous equations can lead to drastically different behavior at finite timesteps.
 As a prototypical example, consider the difference between the behavior of schemes `VRORV` and `OVRVO` on a 1D quartic system:
 
 ![quartic_eq_joint_dist_array_w_x_marginals](https://cloud.githubusercontent.com/assets/5759036/25289560/147862fa-2698-11e7-8f95-9b463953f2de.jpg)
@@ -27,68 +27,67 @@ As a prototypical example, consider the difference between the behavior of schem
 Each column illustrates an increasing finite timestep $\Delta t$, below the "stability threshold."
 Rows 2 and 4 illustrate error in the sampled joint distribution, and rows 1 and 3 illustrate error in the sampled $\mathbf{x}$-marginal distribution.)
 
-The two schemes have the same computational cost per iteration, and introduce nearly identical levels of error into the sampled joint $(\mathbf{x}, \mathbf{v})$ distribution -- but one of these methods introduces nearly 100x more error in the $\mathbf{x}$ marginal than the other at large timesteps!
+The two schemes have the same computational cost per iteration, and introduce nearly identical levels of error into the sampled joint $(\mathbf{x}, \mathbf{v})$ distribution -- but one of these methods introduces about 100x more error in the $\mathbf{x}$ marginal than the other at large timesteps!
 
-### Velocity verlet with velocity randomization (`OVRVO`)
-For concreteness, here's a toy Python implementation of the inner-loop of the scheme denoted `OVRVO`:
+### Toy implementation
+To illustrate the scheme, here is a toy Python implementation for each of the explicit updates, and a 
 ```python
-# O step (dt/2)
-v = (a * v) + b * (velocity_scale * randn())
+# Defined elsewhere: friction coefficient `gamma`, mass `m`
 
-# V step (dt/2)
-v = v + ((dt / 2.0) * force(x) / m)
+def propagate_R(x, v, h): 
+    """Linear "drift" -- deterministic position update
+    using current velocities"""
+    return (x + (h * v), v)
 
-# R step (dt)
-x = x + (dt * v)
+def propagate_V(x, v, h):
+    """Linear "kick" -- deterministic velocity update
+    using current forces"""
+    return (x, v + (h * force(x) / m))
 
-# V step (dt/2)
-v = v + ((dt / 2.0) * force(x) / m)
+def propagate_O(x, v, h):
+    """Ornstein-Uhlenbeck -- stochastic velocity update
+    using a ficticious "heat-bath""""
+    a, b = exp(-gamma * h), sqrt(1 - exp(-2 * gamma * h))
+    return (x_, (a * v) + b * draw_maxwell_boltzmann_velocities())
 
-# O step (dt/2)
-v = (a * v) + b * (velocity_scale * randn())
+propagate = {"O": propagate_O, "R": propagate_R, "V": propagate_V}
+```
+where `draw_maxwell_boltzmann_velocities()` draws an independent sample from the velocity distribution given by the masses and temperature.
+
+Using the functions we just defined, here's how to implement the inner-loop of the scheme denoted `OVRVO`:
+```python
+x, v = propagate_O(x, v, dt / 2)
+x, v = propagate_V(x, v, dt / 2)
+x, v = propagate_R(x, v, dt)
+x, v = propagate_V(x, v, dt / 2)
+x, v = propagate_O(x, v, dt / 2)
 ```
 
-where
+And here's the `VRORV` inner-loop:
 ```python
-import numpy as np
-from numpy.random import randn
-
-velocity_scale = np.sqrt(1.0 / (beta * m))
-# a, b are constants used in exact distributional solves of the O component for (dt/2)
-a = np.exp(-gamma * (dt / 2.0))
-b = np.sqrt(1 - np.exp(-2 * gamma * (dt / 2.0)))
+x, v = propagate_V(x, v, dt / 2)
+x, v = propagate_R(x, v, dt / 2)
+x, v = propagate_O(x, v, dt)
+x, v = propagate_R(x, v, dt / 2)
+x, v = propagate_V(x, v, dt / 2)
 ```
 
+As suggested from these examples, the generic recipe for turning a splitting string into a Langevin integrator is:
 
-### BAOAB (`VRORV`)
-And here's code for the `VRORV` inner-loop:
 ```python
-# V step (dt/2)
-v = v + ((dt / 2.0) * force(x) / m)
+def simulate_timestep(x, v, dt, splitting="OVRVO"):
+    n_O = sum([substep == "O" for step in splitting])
+    n_R = sum([substep == "R" for step in splitting])
+    n_V = sum([substep == "V" for step in splitting])
+    n = {"O": n_O, "R": n_R, "V": n_V}
 
-# R step (dt/2)
-x = x + ((dt/2.0) * v)
-
-# O step (dt)
-v = (a * v) + b * (velocity_scale * randn())
-
-# R step (dt/2)
-x = x + ((dt/2.0) * v)
-
-# V step (dt/2)
-v = v + ((dt / 2.0) * force(x) / m)
-```
-
-where
-```python
-# a, b are constants used in exact distributional solves of the O component for dt
-
-a = np.exp(-gamma * dt)
-b = np.sqrt(1 - np.exp(-2 * gamma * dt))
+    for substep in splitting:
+        x, v = propagate[substep](dt / n[substep])
+    return x, v
 ```
 
 # Systematically enumerating numerical schemes and measuring their error
-In this repository, we enumerate numerical schemes for Langevin dynamics by associating strings over the alphabet `{O, R, V}` with explicit numerical methods using OpenMM `CustomIntegrator`s, and providing schemes for approximating the error introduced by that method in the sampled distribution over `(x,v)` jointly or `x` alone using nonequilibrium work theorems.
+In this repository, we enumerate numerical schemes for Langevin dynamics by associating strings over the alphabet `{O, R, V}` with explicit numerical methods using [OpenMM `CustomIntegrator`](http://docs.openmm.org/7.1.0/userguide/theory.html#customintegrator)s, and providing schemes for approximating the error introduced by that method in the sampled distribution over $(\mathbf{x},\mathbf{v}) jointly or $\mathbf{x}$ alone using nonequilibrium work theorems.
 We further investigate the effects of modifying the mass matrix (aka "hydrogen mass repartitioning") and/or evaluating subsets of the forces per substep (aka "multi-timestep" methods, obtained by expanding the alphabet to `{O, R, V0, V1, ..., V32}`).
 
 (TODO: Details on nonequilibrium error measurement scheme.)
