@@ -7,15 +7,15 @@ Enumerating and evaluating numerical schemes for Langevin dynamics
 
 ## Molecular dynamics requires methods for simulating continuous equations in discrete steps
 A widely-used approach to investigating equilibrium properties is to simulate Langevin dynamics.
-Langevin dynamics is a system of stochastic differential equations defined on a state space of configurations `x` and velocities `v`.
+Langevin dynamics is a system of stochastic differential equations defined on a state space of configurations $\mathbf{x}$ and velocities $\mathbf{v}$.
 
-To simulate those equations on a computer, we need to provide explicit instructions for advancing the state of the system `(x,v)` by very small time increments.
+To simulate those equations on a computer, we need to provide explicit instructions for advancing the state of the system $(\mathbf{x},\mathbf{v})$` by very small time increments.
 
 Here, we will consider the family of methods that can be derived by splitting the Langevin system into a sum of three simpler systems, labeled `O`, `R`, and `V`, and approximately propagating each of those simpler systems for small increments of time.
 
 (TODO: Add LaTeX-rendered Langevin system with underbraces around `O`, `R`, `V` components, using `readme2tex`)
 
-We will refer to a numerical scheme by its encoding string, i.e. `OVRVO` means simulate the `O` component for an increment of `dt/2`, then the `V` component for an increment of `dt/2`, then the `R` component for an increment of `dt`, then the `V` component for an increment of `dt/2`, the `O` component for an increment of `dt/2`. This approximately propagates the entire system for a total time increment of `dt`.
+We will refer to a numerical scheme by its encoding string and finite timestep $\Delta t$, i.e. `OVRVO` means simulate the `O` component for an increment of $\Delta t/2$`, then the `V` component for an increment of $\Delta t/2$, then the `R` component for an increment of $\Delta t$, then the `V` component for an increment of $\Delta t/2$, the `O` component for an increment of $\Delta t/2$. This approximately propagates the entire system for a total time increment of $\Delta t$.
 
 ## This introduces error that can be sensitive to details
 Subtly different numerical schemes for the same continuous equations can have drastically different behavior at finite timesteps.
