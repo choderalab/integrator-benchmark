@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from quartic_simple import beta, velocity_scale, p, log_p, potential, m, sigma2, v_density
 
-data_range = (-2.0, 2.0)
+data_range = (-2.5, 2.5)
 n_bins = 100
 bin_edges = np.linspace(data_range[0], data_range[1], num=n_bins)
 one_d_hist_args = {"bins": n_bins * 10, "range": data_range, "density": True}
@@ -105,17 +105,20 @@ def difference_between_histograms(p, q):
     return p - q
 
 def log_difference_between_histograms(p, q):
-    return np.log(p) - np.log(q)
+    return np.nan_to_num(np.log(p)) - np.nan_to_num(np.log(q))
 
 def KL_integrand_between_histograms(p, q):
     return p * log_difference_between_histograms(p, q)
 
 def process_2d_histogram(histogram):
+    Z = np.sum(joint_eq_hist)
+    smoothed = histogram
     smoothed = gaussian_filter(histogram, 3.0)
-    return normalize(smoothed)
+    return Z * smoothed / np.sum(smoothed)
+    #return normalize(smoothed)
 
 def process_1d_histogram(histogram):
-    smoothed = gaussian_filter1d(histogram, 10.0)
+    smoothed = gaussian_filter1d(histogram, 20.0)
     return normalize(smoothed)
 
 hi_res_bin_edges = np.linspace(data_range[0], data_range[1], one_d_hist_args["bins"] + 1)
@@ -123,11 +126,13 @@ hi_res_marginal = compute_exact_histogram(p, hi_res_bin_edges)
 pi_x = process_1d_histogram(hi_res_marginal)
 x_space = hi_res_bin_edges[1:]
 
-def process_image(xv):
+def process_sampled_hist(xv):
     joint_sampled_hist = get_sampled_joint_histogram(xv)
+    return process_2d_histogram(joint_sampled_hist)
 
+def process_image(xv):
     joint_eq_hist_ = process_2d_histogram(joint_eq_hist)
-    joint_sampled_hist = process_2d_histogram(joint_sampled_hist)
+    joint_sampled_hist = process_sampled_hist(xv)
 
     difference = difference_between_histograms(joint_sampled_hist, joint_eq_hist_)
     # KL_integrand = KL_integrand_between_histograms(joint_sampled_hist, joint_eq_hist_)
@@ -165,9 +170,21 @@ def plot_marginal_error_curve(ax, curve, ymin, ymax):
     ax.axis("off")
     ax.set_ylim(ymin, ymax)
 
-def get_marginal_error_curve(xv):
+def get_x_marginal_density(xv):
     sampled_x_hist, bin_edges = np.histogram(xv[:, 0], **one_d_hist_args)
     rho_x = process_1d_histogram(sampled_x_hist)
+    return rho_x
+
+def get_x_marginal_kl_div_from_eq(xv):
+    rho_x = get_x_marginal_density(xv)
+    return np.mean(KL_integrand_between_histograms(rho_x, pi_x))
+
+def get_joint_kl_div_from_eq(xv):
+    hist2d = process_sampled_hist(xv)
+    return np.mean(KL_integrand_between_histograms(hist2d, joint_eq_hist))
+
+def get_marginal_error_curve(xv):
+    rho_x = get_x_marginal_density(xv)
 
     # curve = KL_integrand_between_histograms(rho_x, pi_x)
     curve = difference_between_histograms(rho_x, pi_x)
@@ -179,13 +196,13 @@ def get_max_abs_val(fnames):
         abs_val = max(abs_val, np.max(np.abs(process_image(load_samples(fname)[0]))))
     return abs_val
 
-def plot_array_of_joint_errors(timesteps, xv_dict_baoab, xv_dict_aboba):
+def plot_array_of_joint_errors(timesteps, xv_dict_baoab, xv_dict_vvvr):
     """
     timesteps : array
 
     xv_dict_baoab : maps timestep -> xv array
 
-    xv_dict_aboba : maps timestep -> xv array
+    xv_dict_vvvr : maps timestep -> xv array
     """
     image_height_factor = 1 # in multiples of the height of the x-marginal plot
 
@@ -205,28 +222,28 @@ def plot_array_of_joint_errors(timesteps, xv_dict_baoab, xv_dict_aboba):
     # load data / generate images
     for i, timestep in enumerate(tqdm(timesteps)):
         xv_baoab = xv_dict_baoab[timestep]
-        xv_aboba = xv_dict_aboba[timestep]
+        xv_vvvr = xv_dict_vvvr[timestep]
 
         baoab_image = process_image(xv_baoab)
-        aboba_image = process_image(xv_aboba)
+        vvvr_image = process_image(xv_vvvr)
         max_image_abs_val = update_running_max(max_image_abs_val, baoab_image)
-        max_image_abs_val = update_running_max(max_image_abs_val, aboba_image)
+        max_image_abs_val = update_running_max(max_image_abs_val, vvvr_image)
 
         baoab_marginal = get_marginal_error_curve(xv_baoab)
-        aboba_marginal = get_marginal_error_curve(xv_aboba)
+        vvvr_marginal = get_marginal_error_curve(xv_vvvr)
         max_marginal_abs_val = update_running_max(max_marginal_abs_val, baoab_marginal)
-        max_marginal_abs_val = update_running_max(max_marginal_abs_val, aboba_marginal)
+        max_marginal_abs_val = update_running_max(max_marginal_abs_val, vvvr_marginal)
 
-        data.append((baoab_image, aboba_image, baoab_marginal, aboba_marginal))
+        data.append((baoab_image, vvvr_image, baoab_marginal, vvvr_marginal))
 
     # get the scales to use
     vmin, vmax = - max_image_abs_val, max_image_abs_val
     ymin, ymax = - max_marginal_abs_val, max_marginal_abs_val
 
     # generate plots
-    for i, (baoab_image, aboba_image, baoab_marginal, aboba_marginal) in enumerate(tqdm(data)):
-        upper_image_ax = plt.subplot(gs[1, i], figsize=(3,3))
-        upper_marginal_ax = plt.subplot(gs[0, i], sharex=upper_image_ax, figsize=(3,3))
+    for i, (baoab_image, vvvr_image, baoab_marginal, vvvr_marginal) in enumerate(tqdm(data)):
+        upper_image_ax = plt.subplot(gs[1, i])
+        upper_marginal_ax = plt.subplot(gs[0, i], sharex=upper_image_ax)
 
 
         lower_image_ax = plt.subplot(gs[3, i], sharex=upper_image_ax)
@@ -234,14 +251,14 @@ def plot_array_of_joint_errors(timesteps, xv_dict_baoab, xv_dict_aboba):
 
         # plot errors in joint distribution
         plot_image(upper_image_ax, baoab_image, vmin, vmax)
-        plot_image(lower_image_ax, aboba_image, vmin, vmax)
+        plot_image(lower_image_ax, vvvr_image, vmin, vmax)
 
         # plot x-marginal errors
         plot_marginal_error_curve(upper_marginal_ax, baoab_marginal, ymin, ymax)
-        plot_marginal_error_curve(lower_marginal_ax, aboba_marginal, ymin, ymax)
+        plot_marginal_error_curve(lower_marginal_ax, vvvr_marginal, ymin, ymax)
 
-    plt.tight_layout(pad=0.0)
-    plt.savefig(generate_figure_filename('quartic_eq_joint_dist_array_w_x_marginals.jpg'), dpi=300)
+    plt.tight_layout(pad=1.0)
+    plt.savefig(generate_figure_filename('quartic_eq_joint_dist_array_w_x_marginals.pdf'))
     plt.close()
 
     return timesteps, data
@@ -256,7 +273,7 @@ def load_samples(fname):
 def load_dictionaries(fnames):
     """Loads the samples into two dictionaries."""
     xv_dict_baoab = {}
-    xv_dict_aboba = {}
+    xv_dict_vvvr = {}
 
     for fname in sorted(fnames):
         xv, condition_name = load_samples(fname)
@@ -266,22 +283,20 @@ def load_dictionaries(fnames):
         timestep = float(timestep_string)
 
         if "VVVR" in condition_name:
-            xv_dict_aboba[timestep] = xv
+            xv_dict_vvvr[timestep] = xv
         else:
             xv_dict_baoab[timestep] = xv
 
-    return xv_dict_baoab, xv_dict_aboba
+    return xv_dict_baoab, xv_dict_vvvr
 
 
-
-
-def plot_kl_divergences(timesteps, baoab_conf, baoab_joint, aboba_conf, aboba_joint):
+def plot_kl_divergences(timesteps, baoab_conf, baoab_joint, vvvr_conf, vvvr_joint):
     plt.figure()
     plt.plot(timesteps, baoab_joint, color="green", label="VRORV (x,v)")
     plt.plot(timesteps, baoab_conf, linestyle="--",color="green", label="VRORV (x)")
 
-    plt.plot(timesteps, aboba_joint, color="blue", label="RVOVR (x,v)")
-    plt.plot(timesteps, aboba_conf, linestyle="--", color="blue", label="RVOVR (x)")
+    plt.plot(timesteps, vvvr_joint, color="blue", label="RVOVR (x,v)")
+    plt.plot(timesteps, vvvr_conf, linestyle="--", color="blue", label="RVOVR (x)")
 
     plt.xlabel("Timestep")
     plt.ylabel("$\mathcal{D}_{KL}$")
@@ -296,7 +311,7 @@ if __name__ == "__main__":
     fnames = glob(os.path.join(DATA_PATH, "quartic_xv_*.npy"))
 
     print("loading dictionaries...")
-    xv_dict_baoab, xv_dict_aboba = load_dictionaries(fnames)
+    xv_dict_baoab, xv_dict_vvvr = load_dictionaries(fnames)
     print("plotting...")
-    timesteps, data = plot_array_of_joint_errors([0.6, 0.8, 1.0, 1.2], xv_dict_baoab, xv_dict_aboba)
+    timesteps, data = plot_array_of_joint_errors([0.6, 0.8, 1.0, 1.2], xv_dict_baoab, xv_dict_vvvr)
     #plot_kl_divergences(timesteps, *get_kl_divergences(data))
