@@ -87,14 +87,17 @@ def simulate_timestep(x, v, dt, splitting="OVRVO"):
 ```
 
 # Systematically enumerating numerical schemes and measuring their error
-In this repository, we enumerate numerical schemes for Langevin dynamics by associating strings over the alphabet `{O, R, V}` with explicit numerical methods using [OpenMM `CustomIntegrator`](http://docs.openmm.org/7.1.0/userguide/theory.html#customintegrator)s, and providing schemes for approximating the error introduced by that method in the sampled distribution over $(\mathbf{x},\mathbf{v}) jointly or $\mathbf{x}$ alone using nonequilibrium work theorems.
+In this repository, we enumerate numerical schemes for Langevin dynamics by associating strings over the alphabet `{O, R, V}` with explicit numerical methods using [OpenMM `CustomIntegrator`](http://docs.openmm.org/7.1.0/userguide/theory.html#customintegrator)s. We provide schemes for approximating the error introduced by that method in the sampled distribution over $(\mathbf{x},\mathbf{v}) jointly or $\mathbf{x}$ alone using nonequilibrium work theorems.
 We further investigate the effects of modifying the mass matrix (aka "hydrogen mass repartitioning") and/or evaluating subsets of the forces per substep (aka "multi-timestep" methods, obtained by expanding the alphabet to `{O, R, V0, V1, ..., V32}`).
 
 (TODO: Details on nonequilibrium error measurement scheme.)
 
 ## Relation to prior work
 We did not introduce the concept of splitting the Langevin system into these three "building blocks" -- this decomposition is developed lucidly in Chapter 7 of [[Leimkuhler and Matthews, 2015]](http://www.springer.com/us/book/9783319163741). We also did not discover the `VRORV` integrator -- Leimkuhler and Matthews have studied the favorable properties of particular integrator `VRORV` ("`BAOAB`" in their notation) in great detail.
-Here, we have (1) "compiled" these strings into efficient `CustomIntegrators` in OpenMM, (2) provided a more "universal" method for measuring the sampling error introduced by any member of this family (approximating the KL divergence directly, rather than monitoring error in a system-specific choice of low-dimensional observable), (3) considered a slightly expanded alphabet.
+Here, we have:
+1. provided a method to translate these strings into efficient `CustomIntegrators` in OpenMM,
+2. provided a uniform scheme for measuring the sampling error introduced by any member of this family of methods on any target density (approximating the KL divergence directly, rather than monitoring error in a system-specific choice of low-dimensional observable),
+3. considered an expanded alphabet, encompassing many widely-used variants as special cases.
 
 # References
 (TODO: Add references from paper!)
