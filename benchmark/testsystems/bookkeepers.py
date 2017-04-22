@@ -150,10 +150,11 @@ class EquilibriumSimulator():
         """Draw sample (uniformly, with replacement) from cache of configuration samples"""
         return self.x_samples[np.random.randint(len(self.x_samples))]
 
-    def sample_v_given_x(self, x):
+    def sample_v_given_x(self, x, tol=1e-5):
         """Sample velocities from (constrained) Maxwell-Boltzmann distribution."""
         self.unbiased_simulation.context.setPositions(x)
         self.unbiased_simulation.context.setVelocitiesToTemperature(self.temperature)
+        self.unbiased_simulation.context.applyVelocityConstraints(tol)
         return get_velocities(self.unbiased_simulation)
 
     def construct_simulation(self, integrator):
@@ -169,6 +170,7 @@ class NonequilibriumSimulator(BookkeepingSimulator):
     def __init__(self, equilibrium_simulator, integrator):
         self.equilibrium_simulator, self.integrator = equilibrium_simulator, integrator
         self.simulation = self.equilibrium_simulator.construct_simulation(self.integrator)
+        self.constraint_tolerance = self.integrator.getConstraintTolerance()
 
     def sample_x_from_equilibrium(self):
         """Draw sample (uniformly, with replacement) from cache of configuration samples"""
@@ -176,7 +178,7 @@ class NonequilibriumSimulator(BookkeepingSimulator):
 
     def sample_v_given_x(self, x):
         """Sample velocities from (constrained) Maxwell-Boltzmann distribution."""
-        return self.equilibrium_simulator.sample_v_given_x(x)
+        return self.equilibrium_simulator.sample_v_given_x(x, self.constraint_tolerance)
 
     def accumulate_shadow_work(self, x_0, v_0, n_steps):
         """Run the integrator for n_steps and return the change in energy - the heat."""
