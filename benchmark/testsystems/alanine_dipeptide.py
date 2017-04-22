@@ -1,5 +1,6 @@
 # alanine dipeptide in vacuum, implicit solvent, and explicit solvent
 
+import os
 import numpy as np
 from openmmtools.testsystems import CustomExternalForcesTestSystem, AlanineDipeptideVacuum, WaterBox, AlanineDipeptideExplicit, SrcImplicit
 from simtk.openmm import app
@@ -32,6 +33,9 @@ def load_solvated_alanine(constrained=True):
     topology, system, positions = testsystem.topology, testsystem.system, testsystem.positions
     return topology, system, positions
 
+n_samples = 1000 # number of samples to collect
+if 'TRAVIS' in os.environ:
+    n_samples = 20 # reduce sampling for travis
 
 temperature = 298 * unit.kelvin
 from benchmark.testsystems.bookkeepers import EquilibriumSimulator
@@ -40,7 +44,7 @@ alanine_constrained = EquilibriumSimulator(platform=configure_platform("Referenc
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
                                            ghmc_timestep=1.0 * unit.femtosecond,
-                                           burn_in_length=50000, n_samples=1000,
+                                           burn_in_length=50000, n_samples=n_samples,
                                            thinning_interval=10000, name="alanine_constrained")
 
 top, sys, pos = load_alanine(constrained=False)
@@ -48,7 +52,7 @@ alanine_unconstrained = EquilibriumSimulator(platform=configure_platform("Refere
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
                                            ghmc_timestep=1.0 * unit.femtosecond,
-                                           burn_in_length=50000, n_samples=1000,
+                                           burn_in_length=50000, n_samples=n_samples,
                                            thinning_interval=10000, name="alanine_unconstrained")
 
 #top, sys, pos = load_solvated_alanine(constrained=False)
