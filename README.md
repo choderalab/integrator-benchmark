@@ -48,7 +48,7 @@ def propagate_O(x, v, h):
     """Ornstein-Uhlenbeck -- stochastic velocity update
     using a ficticious "heat-bath""""
     a, b = exp(-gamma * h), sqrt(1 - exp(-2 * gamma * h))
-    return (x_, (a * v) + b * draw_maxwell_boltzmann_velocities())
+    return (x, (a * v) + b * draw_maxwell_boltzmann_velocities())
 
 propagate = {"O": propagate_O, "R": propagate_R, "V": propagate_V}
 ```
@@ -82,7 +82,7 @@ def simulate_timestep(x, v, dt, splitting="OVRVO"):
     n = {"O": n_O, "R": n_R, "V": n_V}
 
     for substep in splitting:
-        x, v = propagate[substep](dt / n[substep])
+        x, v = propagate[substep](x, v, dt / n[substep])
     return x, v
 ```
 
