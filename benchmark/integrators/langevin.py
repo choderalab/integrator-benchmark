@@ -136,7 +136,7 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
             if measure_shadow_work:
                 self.addComputeGlobal("new_pe", "energy")
                 self.addComputeSum("new_ke", kinetic_energy)
-                self.addComputeGlobal("W_shad", "W_shad + (new_ke + new_pe) - (old_ke + old_pe)")
+                self.addComputeGlobal("shadow_work", "shadow_work + (new_ke + new_pe) - (old_ke + old_pe)")
 
         def V_step(fg):
             """Deterministic velocity update, using only forces from force-group fg.
@@ -212,7 +212,7 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
         if measure_shadow_work:
             self.addGlobalVariable("old_pe", 0)
             self.addGlobalVariable("new_pe", 0)
-            self.addGlobalVariable("W_shad", 0)
+            self.addGlobalVariable("shadow_work", 0)
 
         # Integrate
         self.addUpdateContextState()

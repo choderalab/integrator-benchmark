@@ -154,7 +154,7 @@ class CustomizableGHMC(mm.CustomIntegrator):
         self.addGlobalVariable("ke_old", 0)
         self.addGlobalVariable("ke_new", 0)
         self.addGlobalVariable("heat", 0)
-        self.addGlobalVariable("W_shad", 0)
+        self.addGlobalVariable("shadow_work", 0)
         self.addGlobalVariable("e_old", 0)
         self.addGlobalVariable("e_new", 0)
         self.addGlobalVariable("acc_ratio", 0)
@@ -179,8 +179,8 @@ class CustomizableGHMC(mm.CustomIntegrator):
 
         # Compute M-H ratio in terms of energy change during the deterministic steps
         compute_total_energy("e_new")
-        self.addComputeGlobal("W_shad", "(e_new - e_old) - heat")
-        self.addComputeGlobal("acc_ratio", "exp(- W_shad / kT)")
+        self.addComputeGlobal("shadow_work", "(e_new - e_old) - heat")
+        self.addComputeGlobal("acc_ratio", "exp(- shadow_work / kT)")
 
         # Accept / reject : flip momenta upon rejection
         self.addComputeGlobal("accept", "step(acc_ratio - uniform)")
