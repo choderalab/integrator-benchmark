@@ -42,32 +42,6 @@ def load_dhfr_explicit(constrained=True):
 
     return topology, system, positions
 
-
-def get_src_implicit_test_system(temperature):
-    testsystem = SrcImplicit()
-    top, sys, pos = testsystem.topology, testsystem.system, testsystem.positions
-    platform = mm.Platform.getPlatformByName("OpenCL")
-    platform.setPropertyDefaultValue('OpenCLPrecision', 'double')
-
-    samples, unbiased_simulation = get_equilibrium_samples(top, sys, pos, platform, temperature,
-                                                           ghmc_timestep=0.5 * unit.femtoseconds,
-                                                           burn_in_length=500, n_samples=500, thinning_interval=5)
-    test_system = TestSystem(samples, temperature, top, sys, platform)
-    return test_system
-
-
-def get_src_explicit_test_system(temperature):
-    testsystem = SrcExplicit()
-    top, sys, pos = testsystem.topology, testsystem.system, testsystem.positions
-    platform = mm.Platform.getPlatformByName("OpenCL")
-    platform.setPropertyDefaultValue('OpenCLPrecision', 'mixed')
-
-    samples, unbiased_simulation = get_equilibrium_samples(top, sys, pos, platform, temperature,
-                                                           ghmc_timestep=0.5 * unit.femtoseconds,
-                                                           burn_in_length=100, n_samples=100, thinning_interval=5)
-    test_system = TestSystem(samples, temperature, top, sys, platform)
-    return test_system
-
 simple_params = {
     "platform": configure_platform("Reference"),
     "burn_in_length": 1000,
