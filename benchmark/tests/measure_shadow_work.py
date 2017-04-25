@@ -2,17 +2,20 @@
 # TODO: move consistency checking into tests
 
 import numpy as np
+from benchmark.utilities import get_total_energy
+from simtk import unit
+W_unit = unit.kilojoule_per_mole
 
-def measure_shadow_work_via_W_shad(simulation, n_steps):
-    """Simulate for n_steps, and record the integrator's W_shad global variable
-    at each step, minus the value of W_shad before integrating."""
-    get_W_shad = lambda : simulation.integrator.getGlobalVariableByName("W_shad")
-    W_shads = np.zeros(n_steps)
-    init_W_shad = get_W_shad()
+def measure_shadow_work_directly(simulation, n_steps):
+    """Simulate for n_steps, and record the integrator's shadow_work global variable
+    at each step, minus the value of shadow_work before integrating."""
+    get_shadow_work = lambda : simulation.integrator.getGlobalVariableByName("shadow_work")
+    shadow_work = np.zeros(n_steps)
+    init_shadow_work = get_shadow_work()
     for i in range(n_steps):
         simulation.step(1)
-        W_shads[i] = get_W_shad()
-    return W_shads - init_W_shad
+        shadow_work[i] = get_shadow_work()
+    return shadow_work - init_shadow_work
 
 def measure_shadow_work_via_heat(simulation, n_steps):
     """Given a `simulation` that uses an integrator that accumulates heat exchange with bath,
@@ -23,9 +26,9 @@ def measure_shadow_work_via_heat(simulation, n_steps):
     E_0 = get_energy()
     Q_0 = get_heat()
 
-    W_shads = []
+    shadow_work = np.zeros(n_steps)
 
-    for _ in range(n_steps):
+    for i in range(n_steps):
         simulation.step(1)
 
         E_1 = get_energy()
@@ -34,17 +37,16 @@ def measure_shadow_work_via_heat(simulation, n_steps):
         delta_E = E_1 - E_0
         delta_Q = Q_1 - Q_0
 
-        W_shad = delta_E.value_in_unit(W_unit) - delta_Q
-        W_shads.append(W_shad)
+        shadow_work[i] = delta_E.value_in_unit(W_unit) - delta_Q
 
-    return np.array(W_shads)
+    return shadow_work
 
-def measure_shadow_work_comparison(simulation, n_steps):
-    """Measure shadow work using the global W_shad, and as DeltaE - heat, and raise
+def measure_shadow_work_comparison(simulation, n_steps, return_both=False):
+    """Measure shadow work using the global shadow_work, and as DeltaE - heat, and raise
     a RuntimeWarning if they are inconsistent."""
     get_energy = lambda: get_total_energy(simulation)
     get_heat = lambda: simulation.integrator.getGlobalVariableByName("heat")
-    get_W_shad = lambda: simulation.integrator.getGlobalVariableByName("W_shad")
+    get_W_shad = lambda: simulation.integrator.getGlobalVariableByName("shadow_work")
 
     E_0 = get_energy()
     Q_0 = get_heat()
@@ -68,7 +70,10 @@ def measure_shadow_work_comparison(simulation, n_steps):
     if np.linalg.norm(W_shads_direct - W_shads_Q) > 1e-8:
         raise (RuntimeWarning("Two methods of measuring shadow work were inconsistent!"))
 
-    return W_shads_Q
+    if return_both:
+        return W_shads_Q, W_shads_direct
+    else:
+        return W_shads_Q
 
 def measure_shadow_work(simulation, n_steps):
     """Run the simulation for n_steps and return a vector of the shadow work accumulated
@@ -82,11 +87,11 @@ def measure_shadow_work(simulation, n_steps):
 
     global_variable_names = [simulation.integrator.getGlobalVariableName(i) for i in range(simulation.integrator.getNumGlobalVariables())]
 
-    if ("heat" in global_variable_names) and ("W_shad" in global_variable_names):
+    if ("heat" in global_variable_names) and ("shadow_work" in global_variable_names):
         return measure_shadow_work_comparison(simulation, n_steps)
     elif ("heat" in global_variable_names):
         return measure_shadow_work_via_heat(simulation, n_steps)
-    elif ("W_shad" in global_variable_names):
-        return measure_shadow_work_via_W_shad(simulation, n_steps)
+    elif ("shadow_work" in global_variable_names):
+        return measure_shadow_work_directly(simulation, n_steps)
     else:
         raise (RuntimeError("Simulation doesn't support shadow work computation"))

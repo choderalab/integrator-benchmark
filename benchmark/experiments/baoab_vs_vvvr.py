@@ -1,4 +1,3 @@
-import benchmark.testsystems
 from benchmark.testsystems import NonequilibriumSimulator
 from benchmark.integrators.langevin import LangevinSplittingIntegrator
 from benchmark import DATA_PATH
@@ -8,11 +7,12 @@ import numpy as np
 from simtk import unit
 from benchmark.evaluation.analysis import estimate_nonequilibrium_free_energy
 from benchmark.plotting import plot_scheme_comparison
+from benchmark.testsystems import alanine_unconstrained
 
 if __name__ == "__main__":
     n_protocol_samples, protocol_length = 10000, 100
     system_name = "alanine_unconstrained_low_friction"
-    equilibrium_simulator = benchmark.testsystems.alanine_unconstrained
+    equilibrium_simulator = alanine_unconstrained
     target_filename = os.path.join(DATA_PATH, "baoab_vs_vvvr_{}.pkl".format(system_name))
 
     schemes = {"BAOAB": "V R O R V", "VVVR": "O V R V O"}
