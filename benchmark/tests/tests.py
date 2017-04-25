@@ -10,42 +10,6 @@ from benchmark.utilities import get_total_energy, strip_unit
 from benchmark.integrators import generate_solvent_solute_splitting_string
 from benchmark.testsystems.testsystems import load_alanine
 
-
-def get_n_substeps(integrator):
-    matching_string = "DeltaE_"
-    global_var_names = [integrator.getGlobalVariableName(i) for i in range(integrator.getNumGlobalVariables())]
-    n_substeps = len([var_name for var_name in global_var_names if var_name[:len(matching_string)] == matching_string])
-    return n_substeps
-
-def get_substep_energy_changes(integrator, n_substeps):
-    DeltaEs = np.zeros(n_substeps)
-    for i in range(n_substeps):
-        DeltaEs[i] = integrator.getGlobalVariableByName("DeltaE_{}".format(i))
-    return DeltaEs
-
-def compare_substep_energy_changes(simulation, n_steps=10):
-    """Get all the substep energy changes, and compare them with
-    """
-    n_substeps = get_n_substeps(simulation.integrator)
-    substep_DeltaEs = np.zeros((n_steps, n_substeps))
-    onstep_DeltaEs = np.zeros(n_steps)
-    get_energy = lambda: get_total_energy(simulation)
-
-
-    for i in range(n_steps):
-        E_0 = get_energy()
-        simulation.step(1)
-        E_1 = get_energy()
-
-        onstep_DeltaEs[i] = strip_unit(E_1 - E_0)
-        substep_DeltaEs[i] = get_substep_energy_changes(simulation.integrator, n_substeps)
-
-    deviations = onstep_DeltaEs - substep_DeltaEs.sum(1)
-    print("Deviation in first step: {:.3f}".format(deviations[0]))
-    print("Deviations in subsequent steps: {}".format(deviations[1:]))
-
-    return onstep_DeltaEs, substep_DeltaEs
-
 def record_energy_changes(simulation, n_steps=100, W_shad_name="W_shad"):
     """Record the per-step changes in
     total energy,
