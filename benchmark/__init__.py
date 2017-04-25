@@ -9,3 +9,5 @@ def create_path_if_necessary(path):
 
 create_path_if_necessary(FIGURE_PATH)
 create_path_if_necessary(DATA_PATH)
+
+import evaluation, experiments, integrators, plotting, serialization, tests, testsystems, utilities, verification
