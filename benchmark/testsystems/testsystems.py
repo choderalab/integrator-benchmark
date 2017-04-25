@@ -53,24 +53,24 @@ simple_params = {
     "collision_rate": 91 / unit.picoseconds,
 }
 
-harmonic_oscillator_params = simple_params.copy()
-from .low_dimensional_systems import load_harmonic_oscillator
-harmonic_oscillator_params["loader"] = load_harmonic_oscillator
+#harmonic_oscillator_params = simple_params.copy()
+#from .low_dimensional_systems import load_harmonic_oscillator
+#harmonic_oscillator_params["loader"] = load_harmonic_oscillator
 
 quartic_params = simple_params.copy()
 from .low_dimensional_systems import load_quartic_potential
 quartic_params["loader"] = load_quartic_potential
 
-mts_params = simple_params.copy()
-from .low_dimensional_systems import load_mts_test
-mts_params["loader"] = load_mts_test
+#mts_params = simple_params.copy()
+#from .low_dimensional_systems import load_mts_test
+#mts_params["loader"] = load_mts_test
 
 from .waterbox import load_waterbox
 from .alanine_dipeptide import load_alanine
 system_params = {
-    "harmonic_oscillator": harmonic_oscillator_params,
+    #"harmonic_oscillator": harmonic_oscillator_params,
     "quartic_potential": quartic_params,
-    "mts_test": mts_params,
+    #"mts_test": mts_params,
     "waterbox": {
         "platform" : configure_platform("OpenCL"),
         "loader": load_waterbox,
