@@ -8,19 +8,19 @@ from benchmark.integrators import metropolis_hastings_factory
 from benchmark import DATA_PATH
 
 n_particles = 500
-def load_harmonic_oscillator(**args):
+def load_harmonic_oscillator(*args, **kwargs):
     """Load 3D harmonic oscillator"""
     testsystem = CustomExternalForcesTestSystem(("{k}*x^2 + {k}*y^2 + {k}*z^2".format(k=100.0),),
                                                 n_particles=n_particles)
     return testsystem.topology, testsystem.system, testsystem.positions
 
-def load_quartic_potential(**args):
+def load_quartic_potential(*args, **kwargs):
     """Load 3D quartic potential"""
     testsystem = CustomExternalForcesTestSystem(("{k}*x^4 + {k}*y^4 + {k}*z^4".format(k=100.0),),
                                                 n_particles=n_particles)
     return testsystem.topology, testsystem.system, testsystem.positions
 
-def load_mts_test(**args):
+def load_mts_test(*args, **kwargs):
     """
     n_particles : int
         number of identical, independent particles to add
