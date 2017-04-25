@@ -18,7 +18,7 @@ def simulation_factory(scheme, constrained=True):
     temperature = 298 * unit.kelvin
     topology, system, positions = load_alanine(constrained)
 
-    lsi = LangevinSplittingIntegrator(scheme, temperature=temperature,
+    lsi = LangevinSplittingIntegrator(scheme, temperature=temperature, timestep=2.0*unit.femtosecond,
                                       measure_heat=True, measure_shadow_work=True)
 
     simulation = app.Simulation(topology, system, lsi, platform)
