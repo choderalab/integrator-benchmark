@@ -51,12 +51,10 @@ class EquilibriumSimulator():
         self.n_samples = n_samples
         self.thinning_interval = thinning_interval
         self.name = name
+        self.cached = False
 
         # Construct unbiased simulation
         self.unbiased_simulation = self.construct_unbiased_simulation()
-
-        # Load or simulate
-        self.load_or_simulate_x_samples()
 
     def load_or_simulate_x_samples(self):
         """If we've already collected and stored equilibrium samples, load those
@@ -67,6 +65,7 @@ class EquilibriumSimulator():
         else:
             self.x_samples = self.collect_equilibrium_samples()
             self.save_equilibrium_samples(self.x_samples)
+        self.cahed = True
 
 
     def construct_unbiased_simulation(self):
@@ -148,6 +147,9 @@ class EquilibriumSimulator():
 
     def sample_x_from_equilibrium(self):
         """Draw sample (uniformly, with replacement) from cache of configuration samples"""
+        if self.cached == False:
+            self.load_or_simulate_x_samples()
+
         return self.x_samples[np.random.randint(len(self.x_samples))]
 
     def sample_v_given_x(self, x, tol=1e-5):
