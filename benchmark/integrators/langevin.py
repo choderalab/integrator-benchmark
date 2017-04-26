@@ -122,9 +122,6 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
 
         # Define substep functions
         def R_step():
-            self.addConstrainPositions()  # TODO: Constrain initial step only?
-            self.addConstrainVelocities() # TODO: Constrain initial step only?
-
             if measure_shadow_work:
                 self.addComputeGlobal("old_pe", "energy")
                 self.addComputeSum("old_ke", kinetic_energy)
@@ -139,7 +136,7 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
             if measure_shadow_work:
                 self.addComputeGlobal("new_pe", "energy")
                 self.addComputeSum("new_ke", kinetic_energy)
-                self.addComputeGlobal("W_shad", "W_shad + (new_ke + new_pe) - (old_ke + old_pe)")
+                self.addComputeGlobal("shadow_work", "shadow_work + (new_ke + new_pe) - (old_ke + old_pe)")
 
         def V_step(fg):
             """Deterministic velocity update, using only forces from force-group fg.
@@ -150,9 +147,6 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
                 Force group to use in this substep.
                 "" means all forces, "0" means force-group 0, etc.
             """
-            self.addConstrainPositions()  # TODO: Constrain initial step only?
-            self.addConstrainVelocities() # TODO: Constrain initial step only?
-
             if measure_shadow_work:
                 self.addComputeSum("old_ke", kinetic_energy)
 
@@ -169,9 +163,6 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
                 self.addComputeGlobal("shadow_work", "shadow_work + (new_ke - old_ke)")
 
         def O_step():
-            self.addConstrainPositions()  # TODO: Constrain initial step only?
-            self.addConstrainVelocities() # TODO: Constrain initial step only?
-
             if measure_heat:
                 self.addComputeSum("old_ke", kinetic_energy)
 
@@ -221,7 +212,7 @@ class LangevinSplittingIntegrator(mm.CustomIntegrator):
         if measure_shadow_work:
             self.addGlobalVariable("old_pe", 0)
             self.addGlobalVariable("new_pe", 0)
-            self.addGlobalVariable("W_shad", 0)
+            self.addGlobalVariable("shadow_work", 0)
 
         # Integrate
         self.addUpdateContextState()

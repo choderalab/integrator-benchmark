@@ -1,3 +1,4 @@
+import os
 import numpy as np
 
 from simtk import openmm
@@ -128,6 +129,10 @@ class CoupledPowerOscillators(TestSystem):
         self.positions = positions
         self.system = system
 
+n_samples = 1000 # number of samples to collect
+if 'TRAVIS' in os.environ:
+    n_samples = 20 # reduce sampling for travis
+
 temperature = 298 * unit.kelvin
 testsystem = CoupledPowerOscillators(nx=5, ny=5, nz=5)
 top, sys, pos = testsystem.topology, testsystem.system, testsystem.positions
@@ -135,5 +140,5 @@ coupled_power_oscillators = EquilibriumSimulator(platform=configure_platform("CP
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
                                            ghmc_timestep=1.0 * unit.femtosecond,
-                                           burn_in_length=1000, n_samples=1000,
+                                           burn_in_length=1000, n_samples=n_samples,
                                            thinning_interval=10, name="coupled_power_oscillators")

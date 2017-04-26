@@ -25,7 +25,7 @@ for scheme in schemes:
     integrator = LangevinSplittingIntegrator(scheme)
 
     # Export integrator to XML
-    with open(os.path.join(DATA_PATH, "serialized_integrators/{}.xml".format(scheme), "wb")) as f:
+    with open(os.path.join(DATA_PATH, "{}.xml".format(scheme), "wt")) as f:
         f.writelines(XmlSerializer.serialize(integrator))
 
     # Also pretty-print (using `step_type_dict`)
@@ -36,5 +36,5 @@ for scheme in schemes:
     print(readable_lines)
 
     # Save pretty-printed results to .txt
-    with open(os.path.join(DATA_PATH, "serialized_integrators/{}.txt".format(scheme), "wb")) as f:
+    with open(os.path.join(DATA_PATH, "{}.txt".format(scheme), "wt")) as f:
         f.writelines(readable_lines)

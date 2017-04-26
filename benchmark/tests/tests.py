@@ -6,74 +6,9 @@ from simtk.openmm import app
 
 W_unit = unit.kilojoule_per_mole
 from benchmark.testsystems.configuration import configure_platform
-from benchmark.utilities import get_total_energy, strip_unit
 from benchmark.integrators import generate_solvent_solute_splitting_string
 from benchmark.testsystems.testsystems import load_alanine
-
-
-def get_n_substeps(integrator):
-    matching_string = "DeltaE_"
-    global_var_names = [integrator.getGlobalVariableName(i) for i in range(integrator.getNumGlobalVariables())]
-    n_substeps = len([var_name for var_name in global_var_names if var_name[:len(matching_string)] == matching_string])
-    return n_substeps
-
-def get_substep_energy_changes(integrator, n_substeps):
-    DeltaEs = np.zeros(n_substeps)
-    for i in range(n_substeps):
-        DeltaEs[i] = integrator.getGlobalVariableByName("DeltaE_{}".format(i))
-    return DeltaEs
-
-def compare_substep_energy_changes(simulation, n_steps=10):
-    """Get all the substep energy changes, and compare them with
-    """
-    n_substeps = get_n_substeps(simulation.integrator)
-    substep_DeltaEs = np.zeros((n_steps, n_substeps))
-    onstep_DeltaEs = np.zeros(n_steps)
-    get_energy = lambda: get_total_energy(simulation)
-
-
-    for i in range(n_steps):
-        E_0 = get_energy()
-        simulation.step(1)
-        E_1 = get_energy()
-
-        onstep_DeltaEs[i] = strip_unit(E_1 - E_0)
-        substep_DeltaEs[i] = get_substep_energy_changes(simulation.integrator, n_substeps)
-
-    deviations = onstep_DeltaEs - substep_DeltaEs.sum(1)
-    print("Deviation in first step: {:.3f}".format(deviations[0]))
-    print("Deviations in subsequent steps: {}".format(deviations[1:]))
-
-    return onstep_DeltaEs, substep_DeltaEs
-
-def record_energy_changes(simulation, n_steps=100, W_shad_name="W_shad"):
-    """Record the per-step changes in
-    total energy,
-    integrator-accumulated "heat,"
-    and integrator-accumulated "W_shad"
-    for n_steps."""
-
-    get_energy = lambda: get_total_energy(simulation)
-    get_heat = lambda: simulation.integrator.getGlobalVariableByName("heat")
-    get_W_shad = lambda: simulation.integrator.getGlobalVariableByName(W_shad_name)
-
-    delta_energy = np.zeros(n_steps)
-    delta_heat = np.zeros(n_steps)
-    delta_W_shad = np.zeros(n_steps)
-
-    for i in range(n_steps):
-        e_0 = get_energy()
-        q_0 =  get_heat()
-        W_shad_0 = get_W_shad()
-
-        simulation.step(1)
-
-        delta_energy[i] = strip_unit(get_energy() - e_0)
-        delta_heat[i] = get_heat() - q_0
-        delta_W_shad[i] = get_W_shad() - W_shad_0
-
-
-    return delta_energy, delta_heat, delta_W_shad
+from .measure_shadow_work import measure_shadow_work_comparison
 
 def simulation_factory(scheme, constrained=True):
     """Create and return a simulation that includes:
@@ -83,7 +18,7 @@ def simulation_factory(scheme, constrained=True):
     temperature = 298 * unit.kelvin
     topology, system, positions = load_alanine(constrained)
 
-    lsi = LangevinSplittingIntegrator(scheme, temperature=temperature,
+    lsi = LangevinSplittingIntegrator(scheme, temperature=temperature, timestep=2.0*unit.femtosecond,
                                       measure_heat=True, measure_shadow_work=True)
 
     simulation = app.Simulation(topology, system, lsi, platform)
@@ -91,12 +26,17 @@ def simulation_factory(scheme, constrained=True):
     simulation.context.setVelocitiesToTemperature(temperature)
     return simulation
 
-def check_W_shad_consistency(energy_changes):
+def check_W_shad_consistency(simulation, n_steps=100, threshold=1e-8):
     """Compute and print the average deviation from our definition that
     Delta E = W_shad + Q for each timestep."""
-    delta_energy, delta_heat, delta_W_shad = energy_changes
-    print("\tAverage deviation between Delta E and (W_shad + Q): {:.3f}".format(
-        np.linalg.norm(delta_energy - (delta_W_shad + delta_heat)) / len(delta_energy)))
+    W_shads_Q, W_shads_direct = measure_shadow_work_comparison(simulation, n_steps, return_both=True)
+
+    deviation = np.linalg.norm(W_shads_Q - W_shads_direct)
+    print("\tDeviation between two methods for computing shadow work: {:.3f}".format(deviation))
+
+    if deviation > threshold:
+        raise(RuntimeError("Discrepancy between two methods for measuring shadow work "
+                           "exceeds threshold!"))
 
 
 if __name__ == "__main__":
@@ -111,19 +51,6 @@ if __name__ == "__main__":
                        generate_solvent_solute_splitting_string(K_p=2,K_r=2)
                        ]:
             simulation = simulation_factory(scheme)
-            #simulation.step(100)
+            simulation.step(10)
             print("Scheme: {}".format(scheme))
-            check_W_shad_consistency(record_energy_changes(simulation))
-
-    # also check VVVR, in the system without constraints
-    print("\n\nVVVR")
-    platform = configure_platform("Reference")
-    temperature = 298 * unit.kelvin
-    testsystem = AlanineDipeptideVacuum(constraints=None)
-    from openmmtools.integrators import VVVRIntegrator
-    vvvr = VVVRIntegrator(temperature, monitor_heat=True, monitor_work=True)
-    simulation = app.Simulation(testsystem.topology, testsystem.system, vvvr, platform)
-    simulation.context.setPositions(testsystem.positions)
-    simulation.context.setVelocitiesToTemperature(temperature)
-    simulation.step(100)
-    check_W_shad_consistency(record_energy_changes(simulation, W_shad_name="shadow_work"))
+            check_W_shad_consistency(simulation)

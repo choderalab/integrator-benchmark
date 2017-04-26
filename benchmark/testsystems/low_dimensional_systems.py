@@ -8,19 +8,19 @@ from benchmark.integrators import metropolis_hastings_factory
 from benchmark import DATA_PATH
 
 n_particles = 500
-def load_harmonic_oscillator(**args):
+def load_harmonic_oscillator(*args, **kwargs):
     """Load 3D harmonic oscillator"""
     testsystem = CustomExternalForcesTestSystem(("{k}*x^2 + {k}*y^2 + {k}*z^2".format(k=100.0),),
                                                 n_particles=n_particles)
     return testsystem.topology, testsystem.system, testsystem.positions
 
-def load_quartic_potential(**args):
+def load_quartic_potential(*args, **kwargs):
     """Load 3D quartic potential"""
     testsystem = CustomExternalForcesTestSystem(("{k}*x^4 + {k}*y^4 + {k}*z^4".format(k=100.0),),
                                                 n_particles=n_particles)
     return testsystem.topology, testsystem.system, testsystem.positions
 
-def load_mts_test(**args):
+def load_mts_test(*args, **kwargs):
     """
     n_particles : int
         number of identical, independent particles to add
@@ -38,23 +38,15 @@ def load_mts_test(**args):
                                                 n_particles=n_particles)
     return testsystem.topology, testsystem.system, testsystem.positions
 
-class NumbaBookkeepingQuarticSimulator():
-    def __init__(self, mass=10.0, beta=1.0):
+class NumbaBookkeepingSimulator():
+    def __init__(self, mass=10.0, beta=1.0,
+                 potential=lambda x:x**4,
+                 force=lambda x: -4.0 * x**3,
+                 name='quartic'
+                 ):
         self.mass = mass
         self.beta = beta
         self.velocity_scale =np.sqrt(1.0 / (beta * mass))
-        sigma2 = self.velocity_scale ** 2
-
-
-        self.q = lambda x : np.exp(-x**4)
-        # timestep = 1.0
-        # gamma = 100.0
-
-        def potential(x):
-            return x ** 4
-
-        def force(x):
-            return - 4.0 * x ** 3
 
         def reduced_potential(x):
             return potential(x) * beta
@@ -71,7 +63,7 @@ class NumbaBookkeepingQuarticSimulator():
         self.log_q = log_q
         self.q = q
         self.equilibrium_simulator = metropolis_hastings_factory(q)
-        self.name = "quartic"
+        self.name = name
         self._path_to_samples = self.get_path_to_samples()
 
         # Load or simulate
@@ -117,11 +109,15 @@ class NumbaBookkeepingQuarticSimulator():
         """Draw sample (uniformly, with replacement) from cache of configuration samples"""
         return self.x_samples[np.random.randint(len(self.x_samples))]
 
-    def sample_v_from_equilibrium(self):
-        """Sample velocity marginal."""
+    def sample_v_given_x(self, x):
+        """Sample velocity marginal. (Here, p(v) = p(v|x).)"""
         return np.random.randn() * self.velocity_scale
 
-quartic = NumbaBookkeepingQuarticSimulator()
+quartic = NumbaBookkeepingSimulator()
+double_well = NumbaBookkeepingSimulator(potential=lambda x: x**6 + 2 * np.cos(5 * (x+1)),
+                                        force= lambda x: - (6 * x**5 - 10 * np.sin(5 * (x+1))),
+                                        name='double_well'
+                                        )
 
 class NumbaNonequilibriumSimulator():
     """Nonequilibrium simulator, supporting shadow_work accumulation, and drawing x, v, from equilibrium.
@@ -136,9 +132,9 @@ class NumbaNonequilibriumSimulator():
         """Draw sample (uniformly, with replacement) from cache of configuration samples"""
         return self.equilibrium_simulator.sample_x_from_equilibrium()
 
-    def sample_v_from_equilibrium(self):
+    def sample_v_given_x(self, x):
         """Sample velocities from Maxwell-Boltzmann distribution."""
-        return self.equilibrium_simulator.sample_v_from_equilibrium()
+        return self.equilibrium_simulator.sample_v_given_x(x)
 
     def accumulate_shadow_work(self, x_0, v_0, n_steps):
         """Run the integrator for n_steps and return the shadow work accumulated"""
@@ -149,13 +145,14 @@ class NumbaNonequilibriumSimulator():
         """Perform nonequilibrium measurements, aimed at measuring the free energy difference for the chosen marginal."""
         W_shads_F, W_shads_R = [], []
         for _ in tqdm(range(n_protocol_samples)):
-            x_0, v_0 = self.sample_x_from_equilibrium(), self.sample_v_from_equilibrium()
+            x_0 = self.sample_x_from_equilibrium()
+            v_0 = self.sample_v_given_x(x_0)
             xs, vs, Q, W_shads = self.integrator(x0=x_0, v0=v_0, n_steps=protocol_length)
             W_shads_F.append(W_shads[-1])
 
             x_1 = xs[-1][-1]
             if marginal == "configuration":
-                v_1  = self.sample_v_from_equilibrium()
+                v_1  = self.sample_v_given_x(x_1)
             elif marginal == "full":
                 v_1 = vs[-1][-1]
             else:
