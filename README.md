@@ -9,7 +9,7 @@ Enumerating and evaluating numerical schemes for Langevin dynamics
 A widely-used approach to investigating equilibrium properties is to simulate Langevin dynamics.
 Langevin dynamics is a system of stochastic differential equations defined on a state space of configurations $\mathbf{x}$ and velocities $\mathbf{v}$.
 
-To simulate those equations on a computer, we need to provide explicit instructions for advancing the state of the system $(\mathbf{x},\mathbf{v})$` by very small time increments.
+To simulate those equations on a computer, we need to provide explicit instructions for advancing the state of the system $(\mathbf{x},\mathbf{v})$ by very small time increments.
 
 Here, we will consider the family of methods that can be derived by splitting the Langevin system into a sum of three simpler systems, labeled `O`, `R`, and `V`. We then define a numerical method by approximately propagating each of those simpler systems for small increments of time in a specified order.
 
@@ -48,7 +48,7 @@ def propagate_O(x, v, h):
     """Ornstein-Uhlenbeck -- stochastic velocity update
     using a ficticious "heat-bath""""
     a, b = exp(-gamma * h), sqrt(1 - exp(-2 * gamma * h))
-    return (x_, (a * v) + b * draw_maxwell_boltzmann_velocities())
+    return (x, (a * v) + b * draw_maxwell_boltzmann_velocities())
 
 propagate = {"O": propagate_O, "R": propagate_R, "V": propagate_V}
 ```
@@ -75,14 +75,12 @@ x, v = propagate_V(x, v, dt / 2)
 As suggested from these examples, the generic recipe for turning a splitting string into a Langevin integrator is:
 
 ```python
-def simulate_timestep(x, v, dt, splitting="OVRVO"):
-    n_O = sum([substep == "O" for step in splitting])
-    n_R = sum([substep == "R" for step in splitting])
-    n_V = sum([substep == "V" for step in splitting])
-    n = {"O": n_O, "R": n_R, "V": n_V}
+def get_n(substep="O", splitting="OVRVO"):
+    return sum([s == substep for s in splitting])
 
+def simulate_timestep(x, v, dt, splitting="OVRVO"):
     for substep in splitting:
-        x, v = propagate[substep](dt / n[substep])
+        x, v = propagate[substep](x, v, dt / get_n(substep, splitting))
     return x, v
 ```
 
