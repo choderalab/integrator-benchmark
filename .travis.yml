@@ -30,7 +30,7 @@ script:
   #- cd devtools && nosetests $PACKAGENAME --nocapture --verbosity=2 --with-timer -a '!slow' && cd ..
   - nosetests $PACKAGENAME --nocapture --verbosity=2 --with-timer
   # Test the examples
-  - python benchmark/experiments/baoab_vs_vvvr.py
+  #- python benchmark/experiments/baoab_vs_vvvr.py
 
 os:
   - osx
