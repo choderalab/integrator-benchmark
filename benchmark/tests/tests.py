@@ -8,7 +8,7 @@ W_unit = unit.kilojoule_per_mole
 from benchmark.testsystems.configuration import configure_platform
 from benchmark.integrators import generate_solvent_solute_splitting_string
 from benchmark.testsystems.testsystems import load_alanine
-from measure_shadow_work import measure_shadow_work_comparison
+from .measure_shadow_work import measure_shadow_work_comparison
 
 def simulation_factory(scheme, constrained=True):
     """Create and return a simulation that includes:
