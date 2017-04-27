@@ -100,18 +100,25 @@ def repartition_hydrogen_mass_connected(topology, system, h_mass=4.0,
     * Should we proportionally reduce the mass of each bonded atom?
     """
 
-    raise (NotImplementedError())
+    set_hydrogen_mass(system, topology, h_mass)
+    atoms_bonded_to_H = get_atoms_bonded_to_hydrogen(topology)
+
+    if mode == "scale":
+        initial_mass_of_bonded_atoms = get_sum_of_masses(system, atoms_bonded_to_H)
+        mass_to_remove_from_others = (h_mass - 1) * len(get_hydrogens(topology))
+        scale_factor = 1 - (mass_to_remove_from_others / initial_mass_of_bonded_atoms)
+        scale_particle_masses(system, atoms_bonded_to_H, scale_factor)
+
+    elif mode == "decrement":
+        delta_mass = h_mass - 1.0
+        decrement_particle_masses(system, atoms_bonded_to_H, delta_mass)
 
 
 def repartition_hydrogen_mass_all(topology, system, h_mass=4.0,
-                                  mode="scale"  # or "decrement"
+                                  mode="scale",  # or "decrement"
                                   ):
     """Set the mass of all hydrogens to h_mass. Reduce the mass of
-    all other atoms, so that the total mass remains constant.
-
-    Question: how should we do this, exactly?
-    * Should we subtract the same mass from each other atom?
-    * Should we proportionally reduce the mass of each other atom?
+    ({all other} or {connected}) atoms, so that the total mass remains constant.
     """
     initial_mass = get_sum_of_masses(system)
     hydrogens = get_hydrogens(topology)
@@ -131,6 +138,31 @@ def repartition_hydrogen_mass_all(topology, system, h_mass=4.0,
 
     set_hydrogen_mass(system, topology, h_mass)
 
+def repartition_hydrogen_mass(topology, system, h_mass=4.0, mode="decrement", atoms="connected"):
+    """Modify `system` by setting H mass and decreasing other atoms' mass
+    
+    Parameters
+    ----------
+    topology
+    system
+    h_mass 
+    mode : string
+        "decrement" : subtract the same mass from each other atom
+        "scale" : proportionally reduce the mass of each other atom
+    atoms : string
+        "connected" : reduce mass of atoms bonded to H
+        "all" : reduce mass of all non-H atoms
+    """
+    if atoms == "connected":
+        repartition = repartition_hydrogen_mass_all
+    elif atoms == "all":
+        repartition = repartition_hydrogen_mass_connected
+    else:
+        raise(NotImplementedError("`atoms` must be either `all` or `connected`!"))
+
+    repartition(topology, system, h_mass, mode)
+
+# TODO: Reduce code duplication between repartition_hydrogen_mass_all and repartition_hydrogen_mass_connected]
 
 # Utilities for modifying force groups
 # TODO: Valence vs. nonbonded
