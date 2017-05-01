@@ -65,7 +65,7 @@ class EquilibriumSimulator():
         else:
             self.x_samples = self.collect_equilibrium_samples()
             self.save_equilibrium_samples(self.x_samples)
-        self.cahed = True
+        self.cached = True
 
 
     def construct_unbiased_simulation(self):
