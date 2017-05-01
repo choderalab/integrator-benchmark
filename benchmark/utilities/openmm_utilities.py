@@ -71,7 +71,7 @@ def scale_particle_masses(system, atom_indices, scale_factor):
 def get_sum_of_masses(system, atom_indices=None):
     """Get the sum of particle masses in the system"""
     if atom_indices == None:
-        atom_indices = range(len(system.getNumAtoms()))
+        atom_indices = range(system.getNumParticles())
     return sum([get_mass(system, atom_index)
                 for atom_index in atom_indices])
 
