@@ -45,25 +45,26 @@ def get_hydrogens(topology):
             atom_indices.append(atom_index)
     return atom_indices
 
-
 def set_hydrogen_mass(system, topology, h_mass=4.0):
     """Set the masses of all hydrogens in system to h_mass (amu)"""
     atom_indices = get_hydrogens(topology)
     for atom_index in atom_indices:
         system.setParticleMass(atom_index, h_mass)
 
+def get_mass(system, atom_index):
+    return system.getParticleMass(atom_index).value_in_unit(unit.amu)
 
 def decrement_particle_masses(system, atom_indices, decrement):
     """Reduce the masses of all atoms in `atom_indices` by `decrement`"""
     for atom_index in atom_indices:
-        current_mass = system.getParticleMass(atom_index)
+        current_mass = get_mass(system, atom_index)
         system.setParticleMass(atom_index, current_mass - decrement)
 
 
 def scale_particle_masses(system, atom_indices, scale_factor):
     """Multiply the masses of all atoms in `atom_indices` by `scale_factor`"""
     for atom_index in atom_indices:
-        current_mass = system.getParticleMass(atom_index)
+        current_mass = get_mass(system, atom_index)
         system.setParticleMass(atom_index, current_mass * scale_factor)
 
 
@@ -71,7 +72,7 @@ def get_sum_of_masses(system, atom_indices=None):
     """Get the sum of particle masses in the system"""
     if atom_indices == None:
         atom_indices = range(len(system.getNumAtoms()))
-    return sum([system.getParticleMass(atom_index).value_in_unit(unit.amu)
+    return sum([get_mass(system, atom_index)
                 for atom_index in atom_indices])
 
 
@@ -88,6 +89,7 @@ def get_atoms_bonded_to_hydrogen(topology):
                 atom_indices.append(a.index)
     return atom_indices
 
+# TODO: Also just set all the masses to be equal...
 
 def repartition_hydrogen_mass_connected(topology, system, h_mass=4.0,
                                         mode="scale"  # or "decrement"
