@@ -50,10 +50,11 @@ def compute_free_energy(xv, potential, kinetic_energy, beta):
 
     return F, F_conf
 
+# TODO: Estimate the statistical inefficiency g
 
-# also estimate configurational temperature
+# TODO: also estimate configurational temperature
 
-# can also add bootstrapped confidence interval, if we use a different estimator
+# TODO: also add bootstrapped confidence interval, if we use a different estimator
 
 if __name__ == "__main__":
     print("reading and re-analyzing results")
