@@ -25,7 +25,7 @@ from benchmark import FIGURE_PATH
 from benchmark import simulation_parameters
 from benchmark.utilities.openmm_utilities import get_masses
 
-class GeodesicDrifter():
+class GeodesicStep():
     def __init__(self, simulator, tolerance=simulation_parameters["tolerance"]):
         self.system = simulator.system
         self.simulation = simulator.unbiased_simulation
@@ -91,10 +91,10 @@ class GeodesicDrifter():
         return v.value_in_unit(v.unit)
 
 if __name__ == "__main__":
-    n_samples = 10
+    n_samples = 100
 
-    system_name = "waterbox_constrained"
-    equilibrium_simulator = waterbox_constrained
+    system_name = "alanine_constrained"
+    equilibrium_simulator = alanine_constrained
     x_unit = equilibrium_simulator.unbiased_simulation.context.getState(getPositions=True).getPositions().unit
 
     # define some convenience functions...
@@ -112,14 +112,14 @@ if __name__ == "__main__":
         return np.linalg.norm(x - y)
 
     target_filename = "geodesic_drift_difference_{}".format(system_name)
-    n_geodesic_steps = list(range(1, 10)) + list(range(10, 51)[::10])
+    n_geodesic_steps = list(range(1, 10)) + [50]
 
     ys = {}
     yerrs = {}
     distances = {}
     timesteps = np.linspace(0.1, 10.0, 20) * unit.femtosecond
 
-    geodesic_drifter = GeodesicDrifter(equilibrium_simulator)
+    geodesic_stepper = GeodesicStep(equilibrium_simulator)
 
     xs_drift = np.zeros((n_samples, len(timesteps), len(n_geodesic_steps)), dtype=object)
     xs_kick = np.zeros((n_samples, len(timesteps), len(n_geodesic_steps)), dtype=object)
@@ -128,8 +128,8 @@ if __name__ == "__main__":
         x, v = sample_xv()
         for j in range(len(timesteps)):
             for k in range(len(n_geodesic_steps)):
-                xs_drift[i,j,k] = geodesic_drifter.drift(x, v, dt=timesteps[j], n_steps=n_geodesic_steps[k])
-                xs_kick[i, j, k] = geodesic_drifter.kick(x, v, dt=timesteps[j], n_steps=n_geodesic_steps[k])
+                xs_drift[i,j,k] = geodesic_stepper.drift(x, v, dt=timesteps[j], n_steps=n_geodesic_steps[k])
+                xs_kick[i, j, k] = geodesic_stepper.kick(x, v, dt=timesteps[j], n_steps=n_geodesic_steps[k])
 
 
     discrepancy_curves_y = {}
@@ -186,10 +186,10 @@ if __name__ == "__main__":
         plt.close()
 
 
-    # plot with linear y scale
     for mode in ["drift", "kick"]:
         for yscale in ["log", "linear"]:
             plot(mode, yscale)
 
 
-# TODO: how does error depend on the location within the integrator substep?
+# TODO: How does error depend on the location within the integrator substep?
+# TODO: Also plot average energy change along linear drift and geodesic drift paths...
