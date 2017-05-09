@@ -7,6 +7,7 @@ from simtk.openmm import app
 from simtk import unit
 from benchmark.testsystems.configuration import configure_platform
 from benchmark.utilities import keep_only_some_forces
+from benchmark import thermodynamic_parameters
 
 
 def load_alanine(constrained=True):
@@ -37,7 +38,7 @@ n_samples = 1000 # number of samples to collect
 if 'TRAVIS' in os.environ:
     n_samples = 20 # reduce sampling for travis
 
-temperature = 298 * unit.kelvin
+temperature = thermodynamic_parameters["temperature"]
 from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 top, sys, pos = load_alanine(constrained=True)
 alanine_constrained = EquilibriumSimulator(platform=configure_platform("Reference"),

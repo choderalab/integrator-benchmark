@@ -4,6 +4,8 @@ from simtk.openmm import app
 from simtk import unit
 from benchmark.testsystems.configuration import configure_platform
 from benchmark.utilities import keep_only_some_forces
+from benchmark import thermodynamic_parameters
+temperature = thermodynamic_parameters["temperature"]
 
 
 def load_src_vacuum(constrained=True):
@@ -79,7 +81,7 @@ system_params = {
         "protocol_length": 50,
         "constrained_timestep": 2.5*unit.femtosecond,
         "unconstrained_timestep": 1.0*unit.femtosecond,
-        "temperature": 298.0 * unit.kelvin,
+        "temperature": temperature,
         "collision_rate": 91 / unit.picoseconds,
     },
     "alanine": {
@@ -90,7 +92,7 @@ system_params = {
         "protocol_length": 100,
         "constrained_timestep": 2.5*unit.femtosecond,
         "unconstrained_timestep": 2.0*unit.femtosecond,
-        "temperature": 298.0 * unit.kelvin,
+        "temperature": temperature,
         "collision_rate": 91 / unit.picoseconds,
     }
 }

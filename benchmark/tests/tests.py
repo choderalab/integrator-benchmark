@@ -9,13 +9,14 @@ from benchmark.testsystems.configuration import configure_platform
 from benchmark.integrators import generate_solvent_solute_splitting_string
 from benchmark.testsystems.testsystems import load_alanine
 from .measure_shadow_work import measure_shadow_work_comparison
+from benchmark import thermodynamic_parameters
 
 def simulation_factory(scheme, constrained=True):
     """Create and return a simulation that includes:
     * Langevin integrator with the prescribed operator splitting
     * AlanineDipeptideVacuum with or without restraints."""
     platform = configure_platform("Reference")
-    temperature = 298 * unit.kelvin
+    temperature = thermodynamic_parameters["temperature"]
     topology, system, positions = load_alanine(constrained)
 
     lsi = LangevinSplittingIntegrator(scheme, temperature=temperature, timestep=2.0*unit.femtosecond,

@@ -1,5 +1,6 @@
 import simtk.openmm as mm
 from simtk import unit
+from benchmark import thermodynamic_parameters
 
 
 def get_total_energy(simulation):
@@ -95,8 +96,6 @@ def get_atoms_bonded_to_hydrogen(topology):
                 atom_indices.append(a.index)
     return atom_indices
 
-# TODO: Also just set all the masses to be equal...
-
 def repartition_hydrogen_mass_connected(topology, system, h_mass=4.0,
                                         mode="scale"  # or "decrement"
                                         ):
@@ -161,6 +160,7 @@ def repartition_hydrogen_mass(topology, system, h_mass=4.0, mode="decrement", at
         "connected" : reduce mass of atoms bonded to H
         "all" : reduce mass of all non-H atoms
     """
+    system = system.deep_copy()
 
     # check to make sure system mass is unchanged...
     pre_mass = get_sum_of_masses(system)
@@ -218,6 +218,11 @@ def remove_barostat(system):
     for force_index in force_indices_to_remove[::-1]:
         print('   Removing %s' % system.getForce(force_index).__class__.__name__)
         system.removeForce(force_index)
+
+def add_barostat(system):
+    """Add Monte Carlo barostat"""
+    system.addForce(mm.MonteCarloBarostat(thermodynamic_parameters["pressure"],
+                                          thermodynamic_parameters["temperature"]))
 
 def keep_only_some_forces(system, extra_forces_to_keep=[]):
     """Remove unwanted forces, e.g. center-of-mass motion removal"""
