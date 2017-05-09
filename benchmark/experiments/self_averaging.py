@@ -10,9 +10,9 @@ from benchmark.evaluation.analysis import estimate_nonequilibrium_free_energy
 from benchmark.testsystems.coupled_power_oscillators import CoupledPowerOscillators
 from benchmark.testsystems.configuration import configure_platform
 from tqdm import tqdm
-from benchmark import thermodynamic_parameters
+from benchmark import simulation_parameters
 
-temperature = thermodynamic_parameters["temperature"]
+temperature = simulation_parameters["temperature"]
 
 # Varying: well depth, well steepness, and same for the coupling terms
 

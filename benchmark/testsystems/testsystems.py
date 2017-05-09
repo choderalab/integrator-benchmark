@@ -4,8 +4,8 @@ from simtk.openmm import app
 from simtk import unit
 from benchmark.testsystems.configuration import configure_platform
 from benchmark.utilities import keep_only_some_forces
-from benchmark import thermodynamic_parameters
-temperature = thermodynamic_parameters["temperature"]
+from benchmark import simulation_parameters
+temperature = simulation_parameters["temperature"]
 
 
 def load_src_vacuum(constrained=True):
@@ -98,7 +98,7 @@ system_params = {
 }
 # TODO: Add Waterbox, AlanineExplicit EquilibriumSimulators
 
-temperature = thermodynamic_parameters["temperature"]
+temperature = simulation_parameters["temperature"]
 n_samples = 100
 from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 top, sys, pos = load_dhfr_explicit(constrained=True)

@@ -10,7 +10,7 @@ from openmmtools.testsystems import TestSystem
 from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 from benchmark.testsystems.configuration import configure_platform
 
-from benchmark import thermodynamic_parameters
+from benchmark import simulation_parameters
 
 
 class CoupledPowerOscillators(TestSystem):
@@ -136,7 +136,7 @@ if 'TRAVIS' in os.environ:
     n_samples = 20 # reduce sampling for travis
 
 
-temperature = thermodynamic_parameters["temperature"]
+temperature = simulation_parameters["temperature"]
 testsystem = CoupledPowerOscillators(nx=5, ny=5, nz=5)
 top, sys, pos = testsystem.topology, testsystem.system, testsystem.positions
 coupled_power_oscillators = EquilibriumSimulator(platform=configure_platform("CPU"),

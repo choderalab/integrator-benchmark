@@ -1,6 +1,6 @@
 import simtk.openmm as mm
 from simtk import unit
-from benchmark import thermodynamic_parameters
+from benchmark import simulation_parameters
 
 
 def get_total_energy(simulation):
@@ -221,8 +221,8 @@ def remove_barostat(system):
 
 def add_barostat(system):
     """Add Monte Carlo barostat"""
-    system.addForce(mm.MonteCarloBarostat(thermodynamic_parameters["pressure"],
-                                          thermodynamic_parameters["temperature"]))
+    system.addForce(mm.MonteCarloBarostat(simulation_parameters["pressure"],
+                                          simulation_parameters["temperature"]))
 
 def keep_only_some_forces(system, extra_forces_to_keep=[]):
     """Remove unwanted forces, e.g. center-of-mass motion removal"""
