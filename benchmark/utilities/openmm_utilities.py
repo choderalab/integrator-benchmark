@@ -116,15 +116,17 @@ def repartition_hydrogen_mass_connected(topology, system, h_mass=4.0,
 
     set_hydrogen_mass(system, topology, h_mass)
     atoms_bonded_to_H = get_atoms_bonded_to_hydrogen(topology)
+    hydrogens = get_hydrogens(topology)
+    initial_h_mass = get_sum_of_masses(system, hydrogens) / len(hydrogens)
 
     if mode == "scale":
         initial_mass_of_bonded_atoms = get_sum_of_masses(system, atoms_bonded_to_H)
-        mass_to_remove_from_others = (h_mass - 1) * len(get_hydrogens(topology))
-        scale_factor = 1 - (mass_to_remove_from_others / initial_mass_of_bonded_atoms)
+        mass_to_remove_from_others = (h_mass - initial_h_mass) * len(get_hydrogens(topology))
+        scale_factor = 1.0 - (mass_to_remove_from_others / initial_mass_of_bonded_atoms)
         scale_particle_masses(system, atoms_bonded_to_H, scale_factor)
 
     elif mode == "decrement":
-        delta_mass = h_mass - 1.0
+        delta_mass = h_mass - initial_h_mass
         decrement_particle_masses(system, atoms_bonded_to_H, delta_mass)
 
 
@@ -159,7 +161,7 @@ def repartition_hydrogen_mass(topology, system, h_mass=4.0, mode="decrement", at
     ----------
     topology
     system
-    h_mass 
+    h_mass
     mode : string
         "decrement" : subtract the same mass from each other atom
         "scale" : proportionally reduce the mass of each other atom
@@ -167,7 +169,7 @@ def repartition_hydrogen_mass(topology, system, h_mass=4.0, mode="decrement", at
         "connected" : reduce mass of atoms bonded to H
         "all" : reduce mass of all non-H atoms
     """
-    system = deepcopy(system)
+    hmr_system = deepcopy(system)
 
     # check to make sure system mass is unchanged...
     pre_mass = get_sum_of_masses(system)
@@ -179,10 +181,9 @@ def repartition_hydrogen_mass(topology, system, h_mass=4.0, mode="decrement", at
     else:
         raise(NotImplementedError("`atoms` must be either `all` or `connected`!"))
 
-    repartition(topology, system, h_mass, mode)
+    repartition(topology, hmr_system, h_mass, mode)
 
-    post_mass = get_sum_of_masses(system)
-    assert(pre_mass == post_mass)
+    return hmr_system
 
 # TODO: Reduce code duplication between repartition_hydrogen_mass_all and repartition_hydrogen_mass_connected]
 
