@@ -1,7 +1,7 @@
 import simtk.openmm as mm
 from simtk import unit
 from benchmark import simulation_parameters
-
+import numpy as np
 
 def get_total_energy(simulation):
     """Compute the kinetic energy + potential energy of the simulation."""
@@ -53,6 +53,12 @@ def set_hydrogen_mass(system, topology, h_mass=4.0):
 
 def get_mass(system, atom_index):
     return system.getParticleMass(atom_index).value_in_unit(unit.amu)
+
+def get_masses(system):
+    masses = [system.getParticleMass(atom_index) for atom_index in range(system.getNumParticles())]
+    m_unit = masses[0].unit
+
+    return np.array([m.value_in_unit(m_unit) for m in masses]) * m_unit
 
 def decrement_particle_masses(system, atom_indices, decrement):
     """Reduce the masses of all atoms in `atom_indices` by `decrement`"""
