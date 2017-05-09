@@ -61,8 +61,10 @@ class EquilibriumSimulator():
         Otherwise, collect equilibrium samples"""
         self._path_to_samples = self.get_path_to_samples()
         if self.check_for_cached_samples():
+            print("Cache found: loading...")
             self.x_samples = self.load_equilibrium_samples()
         else:
+            print("Cache not found: collecting equilibrium samples...")
             self.x_samples = self.collect_equilibrium_samples()
             self.save_equilibrium_samples(self.x_samples)
         self.cached = True
@@ -168,6 +170,8 @@ class EquilibriumSimulator():
 
 class NonequilibriumSimulator(BookkeepingSimulator):
     """Nonequilibrium simulator, supporting shadow_work accumulation, and drawing x, v, from equilibrium."""
+
+    # TODO: drop any barostat...
 
     def __init__(self, equilibrium_simulator, integrator):
         self.equilibrium_simulator, self.integrator = equilibrium_simulator, integrator
