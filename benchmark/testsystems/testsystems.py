@@ -97,3 +97,22 @@ system_params = {
     }
 }
 # TODO: Add Waterbox, AlanineExplicit EquilibriumSimulators
+
+temperature = thermodynamic_parameters["temperature"]
+n_samples = 100
+from benchmark.testsystems.bookkeepers import EquilibriumSimulator
+top, sys, pos = load_dhfr_explicit(constrained=True)
+dhfr_constrained = EquilibriumSimulator(platform=configure_platform("OpenCL"),
+                                           topology=top, system=sys, positions=pos,
+                                           temperature=temperature,
+                                           ghmc_timestep=0.5 * unit.femtosecond,
+                                           burn_in_length=500, n_samples=n_samples,
+                                           thinning_interval=1, name="dhfr_constrained")
+
+top, sys, pos = load_dhfr_explicit(constrained=False)
+dhfr_unconstrained = EquilibriumSimulator(platform=configure_platform("OpenCL"),
+                                           topology=top, system=sys, positions=pos,
+                                           temperature=temperature,
+                                           ghmc_timestep=0.5 * unit.femtosecond,
+                                           burn_in_length=5000, n_samples=n_samples,
+                                           thinning_interval=10, name="dhfr_unconstrained")
