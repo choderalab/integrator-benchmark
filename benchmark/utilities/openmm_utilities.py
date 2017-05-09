@@ -2,6 +2,7 @@ import simtk.openmm as mm
 from simtk import unit
 from benchmark import simulation_parameters
 import numpy as np
+from copy import deepcopy
 
 def get_total_energy(simulation):
     """Compute the kinetic energy + potential energy of the simulation."""
@@ -166,7 +167,7 @@ def repartition_hydrogen_mass(topology, system, h_mass=4.0, mode="decrement", at
         "connected" : reduce mass of atoms bonded to H
         "all" : reduce mass of all non-H atoms
     """
-    system = system.deep_copy()
+    system = deepcopy(system)
 
     # check to make sure system mass is unchanged...
     pre_mass = get_sum_of_masses(system)
