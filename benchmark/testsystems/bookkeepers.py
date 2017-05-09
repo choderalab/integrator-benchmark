@@ -4,7 +4,7 @@ from simtk import unit
 from simtk.openmm import app
 from tqdm import tqdm
 from benchmark.utilities import strip_unit, get_total_energy, get_velocities, get_positions,\
-    set_positions, set_velocities
+    set_positions, set_velocities, remove_barostat
 import os
 
 W_unit = unit.kilojoule_per_mole
@@ -171,12 +171,15 @@ class EquilibriumSimulator():
 class NonequilibriumSimulator(BookkeepingSimulator):
     """Nonequilibrium simulator, supporting shadow_work accumulation, and drawing x, v, from equilibrium."""
 
-    # TODO: drop any barostat...
-
     def __init__(self, equilibrium_simulator, integrator):
         self.equilibrium_simulator, self.integrator = equilibrium_simulator, integrator
-        self.simulation = self.equilibrium_simulator.construct_simulation(self.integrator)
+        self.simulation = self.construct_simulation(integrator)
         self.constraint_tolerance = self.integrator.getConstraintTolerance()
+
+    def construct_simulation(self, integrator):
+        """Drop barostat, then construct_simulation"""
+        remove_barostat(self.equilibrium_simulator.system)
+        return self.equilibrium_simulator.construct_simulation(integrator)
 
     def sample_x_from_equilibrium(self):
         """Draw sample (uniformly, with replacement) from cache of configuration samples"""
