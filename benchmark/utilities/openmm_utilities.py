@@ -208,6 +208,16 @@ def guess_force_groups(system, nonbonded=1, fft=1, others=0, multipole=1):
         else:
             force.setForceGroup(others)
 
+def remove_barostat(system):
+    """Remove any force with "Barostat" in the name"""
+    force_indices_to_remove = list()
+    for force_index in range(system.getNumForces()):
+        force = system.getForce(force_index)
+        if "Barostat" in force.__class__.__name__:
+            force_indices_to_remove.append(force_index)
+    for force_index in force_indices_to_remove[::-1]:
+        print('   Removing %s' % system.getForce(force_index).__class__.__name__)
+        system.removeForce(force_index)
 
 def keep_only_some_forces(system, extra_forces_to_keep=[]):
     """Remove unwanted forces, e.g. center-of-mass motion removal"""
