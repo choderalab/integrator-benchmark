@@ -30,7 +30,6 @@ def set_velocities(simulation, v):
 
 
 # Utilities for modifying system masses
-
 def is_hydrogen(atom):
     """Check if this atom is a hydrogen"""
     return atom.element.symbol == "H"
@@ -162,6 +161,10 @@ def repartition_hydrogen_mass(topology, system, h_mass=4.0, mode="decrement", at
         "connected" : reduce mass of atoms bonded to H
         "all" : reduce mass of all non-H atoms
     """
+
+    # check to make sure system mass is unchanged...
+    pre_mass = get_sum_of_masses(system)
+
     if atoms == "connected":
         repartition = repartition_hydrogen_mass_all
     elif atoms == "all":
@@ -170,6 +173,9 @@ def repartition_hydrogen_mass(topology, system, h_mass=4.0, mode="decrement", at
         raise(NotImplementedError("`atoms` must be either `all` or `connected`!"))
 
     repartition(topology, system, h_mass, mode)
+
+    post_mass = get_sum_of_masses(system)
+    assert(pre_mass == post_mass)
 
 # TODO: Reduce code duplication between repartition_hydrogen_mass_all and repartition_hydrogen_mass_connected]
 
