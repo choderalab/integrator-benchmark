@@ -75,6 +75,13 @@ def get_sum_of_masses(system, atom_indices=None):
     return sum([get_mass(system, atom_index)
                 for atom_index in atom_indices])
 
+def set_masses_equal(system, mass, atom_indices=None):
+    """Set the particle masses in the system"""
+    if atom_indices == None:
+        atom_indices = range(system.getNumParticles())
+
+    for atom_index in atom_indices:
+        system.setParticleMass(atom_index, mass)
 
 def get_atoms_bonded_to_hydrogen(topology):
     """Get the indices of particles bonded to hydrogen"""
