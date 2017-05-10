@@ -1,8 +1,7 @@
 from openmmtools.testsystems import WaterBox
 from simtk import unit
 from benchmark.testsystems.configuration import configure_platform
-import simtk.openmm as mm
-from benchmark import thermodynamic_parameters
+from benchmark import simulation_parameters
 from benchmark.utilities import add_barostat
 
 
@@ -14,7 +13,7 @@ def load_waterbox(constrained=True):
     return topology, system, positions
 
 
-temperature = thermodynamic_parameters["temperature"]
+temperature = simulation_parameters["temperature"]
 from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 top, sys, pos = load_waterbox(constrained=True)
 waterbox_constrained = EquilibriumSimulator(platform=configure_platform("OpenCL"),
