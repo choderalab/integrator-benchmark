@@ -55,6 +55,7 @@ class EquilibriumSimulator():
 
         # Construct unbiased simulation
         self.unbiased_simulation = self.construct_unbiased_simulation()
+        self.constraint_tolerance = self.unbiased_simulation.context.getIntegrator().getConstraintTolerance()
 
     def load_or_simulate_x_samples(self):
         """If we've already collected and stored equilibrium samples, load those
@@ -154,11 +155,11 @@ class EquilibriumSimulator():
 
         return self.x_samples[np.random.randint(len(self.x_samples))]
 
-    def sample_v_given_x(self, x, tol=1e-5):
+    def sample_v_given_x(self, x):
         """Sample velocities from (constrained) Maxwell-Boltzmann distribution."""
         self.unbiased_simulation.context.setPositions(x)
         self.unbiased_simulation.context.setVelocitiesToTemperature(self.temperature)
-        self.unbiased_simulation.context.applyVelocityConstraints(tol)
+        self.unbiased_simulation.context.applyVelocityConstraints(self.tolerance)
         return get_velocities(self.unbiased_simulation)
 
     def construct_simulation(self, integrator):
@@ -201,9 +202,8 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         set_velocities(self.simulation, v_0)
 
         # Apply position and velocity constraints.
-        tol = self.simulation.context.getIntegrator().getConstraintTolerance()
-        self.simulation.context.applyConstraints(tol)
-        self.simulation.context.applyVelocityConstraints(tol)
+        self.simulation.context.applyConstraints(self.constraint_tolerance)
+        self.simulation.context.applyVelocityConstraints(self.constraint_tolerance)
 
         E_0 = get_energy()
         Q_0 = get_heat()
