@@ -57,10 +57,12 @@ def set_hydrogen_mass(system, topology, h_mass=4.0):
 
 
 def get_mass(system, atom_index):
+    """Get mass of a single particle"""
     return system.getParticleMass(atom_index).value_in_unit(unit.amu)
 
 
 def get_masses(system):
+    """Get array of masses of all particles"""
     masses = [system.getParticleMass(atom_index) for atom_index in range(system.getNumParticles())]
     m_unit = masses[0].unit
 
@@ -120,10 +122,6 @@ def repartition_hydrogen_mass_connected(topology, system, h_mass=4.0,
                                         ):
     """Set the mass of all hydrogens to h_mass. Reduce the mass of
     all atoms bonded to hydrogens, so that the total mass remains constant.
-
-    Question: how should we do this, exactly?
-    * Should we subtract the same mass from each bonded atom?
-    * Should we proportionally reduce the mass of each bonded atom?
     """
 
     others = get_atoms_bonded_to_hydrogen(topology)
@@ -149,8 +147,7 @@ def repartition_hydrogen_mass_all(topology, system, h_mass=4.0,
                                   mode="scale",  # or "decrement"
                                   ):
     """Set the mass of all hydrogens to h_mass. Reduce the mass of
-    ({all other} or {connected}) atoms, so that the total mass remains constant.
-    """
+     all other atoms, so that the total mass remains constant."""
     hydrogens = get_hydrogens(topology)
     initial_hydrogen_mass = get_sum_of_masses(system, hydrogens)
 
@@ -171,19 +168,29 @@ def repartition_hydrogen_mass_all(topology, system, h_mass=4.0,
 
 
 def repartition_hydrogen_mass(topology, system, h_mass=4.0, mode="decrement", atoms="connected"):
-    """Modify `system` by setting H mass and decreasing other atoms' mass
+    """Return a modified copy of `system`, setting hydrogen mass and decreasing other atoms' mass.
+    
+    If mode == "decrement", subtract a constant from each other atom's mass
+    If mode == "scale", multiply each other atom's mass by a constant
+    If atoms == "connected", decrease the masses of only atoms bonded to hydrogen
+    If atoms == "all", decrease the masses of all non-hydrogen atoms
     
     Parameters
     ----------
-    topology
-    system
-    h_mass
+    topology : openmm topology
+    system : openmm system
+    h_mass : float
+        target hydrogen mass, in amu
     mode : string
         "decrement" : subtract the same mass from each other atom
         "scale" : proportionally reduce the mass of each other atom
     atoms : string
         "connected" : reduce mass of atoms bonded to H
         "all" : reduce mass of all non-H atoms
+    
+    Returns
+    -------
+    hmr_system : openmm system
     """
     hmr_system = deepcopy(system)
 
