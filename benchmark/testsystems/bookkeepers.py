@@ -187,7 +187,10 @@ class NonequilibriumSimulator(BookkeepingSimulator):
 
     def sample_v_given_x(self, x):
         """Sample velocities from (constrained) Maxwell-Boltzmann distribution."""
-        return self.equilibrium_simulator.sample_v_given_x(x, self.constraint_tolerance)
+        self.simulation.context.setPositions(x)
+        self.simulation.context.setVelocitiesToTemperature(self.equilibrium_simulator.temperature)
+        self.simulation.context.applyVelocityConstraints(self.constraint_tolerance)
+        return get_velocities(self.simulation)
 
     def accumulate_shadow_work(self, x_0, v_0, n_steps):
         """Run the integrator for n_steps and return the change in energy - the heat."""

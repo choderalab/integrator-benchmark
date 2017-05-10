@@ -4,8 +4,7 @@
 # * H-mass: 1 to 4 amu
 
 
-from benchmark.utilities.openmm_utilities import repartition_hydrogen_mass
-
+from benchmark.utilities.openmm_utilities import repartition_hydrogen_mass, repartition_hydrogen_mass_amber
 from benchmark.testsystems import NonequilibriumSimulator
 from benchmark.integrators.langevin import LangevinSplittingIntegrator
 from benchmark import DATA_PATH
@@ -18,14 +17,14 @@ from benchmark.plotting import plot_scheme_comparison
 from benchmark.testsystems import alanine_unconstrained
 
 if __name__ == "__main__":
-    n_protocol_samples, protocol_length = 1000, 100
+    n_protocol_samples, protocol_length = 100, 100
     system_name = "alanine_unconstrained"
     equilibrium_simulator = alanine_unconstrained
     target_filename = os.path.join(DATA_PATH, "hmr_{}.pkl".format(system_name))
 
     scheme_name, scheme = "VVVR", "O V R V O" # just use a fixed scheme for now
-    timesteps = np.linspace(0.25, 2.0, 4)
-    h_masses = np.linspace(1.0, 4, 4)
+    timesteps = np.linspace(0.25, 2.0, 2)
+    h_masses = np.linspace(1.0, 4, 2)
 
     hmr_modes = ["decrement", "scale"]
     hmr_atoms = ["all", "connected"]
