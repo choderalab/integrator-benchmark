@@ -112,7 +112,7 @@ def get_atoms_bonded_to_hydrogen(topology):
                 atom_indices.append(b.index)
             else:
                 atom_indices.append(a.index)
-    return atom_indices
+    return list(set(atom_indices))
 
 
 def repartition_hydrogen_mass_connected(topology, system, h_mass=4.0,
