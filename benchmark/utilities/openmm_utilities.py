@@ -126,23 +126,22 @@ def repartition_hydrogen_mass_connected(topology, system, h_mass=4.0,
     * Should we proportionally reduce the mass of each bonded atom?
     """
 
-    atoms_bonded_to_H = get_atoms_bonded_to_hydrogen(topology)
+    others = get_atoms_bonded_to_hydrogen(topology)
     hydrogens = get_hydrogens(topology)
     initial_h_mass = get_sum_of_masses(system, hydrogens) / len(hydrogens)
+    initial_mass_of_others = get_sum_of_masses(system, others)
+    mass_to_remove_from_others = (h_mass - initial_h_mass) * len(hydrogens)
 
     if mode == "scale":
-        initial_mass_of_bonded_atoms = get_sum_of_masses(system, atoms_bonded_to_H)
-        mass_to_remove_from_others = (h_mass - initial_h_mass) * len(hydrogens)
-
-        scale_factor = (initial_mass_of_bonded_atoms - mass_to_remove_from_others) / initial_mass_of_bonded_atoms
+        scale_factor = (initial_mass_of_others - mass_to_remove_from_others) / initial_mass_of_others
         if scale_factor <= 0:
             raise (RuntimeError("h_mass is too large! Can't remove this much mass from bonded atoms..."))
 
-        scale_particle_masses(system, atoms_bonded_to_H, scale_factor)
+        scale_particle_masses(system, others, scale_factor)
 
     elif mode == "decrement":
-        delta_mass = h_mass - initial_h_mass
-        decrement_particle_masses(system, atoms_bonded_to_H, delta_mass)
+        decrement = mass_to_remove_from_others / len(others)
+        decrement_particle_masses(system, others, decrement)
     set_hydrogen_mass(system, topology, h_mass)
 
 
