@@ -192,9 +192,9 @@ def repartition_hydrogen_mass(topology, system, h_mass=4.0, mode="decrement", at
     pre_mass = get_sum_of_masses(system)
 
     if atoms == "connected":
-        repartition = repartition_hydrogen_mass_all
-    elif atoms == "all":
         repartition = repartition_hydrogen_mass_connected
+    elif atoms == "all":
+        repartition = repartition_hydrogen_mass_all
     else:
         raise (NotImplementedError("`atoms` must be either `all` or `connected`!"))
 
