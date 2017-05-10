@@ -1,8 +1,7 @@
 # alanine dipeptide in vacuum, implicit solvent, and explicit solvent
 
 import os
-import numpy as np
-from openmmtools.testsystems import CustomExternalForcesTestSystem, AlanineDipeptideVacuum, WaterBox, AlanineDipeptideExplicit, SrcImplicit
+from openmmtools.testsystems import AlanineDipeptideVacuum, AlanineDipeptideExplicit
 from simtk.openmm import app
 from simtk import unit
 from benchmark.testsystems.configuration import configure_platform
