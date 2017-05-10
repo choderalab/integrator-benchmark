@@ -10,7 +10,7 @@ try:
     platform = mm.Platform.getPlatformByName('OpenCL')
     properties = {'OpenCLPrecision' : 'mixed'}
     context = mm.Context(testsystem.system, integrator, platform, properties)
-    del context, properties, testsytem, integrator
+    del context, properties, testsystem, integrator
 except Exception as e:
     print('OpenCL unavailable or does not support mixed precision')
     _opencl_supports_mixed_precision = False
