@@ -5,6 +5,7 @@ from simtk import unit
 from benchmark.testsystems.configuration import configure_platform
 from benchmark.utilities import keep_only_some_forces
 from benchmark import simulation_parameters
+from benchmark.utilities import add_barostat
 temperature = simulation_parameters["temperature"]
 
 
@@ -41,6 +42,7 @@ def load_dhfr_explicit(constrained=True):
     topology, system, positions = testsystem.topology, testsystem.system, testsystem.positions
 
     keep_only_some_forces(system)
+    add_barostat(system)
 
     return topology, system, positions
 
