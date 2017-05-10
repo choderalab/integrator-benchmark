@@ -126,7 +126,6 @@ def repartition_hydrogen_mass_connected(topology, system, h_mass=4.0,
     * Should we proportionally reduce the mass of each bonded atom?
     """
 
-    set_hydrogen_mass(system, topology, h_mass)
     atoms_bonded_to_H = get_atoms_bonded_to_hydrogen(topology)
     hydrogens = get_hydrogens(topology)
     initial_h_mass = get_sum_of_masses(system, hydrogens) / len(hydrogens)
@@ -144,6 +143,7 @@ def repartition_hydrogen_mass_connected(topology, system, h_mass=4.0,
     elif mode == "decrement":
         delta_mass = h_mass - initial_h_mass
         decrement_particle_masses(system, atoms_bonded_to_H, delta_mass)
+    set_hydrogen_mass(system, topology, h_mass)
 
 
 def repartition_hydrogen_mass_all(topology, system, h_mass=4.0,
@@ -187,9 +187,6 @@ def repartition_hydrogen_mass(topology, system, h_mass=4.0, mode="decrement", at
         "all" : reduce mass of all non-H atoms
     """
     hmr_system = deepcopy(system)
-
-    # check to make sure system mass is unchanged...
-    pre_mass = get_sum_of_masses(system)
 
     if atoms == "connected":
         repartition = repartition_hydrogen_mass_connected
