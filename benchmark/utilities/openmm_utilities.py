@@ -104,7 +104,14 @@ def set_masses_equal(system, mass, atom_indices=None):
 
 
 def get_atoms_bonded_to_hydrogen(topology):
-    """Get the indices of particles bonded to hydrogen"""
+    """Get the indices of particles bonded to hydrogen
+    
+    Returns
+    -------
+    atom_indices : list of ints
+        Will include repeated entries, if an atom is bonded to
+        more than one hydrogen
+    """
 
     atom_indices = []
     for (a, b) in topology.bonds():
@@ -114,7 +121,7 @@ def get_atoms_bonded_to_hydrogen(topology):
                 atom_indices.append(b.index)
             else:
                 atom_indices.append(a.index)
-    return list(set(atom_indices))
+    return atom_indices
 
 
 def repartition_hydrogen_mass_connected(topology, system, h_mass=4.0,
@@ -124,7 +131,7 @@ def repartition_hydrogen_mass_connected(topology, system, h_mass=4.0,
     all atoms bonded to hydrogens, so that the total mass remains constant.
     """
 
-    others = get_atoms_bonded_to_hydrogen(topology)
+    others = list(set(get_atoms_bonded_to_hydrogen(topology)))
     hydrogens = get_hydrogens(topology)
     initial_h_mass = get_sum_of_masses(system, hydrogens) / len(hydrogens)
     initial_mass_of_others = get_sum_of_masses(system, others)
@@ -205,6 +212,54 @@ def repartition_hydrogen_mass(topology, system, h_mass=4.0, mode="decrement", at
 
     return hmr_system
 
+
+def repartition_hydrogen_mass_amber(topology, system, scale_factor=3):
+    """Scale up hydrogen mass, subtract added mass from bonded heavy atoms
+    
+    Algorithm
+    ---------
+    1. Multiply the masses of all hydrogens by 3
+    2. Subtract the added mass from the bonded heavy atoms
+        For example, if we have an atom bonded to one hydrogen,
+        we subtract 1 * (scale_factor - 1) * initial_hydrogen_mass
+        
+        If we have an atom bonded to three hydrogens,
+        we subtract 3 * (scale_factor - 1) * initial_hydrogen_mass
+    
+    Parameters
+    ----------
+    topology
+    system
+    scale_factor
+
+    Returns
+    -------
+    hmr_system
+
+    References
+    ----------
+    Long-Time-Step Molecular Dynamics through Hydrogen Mass Repartitioning
+    [Hopkins, Grand, Walker, Roitberg, 2015, JCTC]
+    http://pubs.acs.org/doi/abs/10.1021/ct5010406
+    """
+    hmr_system = deepcopy(system)
+
+    # scale hydrogen mass by 3x, keeping track of how much mass was added to each
+    hydrogens = get_hydrogens(topology)
+    initial_h_masses = [get_mass(system, h) for h in hydrogens]
+    if len(set(initial_h_masses)) > 1:
+        raise(NotImplementedError("Initial hydrogen masses aren't all equal. "
+                                  "Implementation currently assumes all hydrogen masses are initially equal."))
+        # TODO: Relax this assumption
+
+    scale_particle_masses(hmr_system, hydrogens, scale_factor)
+    mass_added_to_each_hydrogen = get_mass(hmr_system, hydrogens[0]) - get_mass(system, hydrogens[0])
+
+    # for each heavy-atom-hydrogen bond, subtract that amount of mass from the heavy atom
+    for heavy_atom in get_atoms_bonded_to_hydrogen(topology):
+        decrement_particle_masses(hmr_system, [heavy_atom], mass_added_to_each_hydrogen)
+
+    return hmr_system
 
 # TODO: Reduce code duplication between repartition_hydrogen_mass_all and repartition_hydrogen_mass_connected]
 
