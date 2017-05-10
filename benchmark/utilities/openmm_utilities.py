@@ -261,6 +261,39 @@ def repartition_hydrogen_mass_amber(topology, system, scale_factor=3):
 
     return hmr_system
 
+# Heuristic evaluation of HMR scheme: does it equalize vibrational timescales,
+# assuming all bonds are independent?
+def get_vibration_timescales(system, masses):
+    """Get list of bond vibration timescales"""
+    bonds = get_harmonic_bonds(system)
+    timescales = []
+    for (i,j,_,k) in bonds:
+        timescales.append(bond_vibration_timescale(masses[i], masses[j], k))
+    return timescales
+
+def get_harmonic_bonds(system):
+    """Get a list of all harmonic bonds in the system"""
+    bonds = []
+    for f in system.getForces():
+        if "HarmonicBond" in str(f.__class__):
+            for i in range(f.getNumBonds()):
+                bonds.append(f.getBondParameters(i))
+    return bonds
+
+def bond_vibration_timescale(m1, m2, k):
+    """Get period of two masses on a spring"""
+    m = reduced_mass(m1, m2)
+    return np.sqrt(k / m)
+
+def reduced_mass(m1, m2):
+    return m1 * m2 / (m1 + m2)
+
+def difference_between_largest_and_shortest_timescale(timescales):
+    return max(timescales) - min(timescales)
+
+def ratio_of_largest_and_shortest_timescale(timescales):
+    return max(timescales) / min(timescales)
+
 # TODO: Reduce code duplication between repartition_hydrogen_mass_all and repartition_hydrogen_mass_connected]
 
 # Utilities for modifying force groups
