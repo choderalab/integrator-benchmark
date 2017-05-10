@@ -1,7 +1,7 @@
 # In this script, we'll take an integrator + test system, and compare various mass repartitioning schemes:
-# * connected vs. all
-# * subtract vs. scale
-# * vary H-mass from 1 to 4
+# * atoms: connected vs. all
+# * mode: decrement vs. scale
+# * H-mass: 1 to 4 amu
 
 
 from benchmark.utilities.openmm_utilities import repartition_hydrogen_mass
@@ -18,33 +18,37 @@ from benchmark.plotting import plot_scheme_comparison
 from benchmark.testsystems import alanine_unconstrained
 
 if __name__ == "__main__":
-    n_protocol_samples, protocol_length = 10000, 100
+    n_protocol_samples, protocol_length = 1000, 100
     system_name = "alanine_unconstrained"
     equilibrium_simulator = alanine_unconstrained
     target_filename = os.path.join(DATA_PATH, "hmr_{}.pkl".format(system_name))
 
-    scheme_name, scheme = "VVVR", "O V R V O" # just use a fixed scheme
-    timesteps = np.linspace(0.1, 3, 4)
-    h_masses = np.linspace(1.0, 4.0, 4)
+    scheme_name, scheme = "VVVR", "O V R V O" # just use a fixed scheme for now
+    timesteps = np.linspace(0.25, 2.0, 4)
+    h_masses = np.linspace(1.0, 4, 4)
 
     hmr_modes = ["decrement", "scale"]
     hmr_atoms = ["all", "connected"]
-    timestep = timesteps[-1]
 
     noneq_simulators = {}
+
+    topology, system = equilibrium_simulator.topology, equilibrium_simulator.system
 
     for mode in hmr_modes:
         for atoms in hmr_atoms:
             for h_mass in h_masses:
-                noneq_sim = NonequilibriumSimulator(equilibrium_simulator,
-                                                    LangevinSplittingIntegrator(
-                                                        splitting=scheme,
-                                                        timestep=timestep * unit.femtosecond,
-                                                        collision_rate=91.0 / unit.picoseconds))
-                repartition_hydrogen_mass(noneq_sim.simulation.topology, noneq_sim.simulation.context.getSystem(),
-                                          h_mass=h_mass, mode=mode, atoms=atoms)
-                name = "{}_{}_{}".format(scheme_name, mode, atoms)
-                noneq_simulators[(name, h_mass)] = noneq_sim
+                for timestep in timesteps:
+                    hmr_system = repartition_hydrogen_mass(topology, system,
+                                              h_mass=h_mass, mode=mode, atoms=atoms)
+                    equilibrium_simulator.system = hmr_system
+                    noneq_sim = NonequilibriumSimulator(equilibrium_simulator,
+                                                        LangevinSplittingIntegrator(
+                                                            splitting=scheme,
+                                                            timestep=timestep * unit.femtosecond,
+                                                            collision_rate=91.0 / unit.picoseconds))
+
+                    name = "{}_{}_{}_{}".format(scheme_name, mode, atoms, timestep)
+                    noneq_simulators[(name, h_mass)] = noneq_sim
 
     results = {}
     for marginal in ["configuration", "full"]:
