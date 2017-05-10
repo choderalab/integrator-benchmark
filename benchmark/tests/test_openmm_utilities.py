@@ -38,7 +38,7 @@ def test_hmr():
     topology, system, _ = load_alanine()
     for mode in ["decrement", "scale"]:
         for atoms in ["connected", "all"]:
-            for h_mass in [0.1, 1.0, 4.0, 8.0]:
+            for h_mass in [0.1, 1.0, 4.0]:
                 yield check_hmr_conserves_mass, mode, atoms, h_mass, topology, system
                 yield check_hmr_leaves_particle_mass_positive, mode, atoms, h_mass, topology, system
                 yield check_hmr_sets_h_mass_appropriately, mode, atoms, h_mass, topology, system
