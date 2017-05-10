@@ -8,20 +8,20 @@ def check_hmr_conserves_mass(mode, atoms, h_mass, topology, system):
     pre_hmr_mass = get_sum_of_masses(system)
     hmr_system = repartition_hydrogen_mass(topology, system, h_mass, mode, atoms)
     post_hmr_mass = get_sum_of_masses(hmr_system)
+
     if not np.isclose(post_hmr_mass, pre_hmr_mass):
         raise Exception("HMR failed to conserve total system mass!\n\tPre-HMR mass: {:.3f}\n\tPost-HMR mass: {:.3f}\n\tmode: {}\n\tatoms: {}\n\th_mass: {}".format(pre_hmr_mass, post_hmr_mass, mode, atoms, h_mass))
 
 def check_hmr_leaves_particle_mass_positive(mode, atoms, h_mass, topology, system):
     """Check that min(m_i) after HMR >= 0"""
     pre_hmr_masses = get_masses(system)
-
     hmr_system = repartition_hydrogen_mass(topology, system, h_mass, mode, atoms)
-
     post_hmr_masses = get_masses(hmr_system)
+
     if min(post_hmr_masses).value_in_unit(unit.amu) <= 0:
         message = "HMR set some masses <= 0!"
         if min(pre_hmr_masses).value_in_unit(unit.amu) <= 0:
-            message = message + "(also, some masses *before* the test were <= 0!)"
+            message = message + " (also, some masses *before* the test were <= 0!)"
         raise Exception(message + "\n\tmode: {}\n\tatoms: {}\n\th_mass: {}".format(mode, atoms, h_mass))
 
 def check_hmr_sets_h_mass_appropriately(mode, atoms, h_mass, topology, system):
