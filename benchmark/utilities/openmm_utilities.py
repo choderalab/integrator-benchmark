@@ -1,8 +1,10 @@
-import simtk.openmm as mm
-from simtk import unit
-from benchmark import simulation_parameters
-import numpy as np
 from copy import deepcopy
+
+import numpy as np
+import simtk.openmm as mm
+from benchmark import simulation_parameters
+from simtk import unit
+
 
 def get_total_energy(simulation):
     """Compute the kinetic energy + potential energy of the simulation."""
@@ -46,14 +48,17 @@ def get_hydrogens(topology):
             atom_indices.append(atom_index)
     return atom_indices
 
+
 def set_hydrogen_mass(system, topology, h_mass=4.0):
     """Set the masses of all hydrogens in system to h_mass (amu)"""
     atom_indices = get_hydrogens(topology)
     for atom_index in atom_indices:
         system.setParticleMass(atom_index, h_mass)
 
+
 def get_mass(system, atom_index):
     return system.getParticleMass(atom_index).value_in_unit(unit.amu)
+
 
 def get_masses(system):
     masses = [system.getParticleMass(atom_index) for atom_index in range(system.getNumParticles())]
@@ -61,11 +66,15 @@ def get_masses(system):
 
     return np.array([m.value_in_unit(m_unit) for m in masses]) * m_unit
 
+
 def decrement_particle_masses(system, atom_indices, decrement):
     """Reduce the masses of all atoms in `atom_indices` by `decrement`"""
     for atom_index in atom_indices:
         current_mass = get_mass(system, atom_index)
-        system.setParticleMass(atom_index, current_mass - decrement)
+        target_mass = current_mass - decrement
+        if target_mass <= 0:
+            raise (RuntimeError("Trying to remove too much mass!"))
+        system.setParticleMass(atom_index, target_mass)
 
 
 def scale_particle_masses(system, atom_indices, scale_factor):
@@ -82,6 +91,7 @@ def get_sum_of_masses(system, atom_indices=None):
     return sum([get_mass(system, atom_index)
                 for atom_index in atom_indices])
 
+
 def set_masses_equal(system, mass, atom_indices=None):
     """Set the particle masses in the system"""
     if atom_indices == None:
@@ -89,6 +99,7 @@ def set_masses_equal(system, mass, atom_indices=None):
 
     for atom_index in atom_indices:
         system.setParticleMass(atom_index, mass)
+
 
 def get_atoms_bonded_to_hydrogen(topology):
     """Get the indices of particles bonded to hydrogen"""
@@ -102,6 +113,7 @@ def get_atoms_bonded_to_hydrogen(topology):
             else:
                 atom_indices.append(a.index)
     return atom_indices
+
 
 def repartition_hydrogen_mass_connected(topology, system, h_mass=4.0,
                                         mode="scale"  # or "decrement"
@@ -121,8 +133,12 @@ def repartition_hydrogen_mass_connected(topology, system, h_mass=4.0,
 
     if mode == "scale":
         initial_mass_of_bonded_atoms = get_sum_of_masses(system, atoms_bonded_to_H)
-        mass_to_remove_from_others = (h_mass - initial_h_mass) * len(get_hydrogens(topology))
-        scale_factor = 1.0 - (mass_to_remove_from_others / initial_mass_of_bonded_atoms)
+        mass_to_remove_from_others = (h_mass - initial_h_mass) * len(hydrogens)
+
+        scale_factor = (initial_mass_of_bonded_atoms - mass_to_remove_from_others) / initial_mass_of_bonded_atoms
+        if scale_factor <= 0:
+            raise (RuntimeError("h_mass is too large! Can't remove this much mass from bonded atoms..."))
+
         scale_particle_masses(system, atoms_bonded_to_H, scale_factor)
 
     elif mode == "decrement":
@@ -136,16 +152,16 @@ def repartition_hydrogen_mass_all(topology, system, h_mass=4.0,
     """Set the mass of all hydrogens to h_mass. Reduce the mass of
     ({all other} or {connected}) atoms, so that the total mass remains constant.
     """
-    initial_mass = get_sum_of_masses(system)
     hydrogens = get_hydrogens(topology)
     initial_hydrogen_mass = get_sum_of_masses(system, hydrogens)
 
     target_H_mass = h_mass * len(hydrogens)
     mass_to_remove_from_others = target_H_mass - initial_hydrogen_mass
     others = list(set(range(topology.getNumAtoms())) - set(hydrogens))
+    initial_mass_of_others = get_sum_of_masses(system, others)
 
     if mode == "scale":
-        scale_factor = 1 - (mass_to_remove_from_others / initial_mass)
+        scale_factor = (initial_mass_of_others - mass_to_remove_from_others) / initial_mass_of_others
         scale_particle_masses(system, others, scale_factor)
 
     elif mode == "decrement":
@@ -153,6 +169,7 @@ def repartition_hydrogen_mass_all(topology, system, h_mass=4.0,
         decrement_particle_masses(system, others, decrement)
 
     set_hydrogen_mass(system, topology, h_mass)
+
 
 def repartition_hydrogen_mass(topology, system, h_mass=4.0, mode="decrement", atoms="connected"):
     """Modify `system` by setting H mass and decreasing other atoms' mass
@@ -179,11 +196,12 @@ def repartition_hydrogen_mass(topology, system, h_mass=4.0, mode="decrement", at
     elif atoms == "all":
         repartition = repartition_hydrogen_mass_connected
     else:
-        raise(NotImplementedError("`atoms` must be either `all` or `connected`!"))
+        raise (NotImplementedError("`atoms` must be either `all` or `connected`!"))
 
     repartition(topology, hmr_system, h_mass, mode)
 
     return hmr_system
+
 
 # TODO: Reduce code duplication between repartition_hydrogen_mass_all and repartition_hydrogen_mass_connected]
 
@@ -216,6 +234,7 @@ def guess_force_groups(system, nonbonded=1, fft=1, others=0, multipole=1):
         else:
             force.setForceGroup(others)
 
+
 def remove_barostat(system):
     """Remove any force with "Barostat" in the name"""
     force_indices_to_remove = list()
@@ -227,10 +246,12 @@ def remove_barostat(system):
         print('   Removing %s' % system.getForce(force_index).__class__.__name__)
         system.removeForce(force_index)
 
+
 def add_barostat(system):
     """Add Monte Carlo barostat"""
     system.addForce(mm.MonteCarloBarostat(simulation_parameters["pressure"],
                                           simulation_parameters["temperature"]))
+
 
 def keep_only_some_forces(system, extra_forces_to_keep=[]):
     """Remove unwanted forces, e.g. center-of-mass motion removal"""
