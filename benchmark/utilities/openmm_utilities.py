@@ -118,7 +118,7 @@ def get_atoms_bonded_to_hydrogen(topology):
 
 
 def repartition_hydrogen_mass_connected(topology, system, h_mass=4.0,
-                                        mode="scale"  # or "decrement"
+                                        mode="decrement"  # or "scale"
                                         ):
     """Set the mass of all hydrogens to h_mass. Reduce the mass of
     all atoms bonded to hydrogens, so that the total mass remains constant.
@@ -144,7 +144,7 @@ def repartition_hydrogen_mass_connected(topology, system, h_mass=4.0,
 
 
 def repartition_hydrogen_mass_all(topology, system, h_mass=4.0,
-                                  mode="scale",  # or "decrement"
+                                  mode="decrement",  # or "scale"
                                   ):
     """Set the mass of all hydrogens to h_mass. Reduce the mass of
      all other atoms, so that the total mass remains constant."""
