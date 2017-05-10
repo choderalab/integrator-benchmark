@@ -1,13 +1,14 @@
 from benchmark.testsystems.alanine_dipeptide import load_alanine
 from benchmark.utilities.openmm_utilities import get_sum_of_masses, get_masses, repartition_hydrogen_mass, get_hydrogens
 from simtk import unit
+import numpy as np
 
 def check_hmr_conserves_mass(mode, atoms, h_mass, topology, system):
     """Check that sum_i m_i before HMR = sum_i m_i after HMR"""
     pre_hmr_mass = get_sum_of_masses(system)
     hmr_system = repartition_hydrogen_mass(topology, system, h_mass, mode, atoms)
     post_hmr_mass = get_sum_of_masses(hmr_system)
-    if post_hmr_mass != pre_hmr_mass:
+    if not np.isclose(post_hmr_mass, pre_hmr_mass):
         raise Exception("HMR failed to conserve total system mass!\n\tPre-HMR mass: {:.3f}\n\tPost-HMR mass: {:.3f}\n\tmode: {}\n\tatoms: {}\n\th_mass: {}".format(pre_hmr_mass, post_hmr_mass, mode, atoms, h_mass))
 
 def check_hmr_leaves_particle_mass_positive(mode, atoms, h_mass, topology, system):
