@@ -303,9 +303,7 @@ def generate_sequential_BAOAB_string(force_group_list, symmetric=True):
 
 
 def generate_all_BAOAB_permutation_strings(n_force_groups, symmetric=True):
-    """Generate all of the permutations of range(n_force_groups), and evaluate their
-    acceptance rates
-    """
+    """Generate all of the permutations of range(n_force_groups)"""
     return [(perm, generate_sequential_BAOAB_string(perm, symmetric)) for perm in itertools.permutations(range(n_force_groups))]
 
 # Utilities for modifying force groups
