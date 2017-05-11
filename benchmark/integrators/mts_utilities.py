@@ -1,5 +1,6 @@
 # Utilities for generating multi-timestep splittings
 import numpy as np
+import itertools
 
 # To-do: add utilities for estimating the total number of force terms
 def generate_solvent_solute_splitting_string(base_integrator="VRORV", K_p=1, K_r=3):
