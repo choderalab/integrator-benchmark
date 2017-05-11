@@ -296,35 +296,6 @@ def ratio_of_largest_and_shortest_timescale(timescales):
 
 # TODO: Reduce code duplication between repartition_hydrogen_mass_all and repartition_hydrogen_mass_connected]
 
-# Utilities for modifying force groups
-# TODO: Valence vs. nonbonded
-# TODO: Short-range vs long-range
-# TODO: Solute-solvent vs. solvent-solvent
-
-# Kyle's function for splitting up the forces in a system
-def guess_force_groups(system, nonbonded=1, fft=1, others=0, multipole=1):
-    """Set NB short-range to 1 and long-range to 1, which is usually OK.
-    This is useful for RESPA multiple timestep integrators.
-
-    Reference
-    ---------
-    https://github.com/kyleabeauchamp/openmmtools/blob/hmc/openmmtools/hmc_integrators.py
-    """
-    for force in system.getForces():
-        if isinstance(force, mm.openmm.NonbondedForce):
-            force.setForceGroup(nonbonded)
-            force.setReciprocalSpaceForceGroup(fft)
-        elif isinstance(force, mm.openmm.CustomGBForce):
-            force.setForceGroup(nonbonded)
-        elif isinstance(force, mm.openmm.GBSAOBCForce):
-            force.setForceGroup(nonbonded)
-        elif isinstance(force, mm.AmoebaMultipoleForce):
-            force.setForceGroup(multipole)
-        elif isinstance(force, mm.AmoebaVdwForce):
-            force.setForceGroup(nonbonded)
-        else:
-            force.setForceGroup(others)
-
 
 def remove_barostat(system):
     """Remove any force with "Barostat" in the name"""

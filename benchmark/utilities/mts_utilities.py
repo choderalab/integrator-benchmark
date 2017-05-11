@@ -3,6 +3,9 @@ import numpy as np
 import itertools
 
 # To-do: add utilities for estimating the total number of force terms
+from simtk import openmm as mm
+
+
 def generate_solvent_solute_splitting_string(base_integrator="VRORV", K_p=1, K_r=3):
     """Generate string representing sequence of V0, V1, R, O steps, where force group 1
     is assumed to contain fast-changing, cheap-to-evaluate forces, and force group 0
@@ -304,3 +307,33 @@ def generate_all_BAOAB_permutation_strings(n_force_groups, symmetric=True):
     acceptance rates
     """
     return [(perm, generate_sequential_BAOAB_string(perm, symmetric)) for perm in itertools.permutations(range(n_force_groups))]
+
+# Utilities for modifying force groups
+# TODO: Valence vs. nonbonded
+# TODO: Short-range vs long-range
+# TODO: Solute-solvent vs. solvent-solvent
+
+# Kyle's function for splitting up the forces in a system
+
+def guess_force_groups(system, nonbonded=1, fft=1, others=0, multipole=1):
+    """Set NB short-range to 1 and long-range to 1, which is usually OK.
+    This is useful for RESPA multiple timestep integrators.
+
+    Reference
+    ---------
+    https://github.com/kyleabeauchamp/openmmtools/blob/hmc/openmmtools/hmc_integrators.py
+    """
+    for force in system.getForces():
+        if isinstance(force, mm.openmm.NonbondedForce):
+            force.setForceGroup(nonbonded)
+            force.setReciprocalSpaceForceGroup(fft)
+        elif isinstance(force, mm.openmm.CustomGBForce):
+            force.setForceGroup(nonbonded)
+        elif isinstance(force, mm.openmm.GBSAOBCForce):
+            force.setForceGroup(nonbonded)
+        elif isinstance(force, mm.AmoebaMultipoleForce):
+            force.setForceGroup(multipole)
+        elif isinstance(force, mm.AmoebaVdwForce):
+            force.setForceGroup(nonbonded)
+        else:
+            force.setForceGroup(others)
