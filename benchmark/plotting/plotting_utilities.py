@@ -8,7 +8,7 @@ import os
 from benchmark import FIGURE_PATH
 from benchmark.utilities import unpack_trajs
 figure_directory = FIGURE_PATH
-figure_format = ".jpg"
+figure_format = ".png"
 
 from benchmark.evaluation.analysis import estimate_nonequilibrium_free_energy
 
@@ -170,7 +170,7 @@ def plot_scheme_comparison(target_filename, name):
         plt.legend(loc='best', fancybox=True)
         plt.xlabel("$\Delta t$")
         plt.ylabel("$\Delta F_{neq}$")
-        plt.savefig(generate_figure_filename("scheme_comparison_{}.jpg".format(name)), dpi=300)
+        plt.savefig(generate_figure_filename("scheme_comparison_{}{}".format(name, figure_format)), dpi=300)
         plt.close()
 
     plot_curves(results)
