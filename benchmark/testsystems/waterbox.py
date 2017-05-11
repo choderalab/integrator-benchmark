@@ -1,19 +1,19 @@
-import numpy as np
-from openmmtools.testsystems import CustomExternalForcesTestSystem, AlanineDipeptideVacuum, WaterBox, AlanineDipeptideExplicit, SrcImplicit
-from simtk.openmm import app
+from openmmtools.testsystems import WaterBox
 from simtk import unit
 from benchmark.testsystems.configuration import configure_platform
-from benchmark.utilities import keep_only_some_forces
-from benchmark import DATA_PATH
+from benchmark import simulation_parameters
+from benchmark.utilities import add_barostat
+
 
 def load_waterbox(constrained=True):
     """Load WaterBox test system with non-default PME cutoff and error tolerance"""
     testsystem = WaterBox(constrained=constrained, ewaldErrorTolerance=1e-5, cutoff=10*unit.angstroms)
     (topology, system, positions) = testsystem.topology, testsystem.system, testsystem.positions
+    add_barostat(system)
     return topology, system, positions
 
 
-temperature = 298 * unit.kelvin
+temperature = simulation_parameters["temperature"]
 from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 top, sys, pos = load_waterbox(constrained=True)
 waterbox_constrained = EquilibriumSimulator(platform=configure_platform("OpenCL"),

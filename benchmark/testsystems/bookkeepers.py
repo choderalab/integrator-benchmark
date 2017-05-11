@@ -4,7 +4,7 @@ from simtk import unit
 from simtk.openmm import app
 from tqdm import tqdm
 from benchmark.utilities import strip_unit, get_total_energy, get_velocities, get_positions,\
-    set_positions, set_velocities
+    set_positions, set_velocities, remove_barostat
 import os
 
 W_unit = unit.kilojoule_per_mole
@@ -55,17 +55,20 @@ class EquilibriumSimulator():
 
         # Construct unbiased simulation
         self.unbiased_simulation = self.construct_unbiased_simulation()
+        self.constraint_tolerance = self.unbiased_simulation.context.getIntegrator().getConstraintTolerance()
 
     def load_or_simulate_x_samples(self):
         """If we've already collected and stored equilibrium samples, load those
         Otherwise, collect equilibrium samples"""
         self._path_to_samples = self.get_path_to_samples()
         if self.check_for_cached_samples():
+            print("Cache found: loading...")
             self.x_samples = self.load_equilibrium_samples()
         else:
+            print("Cache not found: collecting equilibrium samples...")
             self.x_samples = self.collect_equilibrium_samples()
             self.save_equilibrium_samples(self.x_samples)
-        self.cahed = True
+        self.cached = True
 
 
     def construct_unbiased_simulation(self):
@@ -152,11 +155,11 @@ class EquilibriumSimulator():
 
         return self.x_samples[np.random.randint(len(self.x_samples))]
 
-    def sample_v_given_x(self, x, tol=1e-5):
+    def sample_v_given_x(self, x):
         """Sample velocities from (constrained) Maxwell-Boltzmann distribution."""
         self.unbiased_simulation.context.setPositions(x)
         self.unbiased_simulation.context.setVelocitiesToTemperature(self.temperature)
-        self.unbiased_simulation.context.applyVelocityConstraints(tol)
+        self.unbiased_simulation.context.applyVelocityConstraints(self.tolerance)
         return get_velocities(self.unbiased_simulation)
 
     def construct_simulation(self, integrator):
@@ -171,8 +174,13 @@ class NonequilibriumSimulator(BookkeepingSimulator):
 
     def __init__(self, equilibrium_simulator, integrator):
         self.equilibrium_simulator, self.integrator = equilibrium_simulator, integrator
-        self.simulation = self.equilibrium_simulator.construct_simulation(self.integrator)
+        self.simulation = self.construct_simulation(integrator)
         self.constraint_tolerance = self.integrator.getConstraintTolerance()
+
+    def construct_simulation(self, integrator):
+        """Drop barostat, then construct_simulation"""
+        remove_barostat(self.equilibrium_simulator.system)
+        return self.equilibrium_simulator.construct_simulation(integrator)
 
     def sample_x_from_equilibrium(self):
         """Draw sample (uniformly, with replacement) from cache of configuration samples"""
@@ -180,7 +188,10 @@ class NonequilibriumSimulator(BookkeepingSimulator):
 
     def sample_v_given_x(self, x):
         """Sample velocities from (constrained) Maxwell-Boltzmann distribution."""
-        return self.equilibrium_simulator.sample_v_given_x(x, self.constraint_tolerance)
+        self.simulation.context.setPositions(x)
+        self.simulation.context.setVelocitiesToTemperature(self.equilibrium_simulator.temperature)
+        self.simulation.context.applyVelocityConstraints(self.constraint_tolerance)
+        return get_velocities(self.simulation)
 
     def accumulate_shadow_work(self, x_0, v_0, n_steps):
         """Run the integrator for n_steps and return the change in energy - the heat."""
@@ -191,9 +202,8 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         set_velocities(self.simulation, v_0)
 
         # Apply position and velocity constraints.
-        tol = self.simulation.context.getIntegrator().getConstraintTolerance()
-        self.simulation.context.applyConstraints(tol)
-        self.simulation.context.applyVelocityConstraints(tol)
+        self.simulation.context.applyConstraints(self.constraint_tolerance)
+        self.simulation.context.applyVelocityConstraints(self.constraint_tolerance)
 
         E_0 = get_energy()
         Q_0 = get_heat()

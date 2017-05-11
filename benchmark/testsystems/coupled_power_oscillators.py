@@ -10,6 +10,8 @@ from openmmtools.testsystems import TestSystem
 from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 from benchmark.testsystems.configuration import configure_platform
 
+from benchmark import simulation_parameters
+
 
 class CoupledPowerOscillators(TestSystem):
     """Create a 3D grid of power oscillators.
@@ -133,7 +135,8 @@ n_samples = 1000 # number of samples to collect
 if 'TRAVIS' in os.environ:
     n_samples = 20 # reduce sampling for travis
 
-temperature = 298 * unit.kelvin
+
+temperature = simulation_parameters["temperature"]
 testsystem = CoupledPowerOscillators(nx=5, ny=5, nz=5)
 top, sys, pos = testsystem.topology, testsystem.system, testsystem.positions
 coupled_power_oscillators = EquilibriumSimulator(platform=configure_platform("CPU"),

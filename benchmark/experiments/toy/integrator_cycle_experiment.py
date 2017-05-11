@@ -1,11 +1,9 @@
-from tqdm import tqdm
-import numpy as np
 import matplotlib
+import numpy as np
 from benchmark.experiments.toy.axis_aligned_joint_plot import bin_edges, one_d_hist_args
-# one_d_hist_args["density"] = False
-
+from benchmark.experiments.toy.generate_integrator_cycle_plots import plot_all
 from benchmark.integrators.numba_integrators import vvvr_factory, baoab_factory, aboba_factory
-from generate_integrator_cycle_plots import plot_all
+from tqdm import tqdm
 
 matplotlib.use('agg')
 

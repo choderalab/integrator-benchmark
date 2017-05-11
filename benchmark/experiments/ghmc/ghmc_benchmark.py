@@ -16,6 +16,7 @@ from openmmtools.testsystems import AlanineDipeptideVacuum, SrcImplicit, SrcExpl
 from simtk.openmm import app
 from benchmark.integrators import condense_splitting, generate_sequential_BAOAB_string, generate_all_BAOAB_permutation_strings
 from benchmark.utilities import print_array
+from benchmark import simulation_parameters
 
 def estimate_acceptance_rate(scheme, timestep, test_system, n_samples=500):
     """Estimate the average acceptance rate for the scheme by drawing `n_samples`
@@ -71,7 +72,7 @@ def comparison(schemes, timesteps, test_system, n_samples=500):
 if __name__ == "__main__":
 
     # define system and draw equilibrium samples
-    temperature = 298 * unit.kelvin
+    temperature = simulation_parameters["temperature"]
 
     #test_system = get_src_implicit_test_system(temperature)
     test_system = get_alanine_test_system(temperature)

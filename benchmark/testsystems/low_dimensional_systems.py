@@ -1,24 +1,27 @@
-import numpy as np
-from openmmtools.testsystems import CustomExternalForcesTestSystem, AlanineDipeptideVacuum, WaterBox, AlanineDipeptideExplicit, SrcImplicit
 import os
+
+import numpy as np
+from benchmark import DATA_PATH
+from benchmark.integrators import metropolis_hastings_factory
+from openmmtools.testsystems import CustomExternalForcesTestSystem
 from tqdm import tqdm
 
-from benchmark.testsystems.bookkeepers import BookkeepingSimulator, NonequilibriumSimulator
-from benchmark.integrators import metropolis_hastings_factory
-from benchmark import DATA_PATH
-
 n_particles = 500
+
+
 def load_harmonic_oscillator(*args, **kwargs):
     """Load 3D harmonic oscillator"""
     testsystem = CustomExternalForcesTestSystem(("{k}*x^2 + {k}*y^2 + {k}*z^2".format(k=100.0),),
                                                 n_particles=n_particles)
     return testsystem.topology, testsystem.system, testsystem.positions
 
+
 def load_quartic_potential(*args, **kwargs):
     """Load 3D quartic potential"""
     testsystem = CustomExternalForcesTestSystem(("{k}*x^4 + {k}*y^4 + {k}*z^4".format(k=100.0),),
                                                 n_particles=n_particles)
     return testsystem.topology, testsystem.system, testsystem.positions
+
 
 def load_mts_test(*args, **kwargs):
     """
@@ -32,21 +35,23 @@ def load_mts_test(*args, **kwargs):
             we have just 1,000 samples, when in fact we have 500,000 samples)
         to-do: maybe have the customintegrator keep track of the shadow work due to each force group separately?
     """
-    ks = [100.0, 400.0] # stiffness of each force group term
+    ks = [100.0, 400.0]  # stiffness of each force group term
     # force group term 0 will be evaluated most slowly, etc...
-    testsystem = CustomExternalForcesTestSystem(energy_expressions=["{k}*x^4 + {k}*y^4 + {k}*z^4".format(k=k) for k in ks],
-                                                n_particles=n_particles)
+    testsystem = CustomExternalForcesTestSystem(
+        energy_expressions=["{k}*x^4 + {k}*y^4 + {k}*z^4".format(k=k) for k in ks],
+        n_particles=n_particles)
     return testsystem.topology, testsystem.system, testsystem.positions
+
 
 class NumbaBookkeepingSimulator():
     def __init__(self, mass=10.0, beta=1.0,
-                 potential=lambda x:x**4,
-                 force=lambda x: -4.0 * x**3,
+                 potential=lambda x: x ** 4,
+                 force=lambda x: -4.0 * x ** 3,
                  name='quartic'
                  ):
         self.mass = mass
         self.beta = beta
-        self.velocity_scale =np.sqrt(1.0 / (beta * mass))
+        self.velocity_scale = np.sqrt(1.0 / (beta * mass))
 
         def reduced_potential(x):
             return potential(x) * beta
@@ -65,19 +70,21 @@ class NumbaBookkeepingSimulator():
         self.equilibrium_simulator = metropolis_hastings_factory(q)
         self.name = name
         self._path_to_samples = self.get_path_to_samples()
-
-        # Load or simulate
-        self.load_or_simulate_x_samples()
+        self.cached = False
 
     def load_or_simulate_x_samples(self):
         """If we've already collected and stored equilibrium samples, load those
         Otherwise, collect equilibrium samples"""
+
         self._path_to_samples = self.get_path_to_samples()
         if self.check_for_cached_samples():
+            print("Cache found: loading...")
             self.x_samples = self.load_equilibrium_samples()
         else:
+            print("Cache not found: collecting equilibrium samples...")
             self.x_samples = self.collect_equilibrium_samples()
             self.save_equilibrium_samples(self.x_samples)
+        self.cached = True
 
     def collect_equilibrium_samples(self, n_samples=1000000):
         """Collect equilibrium samples, return as (n_samples, ) numpy array"""
@@ -107,17 +114,21 @@ class NumbaBookkeepingSimulator():
 
     def sample_x_from_equilibrium(self):
         """Draw sample (uniformly, with replacement) from cache of configuration samples"""
+        if self.cached == False:
+            self.load_or_simulate_x_samples()
         return self.x_samples[np.random.randint(len(self.x_samples))]
 
     def sample_v_given_x(self, x):
         """Sample velocity marginal. (Here, p(v) = p(v|x).)"""
         return np.random.randn() * self.velocity_scale
 
+
 quartic = NumbaBookkeepingSimulator()
-double_well = NumbaBookkeepingSimulator(potential=lambda x: x**6 + 2 * np.cos(5 * (x+1)),
-                                        force= lambda x: - (6 * x**5 - 10 * np.sin(5 * (x+1))),
+double_well = NumbaBookkeepingSimulator(potential=lambda x: x ** 6 + 2 * np.cos(5 * (x + 1)),
+                                        force=lambda x: - (6 * x ** 5 - 10 * np.sin(5 * (x + 1))),
                                         name='double_well'
                                         )
+
 
 class NumbaNonequilibriumSimulator():
     """Nonequilibrium simulator, supporting shadow_work accumulation, and drawing x, v, from equilibrium.
@@ -140,7 +151,6 @@ class NumbaNonequilibriumSimulator():
         """Run the integrator for n_steps and return the shadow work accumulated"""
         return self.integrator(x_0, v_0, n_steps)[-1][-1]
 
-
     def collect_protocol_samples(self, n_protocol_samples, protocol_length, marginal="configuration"):
         """Perform nonequilibrium measurements, aimed at measuring the free energy difference for the chosen marginal."""
         W_shads_F, W_shads_R = [], []
@@ -152,7 +162,7 @@ class NumbaNonequilibriumSimulator():
 
             x_1 = xs[-1][-1]
             if marginal == "configuration":
-                v_1  = self.sample_v_given_x(x_1)
+                v_1 = self.sample_v_given_x(x_1)
             elif marginal == "full":
                 v_1 = vs[-1][-1]
             else:
