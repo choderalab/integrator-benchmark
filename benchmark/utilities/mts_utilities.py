@@ -324,7 +324,8 @@ def short_range_vs_long_range(system):
 
 
 def clone_nonbonded_parameters(nonbonded_force):
-    """Creates a new (empty) nonbonded force with the same global parameters"""
+    """Creates a new nonbonded force with the same global parameters,
+    particle parameters, and exception parameters"""
 
     # call constructor
     new_force = nonbonded_force.__class__()
@@ -341,6 +342,15 @@ def clone_nonbonded_parameters(nonbonded_force):
     new_force.setSwitchingDistance(nonbonded_force.getSwitchingDistance())
     new_force.setUseDispersionCorrection(nonbonded_force.getUseDispersionCorrection())
     new_force.setUseSwitchingFunction(nonbonded_force.getUseSwitchingFunction())
+
+    # now add all the particle parameters
+    num_particles = nonbonded_force.getNumParticles()
+    for i in range(num_particles):
+        new_force.addParticle(*nonbonded_force.getParticleParameters(i))
+
+    # now add all the exceptions
+    for exception_index in range(nonbonded_force.getNumExceptions()):
+        new_force.addException(*nonbonded_force.getExceptionParameters(exception_index))
 
     # TODO: There's probably a cleaner, more Pythonic way to do this
     # (this was the most obvious way, but may not work in the future if the OpenMM API changes)
@@ -362,49 +372,36 @@ def split_nonbonded_force(nonbonded_force, atom_indices_0, atom_indices_1):
     # duplicate the global parameters of nonbonded force
     new_force_0 = clone_nonbonded_parameters(nonbonded_force)
     new_force_1 = clone_nonbonded_parameters(nonbonded_force)
-
-    # add particles from each group
-    mapping = dict()  # maps from particle index to force, particle number...
-    for i in range(num_particles):
-        if i in atom_indices_0:
-            new_force = new_force_0
-        else:
-            new_force = new_force_1
-
-        mapping[i] = (new_force, new_force.addParticle(*nonbonded_force.getParticleParameters(i)))
-
-    # copy over all the interaction exceptions
-    for exception_index in range(nonbonded_force.getNumExceptions()):
-        exception_parameters = nonbonded_force.getExceptionParameters(exception_index)
-        i, j = exception_parameters[:2]
-
-        # if particles i and j are in the same new force...
-        if mapping[i][0] == mapping[j][0]:
-            the_force_theyre_both_in = mapping[i][0]
-            # get the particle numbers the force they're both in knows them by
-            mapped_i, mapped_j = mapping[i][1], mapping[j][1]
-            the_force_theyre_both_in.addException(mapped_i, mapped_j, *exception_parameters[2:])
-
-    # finally, add a new force containing only the interactions *between* atom_indices_0 and atom_indices_1
     new_force_01 = clone_nonbonded_parameters(nonbonded_force)
 
-    # copy all particles over
+    def mixed_term(i, j):
+        return ((i in atom_indices_0) and (j in atom_indices_1)) or\
+               ((j in atom_indices_0) and (i in atom_indices_1))
+
+    def only_in_0(i, j):
+        return (i in atom_indices_0) and (j in atom_indices_0)
+
+    def only_in_1(i, j):
+        return (i in atom_indices_1) and (j in atom_indices_1)
+
+    # add all appropriate exceptions
     for i in range(num_particles):
-        new_force_01.addParticle(*nonbonded_force.getParticleParameters(i))
+        for j in range(num_particles):
 
-    # copy all existing exceptions
-    for exception_index in range(nonbonded_force.getNumExceptions()):
-        exception_parameters = nonbonded_force.getExceptionParameters(exception_index)
-        i, j = exception_parameters[:2]
-        new_force_01.addException(i, j, *exception_parameters[2:])
+            # (i,j) excluded from new_force_0 unless both i and j are
+            # in atom_indices_0
+            if (i not in atom_indices_0) or (j not in atom_indices_0):
+                new_force_0.addException(i, j, 0, 0, 0, True)
 
-    # add exceptions for all (i,j) where (i,j) both in atom_indices_0 or (i,j) both in atom_indices_1
-    for i in atom_indices_0:
-        for j in atom_indices_0:
-            new_force_01.addException(i, j, 0, 0, 0, True)
-    for i in atom_indices_1:
-        for j in atom_indices_1:
-            new_force_01.addException(i, j, 0, 0, 0, True)
+            # (i,j) excluded from new_force_1 unless both i and j are
+            # in atom_indices_1
+            if (i not in atom_indices_1) or (j not in atom_indices_1):
+                new_force_1.addException(i, j, 0, 0, 0, True)
+
+            # if i,j are in the same atom_indices list, then
+            # (i,j) excluded from new_force_01
+            if (i not in atom_indices_0) == (j not in atom_indices_1):
+                new_force_01.addException(i, j, 0, 0, 0, True)
 
     return new_force_0, new_force_1, new_force_01
 
