@@ -1,7 +1,7 @@
 # Utilities for generating multi-timestep splittings
-import numpy as np
 import itertools
 
+import numpy as np
 # To-do: add utilities for estimating the total number of force terms
 from simtk import openmm as mm
 
@@ -30,7 +30,7 @@ def generate_solvent_solute_splitting_string(base_integrator="VRORV", K_p=1, K_r
     splitting_string: string
         Sequence of V0, V1, R, O steps, to be passed to LangevinSplittingIntegrator
     """
-    assert(base_integrator == "VRORV" or base_integrator == "BAOAB")
+    assert (base_integrator == "VRORV" or base_integrator == "BAOAB")
     Rs = "R " * K_r
     inner_loop = "V1 " + Rs + "O " + Rs + "V1 "
     s = "V0 " + inner_loop * K_p + "V0"
@@ -171,6 +171,7 @@ def generate_random_mts_string(n_updates_per_forcegroup, n_R_steps, n_O_steps):
 
     return " ".join(ingredients)
 
+
 def generate_gbaoab_string(K_r=1):
     """K_r=1 --> 'V R O R V
     K_r=2 --> 'V R R O R R V'
@@ -247,7 +248,7 @@ def condense_splitting(splitting_string):
 
     splitting = splitting_string.upper().split()
 
-    equivalence_classes = {"R":{"R"}, "V":{"O", "V"}, "O":{"O", "V"}}
+    equivalence_classes = {"R": {"R"}, "V": {"O", "V"}, "O": {"O", "V"}}
 
     current_chunk = [splitting[0]]
     collapsed = []
@@ -262,12 +263,11 @@ def condense_splitting(splitting_string):
     for i in range(1, len(splitting)):
 
         # if the next step in the splitting is
-        if splitting[i][0] in equivalence_classes[splitting[i-1][0]]:
+        if splitting[i][0] in equivalence_classes[splitting[i - 1][0]]:
             current_chunk.append(splitting[i])
         else:
             collapsed += collapse_chunk(current_chunk)
             current_chunk = [splitting[i]]
-
 
     collapsed = collapsed + collapse_chunk(current_chunk)
 
@@ -295,7 +295,6 @@ def generate_sequential_BAOAB_string(force_group_list, symmetric=True):
         VR.append("V{}".format(i))
         VR.append("R")
 
-
     if symmetric:
         return " ".join(VR + ["O"] + VR[::-1])
     else:
@@ -304,7 +303,9 @@ def generate_sequential_BAOAB_string(force_group_list, symmetric=True):
 
 def generate_all_BAOAB_permutation_strings(n_force_groups, symmetric=True):
     """Generate all of the permutations of range(n_force_groups)"""
-    return [(perm, generate_sequential_BAOAB_string(perm, symmetric)) for perm in itertools.permutations(range(n_force_groups))]
+    return [(perm, generate_sequential_BAOAB_string(perm, symmetric)) for perm in
+            itertools.permutations(range(n_force_groups))]
+
 
 # Utilities for modifying force groups
 # TODO: Valence vs. nonbonded
@@ -312,6 +313,185 @@ def generate_all_BAOAB_permutation_strings(n_force_groups, symmetric=True):
 # TODO: Solute-solvent vs. solvent-solvent
 
 # Kyle's function for splitting up the forces in a system
+
+def valence_vs_nonbonded(system):
+    pass
+
+
+def short_range_vs_long_range(system):
+    """Not sure the details of what this should do"""
+    pass
+
+
+def clone_nonbonded_parameters(nonbonded_force):
+    """Creates a new (empty) nonbonded force with the same global parameters"""
+
+    # call constructor
+    new_force = nonbonded_force.__class__()
+
+    # go through all of the setter and getter methods
+    new_force.setCutoffDistance(nonbonded_force.getCutoffDistance())
+    new_force.setEwaldErrorTolerance(nonbonded_force.getEwaldErrorTolerance())
+    # new_force.setExceptionParameters # this is per-particle-pair property
+    new_force.setForceGroup(nonbonded_force.getForceGroup())
+    new_force.setNonbondedMethod(nonbonded_force.getNonbondedMethod())
+    new_force.setPMEParameters(*nonbonded_force.getPMEParameters())
+    new_force.setReactionFieldDielectric(nonbonded_force.getReactionFieldDielectric())
+    new_force.setReciprocalSpaceForceGroup(nonbonded_force.getReciprocalSpaceForceGroup())
+    new_force.setSwitchingDistance(nonbonded_force.getSwitchingDistance())
+    new_force.setUseDispersionCorrection(nonbonded_force.getUseDispersionCorrection())
+    new_force.setUseSwitchingFunction(nonbonded_force.getUseSwitchingFunction())
+
+    # TODO: There's probably a cleaner, more Pythonic way to do this
+    # (this was the most obvious way, but may not work in the future if the OpenMM API changes)
+
+    return new_force
+
+
+def split_nonbonded_force(nonbonded_force, atom_indices_0, atom_indices_1):
+    """Split a nonbonded force into 3 forces: """
+
+    num_particles = nonbonded_force.getNumParticles()
+
+    # check that atom_indices_0 and atom_indices_1 form a partition of the particle set
+    if set(atom_indices_0).union(set(atom_indices_1)) != set(range(num_particles)):
+        raise (Exception("Some atoms are missing!"))
+    if len(set(atom_indices_0).intersection(set(atom_indices_1))) > 0:
+        raise (Exception("atom_indices_0 and atom_indices_1 overlap!"))
+
+    # duplicate the global parameters of nonbonded force
+    new_force_0 = clone_nonbonded_parameters(nonbonded_force)
+    new_force_1 = clone_nonbonded_parameters(nonbonded_force)
+
+    # add particles from each group
+    mapping = dict()  # maps from particle index to force, particle number...
+    for i in range(num_particles):
+        if i in atom_indices_0:
+            new_force = new_force_0
+        else:
+            new_force = new_force_1
+
+        mapping[i] = (new_force, new_force.addParticle(*nonbonded_force.getParticleParameters(i)))
+
+    # copy over all the interaction exceptions
+    for exception_index in range(nonbonded_force.getNumExceptions()):
+        exception_parameters = nonbonded_force.getExceptionParameters(exception_index)
+        i, j = exception_parameters[:2]
+
+        # if particles i and j are in the same new force...
+        if mapping[i][0] == mapping[j][0]:
+            the_force_theyre_both_in = mapping[i][0]
+            # get the particle numbers the force they're both in knows them by
+            mapped_i, mapped_j = mapping[i][1], mapping[j][1]
+            the_force_theyre_both_in.addException(mapped_i, mapped_j, *exception_parameters[2:])
+
+    # finally, add a new force containing only the interactions *between* atom_indices_0 and atom_indices_1
+    new_force_01 = clone_nonbonded_parameters(nonbonded_force)
+
+    # copy all particles over
+    for i in range(num_particles):
+        new_force_01.addParticle(*nonbonded_force.getParticleParameters(i))
+
+    # copy all existing exceptions
+    for exception_index in range(nonbonded_force.getNumExceptions()):
+        exception_parameters = nonbonded_force.getExceptionParameters(exception_index)
+        i, j = exception_parameters[:2]
+        new_force_01.addException(i, j, *exception_parameters[2:])
+
+    # add exceptions for all (i,j) where (i,j) both in atom_indices_0 or (i,j) both in atom_indices_1
+    for i in atom_indices_0:
+        for j in atom_indices_0:
+            new_force_01.addException(i, j, 0, 0, 0, True)
+    for i in atom_indices_1:
+        for j in atom_indices_1:
+            new_force_01.addException(i, j, 0, 0, 0, True)
+
+    return new_force_0, new_force_1, new_force_01
+
+
+def get_water_atom_indices(topology):
+    """Get list of atom indices in "WAT" residues"""
+    indices = []
+    water_residues = [r for r in topology.residues() if r.name == "WAT"]
+    for water_residue in water_residues:
+        for a in water_residue.atoms():
+            indices.append(a.index)
+    return indices
+
+
+def get_nonbonded_forces(system):
+    return [force for force in system.getForces() if "Nonbonded" in force.__class__.__name__]
+
+
+def check_system_and_topology_match(system, topology):
+    """Check to make sure the particle indices of the system
+    line up with the atom indices in the topology"""
+
+    if system.getNumParticles() != topology.getNumAtoms():
+        raise (Exception("They don't even have the same number of particles!"))
+
+
+def solute_solvent(system, topology, solvent_solvent=0, others=1):
+    """Splits all interactions into two force groups:
+    - solvent-solvent interactions are one force group
+    - all other interactions are another force group
+    
+    Internally, this is done by creating 3 forces, and assigning them to the two force groups:
+    - solvent_solvent_force : solvent_solvent
+    - solute_solute_force : others
+    - solute_solvent_force : others
+    
+    Notes / possible surprises
+    --------------------------
+    - Leaves bonded solvent interactions in others!
+    
+    Parameters
+    ----------
+    system : openmm system
+    topology : openmm topology
+    solvent_solvent : int
+    others : int
+
+    Side-effects
+    ------------
+    modifies system
+
+    Notes and references
+    --------------------
+    - Related discussion on OpenMM issue between John Chodera and Peter Eastman: 
+      https://github.com/pandegroup/openmm/issues/1498
+        I think this isn't quite the solvent-solute splitting algorithm described in the g-BAOAB paper.
+        In this discussion, the positions of the water molecules are updated more frequently than the 
+        In the paper, the *velocities* get
+    """
+
+    check_system_and_topology_match(system, topology)
+
+    atom_indices_solvent = get_water_atom_indices(topology)
+    atom_indices_solute = sorted(list(set(range(system.getNumParticles())).difference(set(atom_indices_solvent))))
+
+    # by default, set force group to others
+    for force in system.getForces():
+        force.setForceGroup(others)
+
+    for nonbonded_force in get_nonbonded_forces(system):
+        solvent_solvent_force, solute_solute_force, solute_solvent_force = split_nonbonded_force(nonbonded_force,
+                                                                                                 atom_indices_solvent,
+                                                                                                 atom_indices_solute)
+
+        # add these forces to the system
+        system.addForce(solvent_solvent_force)
+        system.addForce(solute_solute_force)
+        system.addForce(solute_solvent_force)
+
+        # assign them to the correct force group
+        solvent_solvent_force.setForceGroup(solvent_solvent)
+        solute_solute_force.setForceGroup(others)  # just to be safe
+        solute_solvent_force.setForceGroup(others)  # just to be safe
+
+        # TODO: Check that the system now has 3 times as many forces in it
+        # TODO: Check that system energies / forces are the same before and after splitting
+
 
 def guess_force_groups(system, nonbonded=1, fft=1, others=0, multipole=1):
     """Set NB short-range to 1 and long-range to 1, which is usually OK.
