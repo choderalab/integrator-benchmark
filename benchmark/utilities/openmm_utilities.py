@@ -305,7 +305,8 @@ def remove_barostat(system):
         if "Barostat" in force.__class__.__name__:
             force_indices_to_remove.append(force_index)
     for force_index in force_indices_to_remove[::-1]:
-        print('   Removing %s' % system.getForce(force_index).__class__.__name__)
+        force_name = system.getForce(force_index).__class__.__name__
+        print("\tRemoving {}".format(force_name))
         system.removeForce(force_index)
 
 
@@ -325,5 +326,6 @@ def keep_only_some_forces(system, extra_forces_to_keep=[]):
         if force.__class__.__name__ not in forces_to_keep:
             force_indices_to_remove.append(force_index)
     for force_index in force_indices_to_remove[::-1]:
-        print('   Removing %s' % system.getForce(force_index).__class__.__name__)
+        force_name = system.getForce(force_index).__class__.__name__
+        print("\tRemoving {}".format(force_name))
         system.removeForce(force_index)
