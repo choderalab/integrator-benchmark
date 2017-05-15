@@ -3,7 +3,7 @@ import os
 import numpy as np
 from benchmark import DATA_PATH
 from benchmark.integrators import metropolis_hastings_factory
-from openmmtools.testsystems import CustomExternalForcesTestSystem
+from openmmtools.testsystems import CustomExternalForcesTestSystem, ConstraintCoupledHarmonicOscillator
 from tqdm import tqdm
 
 n_particles = 500
@@ -13,6 +13,12 @@ def load_harmonic_oscillator(*args, **kwargs):
     """Load 3D harmonic oscillator"""
     testsystem = CustomExternalForcesTestSystem(("{k}*x^2 + {k}*y^2 + {k}*z^2".format(k=100.0),),
                                                 n_particles=n_particles)
+    return testsystem.topology, testsystem.system, testsystem.positions
+
+
+def load_constraint_coupled_harmonic_oscillators(*args, **kwargs):
+    """Load pair of constraint-coupled 3D harmonic oscillators"""
+    testsystem = ConstraintCoupledHarmonicOscillator()
     return testsystem.topology, testsystem.system, testsystem.positions
 
 
