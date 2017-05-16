@@ -38,42 +38,28 @@ def load_dhfr_explicit(constrained=True):
     return topology, system, positions
 
 temperature = simulation_parameters["temperature"]
-n_samples = 100
+n_samples = 5000
+thinning_interval = 1000
+burn_in_length = 5000
+timestep = 0.75 * unit.femtosecond
 from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 
-# DHFR
-top, sys, pos = load_dhfr_explicit(constrained=True)
-dhfr_constrained = EquilibriumSimulator(platform=configure_platform("OpenCL"),
-                                           topology=top, system=sys, positions=pos,
-                                           temperature=temperature,
-                                           ghmc_timestep=0.5 * unit.femtosecond,
-                                           burn_in_length=500, n_samples=n_samples,
-                                           thinning_interval=10, name="dhfr_constrained")
+def construct_simulator(name, top, sys, pos):
+    return EquilibriumSimulator(platform=configure_platform("CUDA"),
+                         topology=top, system=sys, positions=pos,
+                         temperature=temperature,
+                         ghmc_timestep=timestep,
+                         burn_in_length=burn_in_length, n_samples=n_samples,
+                         thinning_interval=thinning_interval, name=name)
 
-top, sys, pos = load_dhfr_explicit(constrained=False)
-dhfr_unconstrained = EquilibriumSimulator(platform=configure_platform("OpenCL"),
-                                           topology=top, system=sys, positions=pos,
-                                           temperature=temperature,
-                                           ghmc_timestep=0.5 * unit.femtosecond,
-                                           burn_in_length=500, n_samples=n_samples,
-                                           thinning_interval=10, name="dhfr_unconstrained")
+# DHFR
+dhfr_constrained = construct_simulator("dhfr_constrained", *load_dhfr_explicit(constrained=True))
+dhfr_unconstrained = construct_simulator("dhfr_unconstrained", *load_dhfr_explicit(constrained=False))
+
 
 # T4 lysozyme
-top, sys, pos = load_t4_implicit(constrained=True)
-t4_constrained = EquilibriumSimulator(platform=configure_platform("CPU"),
-                                           topology=top, system=sys, positions=pos,
-                                           temperature=temperature,
-                                           ghmc_timestep=0.5 * unit.femtosecond,
-                                           burn_in_length=500, n_samples=n_samples,
-                                           thinning_interval=10, name="t4_constrained")
-
-top, sys, pos = load_t4_implicit(constrained=False)
-t4_unconstrained = EquilibriumSimulator(platform=configure_platform("CPU"),
-                                           topology=top, system=sys, positions=pos,
-                                           temperature=temperature,
-                                           ghmc_timestep=0.5 * unit.femtosecond,
-                                           burn_in_length=500, n_samples=n_samples,
-                                           thinning_interval=10, name="t4_unconstrained")
+t4_constrained = construct_simulator("t4_constrained", *load_t4_implicit(constrained=True))
+t4_unconstrained = construct_simulator("t4_unconstrained", *load_t4_implicit(constrained=False))
 
 # constraint-coupled harmonic oscillators
 top, sys, pos = load_constraint_coupled_harmonic_oscillators(constrained=True)
