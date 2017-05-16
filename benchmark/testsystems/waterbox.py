@@ -6,8 +6,8 @@ from benchmark.utilities import add_barostat
 
 
 def load_waterbox(constrained=True):
-    """Load WaterBox test system with non-default PME cutoff and error tolerance"""
-    testsystem = WaterBox(constrained=constrained, ewaldErrorTolerance=1e-5, cutoff=10*unit.angstroms)
+    """Load WaterBox test system"""
+    testsystem = WaterBox(constrained=constrained)
     (topology, system, positions) = testsystem.topology, testsystem.system, testsystem.positions
     add_barostat(system)
     return topology, system, positions
