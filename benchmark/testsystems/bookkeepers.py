@@ -4,7 +4,7 @@ from simtk import unit
 from simtk.openmm import app
 from tqdm import tqdm
 from benchmark.utilities import strip_unit, get_total_energy, get_velocities, get_positions,\
-    set_positions, set_velocities, remove_barostat
+    set_positions, set_velocities, remove_barostat, remove_center_of_mass_motion_remover
 import os
 
 W_unit = unit.kilojoule_per_mole
@@ -178,8 +178,9 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         self.constraint_tolerance = self.integrator.getConstraintTolerance()
 
     def construct_simulation(self, integrator):
-        """Drop barostat, then construct_simulation"""
+        """Drop barostat and center-of-mass motion remover, then construct_simulation"""
         remove_barostat(self.equilibrium_simulator.system)
+        remove_center_of_mass_motion_remover(self.equilibrium_simulator.system)
         return self.equilibrium_simulator.construct_simulation(integrator)
 
     def sample_x_from_equilibrium(self):

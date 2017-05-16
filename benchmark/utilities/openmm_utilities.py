@@ -309,6 +309,17 @@ def remove_barostat(system):
         print("\tRemoving {}".format(force_name))
         system.removeForce(force_index)
 
+def remove_center_of_mass_motion_remover(system):
+    force_indices_to_remove = list()
+    for force_index in range(system.getNumForces()):
+        force = system.getForce(force_index)
+        if "CMMotionRemover" in force.__class__.__name__:
+            force_indices_to_remove.append(force_index)
+    for force_index in force_indices_to_remove[::-1]:
+        force_name = system.getForce(force_index).__class__.__name__
+        print("\tRemoving {}".format(force_name))
+        system.removeForce(force_index)
+
 
 def add_barostat(system):
     """Add Monte Carlo barostat"""
