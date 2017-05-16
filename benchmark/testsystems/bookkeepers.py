@@ -222,11 +222,11 @@ class NonequilibriumSimulator(BookkeepingSimulator):
 
     def collect_protocol_samples(self, n_protocol_samples, protocol_length, marginal="configuration"):
         """Perform nonequilibrium measurements, aimed at measuring the free energy difference for the chosen marginal."""
-        W_shads_F, W_shads_R = [], []
-        for _ in tqdm(range(n_protocol_samples)):
+        W_shads_F, W_shads_R = np.zeros(n_protocol_samples), np.zeros(n_protocol_samples)
+        for i in tqdm(range(n_protocol_samples)):
             x_0 = self.sample_x_from_equilibrium()
             v_0 = self.sample_v_given_x(x_0)
-            W_shads_F.append(self.accumulate_shadow_work(x_0, v_0, protocol_length))
+            W_shads_F[i] = self.accumulate_shadow_work(x_0, v_0, protocol_length)
 
             x_1 = get_positions(self.simulation)
             if marginal == "configuration":
@@ -236,7 +236,14 @@ class NonequilibriumSimulator(BookkeepingSimulator):
             else:
                 raise NotImplementedError("`marginal` must be either 'configuration' or 'full'")
 
-            W_shads_R.append(self.accumulate_shadow_work(x_1, v_1, protocol_length))
+            W_shads_R[i] = self.accumulate_shadow_work(x_1, v_1, protocol_length)
+
+            # if we've encountered any NaNs, terminate early
+            if (np.isnan(W_shads_F).sum() + np.isnan(W_shads_R)) > 0:
+                W_shads_R *= np.nan
+                W_shads_F *= np.nan
+                print("NaNs encountered! Terminating early...")
+                break
 
         return np.array(W_shads_F), np.array(W_shads_R)
 
