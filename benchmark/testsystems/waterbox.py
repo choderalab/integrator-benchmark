@@ -16,7 +16,7 @@ def load_waterbox(constrained=True):
 temperature = simulation_parameters["temperature"]
 from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 top, sys, pos = load_waterbox(constrained=True)
-waterbox_constrained = EquilibriumSimulator(platform=configure_platform("OpenCL"),
+waterbox_constrained = EquilibriumSimulator(platform=configure_platform("CUDA"),
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
                                            ghmc_timestep=2.0 * unit.femtosecond,
@@ -24,7 +24,7 @@ waterbox_constrained = EquilibriumSimulator(platform=configure_platform("OpenCL"
                                            thinning_interval=2, name="waterbox_constrained")
 
 top, sys, pos = load_waterbox(constrained=False)
-flexible_waterbox = EquilibriumSimulator(platform=configure_platform("OpenCL"),
+flexible_waterbox = EquilibriumSimulator(platform=configure_platform("CUDA"),
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
                                            ghmc_timestep=1.0 * unit.femtosecond,
