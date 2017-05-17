@@ -18,7 +18,7 @@ burn_in_length = 5000
 timestep = 0.75 * unit.femtosecond
 
 platform = mm.Platform.getPlatformByName('CUDA')
-platform.setPropertyDefaultValue('CUDAPrecision', 'mixed')
+platform.setPropertyDefaultValue('CudaPrecision', 'mixed')
 
 testsystem = DHFRExplicit(constraints=app.HBonds, rigid_water=True)
 topology, system, positions = testsystem.topology, testsystem.system, testsystem.positions

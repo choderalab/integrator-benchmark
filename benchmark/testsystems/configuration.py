@@ -41,7 +41,7 @@ def configure_platform(platform_name='Reference', fallback_platform_name='CPU'):
             platform.setPropertyDefaultValue('OpenCLPrecision', 'mixed')
         elif platform_name.upper() == 'CUDA'.upper():
             platform = mm.Platform.getPlatformByName('CUDA')
-            platform.setPropertyDefaultValue('CUDAPrecision', 'mixed')
+            platform.setPropertyDefaultValue('CudaPrecision', 'mixed')
         else:
             raise (ValueError("Invalid platform name"))
 
