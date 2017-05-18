@@ -40,8 +40,8 @@ def load_dhfr_explicit(constrained=True):
 temperature = simulation_parameters["temperature"]
 n_samples = 5000
 thinning_interval = 1000
-burn_in_length = 5000
-timestep = 0.75 * unit.femtosecond
+burn_in_length = 10000
+timestep = 0.5 * unit.femtosecond
 from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 
 def construct_simulator(name, top, sys, pos):
