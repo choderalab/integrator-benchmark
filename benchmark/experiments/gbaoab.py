@@ -18,18 +18,18 @@ from benchmark.testsystems import dhfr_constrained
 def run_experiment(n_geodesic_step_list=range(1, 5), n_protocol_samples=500, protocol_length=100,
                    collision_rate="high"):
     if collision_rate == "high":
-        collision_rate = 91.0 / unit.picosecond
+        gamma = 91.0 / unit.picosecond
     elif collision_rate == "low":
-        collision_rate = 1.0 / unit.picosecond
+        gamma = 1.0 / unit.picosecond
     else:
         print("Defaulting to low collision_rate")
-        collision_rate = 1.0 / unit.picosecond
+        gamma = 1.0 / unit.picosecond
 
     system_name = "dhfr_constrained"
     equilibrium_simulator = dhfr_constrained
     target_filename = os.path.join(DATA_PATH, "gbaoab_{}_{}_collision_rate.pkl".format(system_name, collision_rate))
 
-    timesteps = np.linspace(0.5, 4.5, 5)
+    timesteps = np.linspace(1.0, 8.0, 7)
     noneq_simulators = {}
     for timestep in timesteps:
         for n_geodesic_steps in n_geodesic_step_list:
@@ -48,7 +48,7 @@ def run_experiment(n_geodesic_step_list=range(1, 5), n_protocol_samples=500, pro
                                                 LangevinSplittingIntegrator(
                                                     splitting=scheme,
                                                     timestep=timestep * unit.femtosecond,
-                                                    collision_rate=collision_rate))
+                                                    collision_rate=gamma))
             results[marginal][name] = simulator.collect_protocol_samples(
                 n_protocol_samples, protocol_length, marginal)
             del (simulator)
