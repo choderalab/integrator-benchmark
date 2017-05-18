@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(name='benchmark',
       version='0.0.0',
@@ -7,4 +7,4 @@ setup(name='benchmark',
       author='Josh Fass, John Chodera',
       author_email='{josh.fass, john.chodera}@choderalab.org',
       license='MIT',
-      packages=['benchmark'])
+      packages=find_packages())
