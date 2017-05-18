@@ -239,7 +239,7 @@ class NonequilibriumSimulator(BookkeepingSimulator):
             W_shads_R[i] = self.accumulate_shadow_work(x_1, v_1, protocol_length)
 
             # if we've encountered any NaNs, terminate early
-            if (np.isnan(W_shads_F).sum() + np.isnan(W_shads_R)) > 0:
+            if (np.isnan(W_shads_F).sum() + np.isnan(W_shads_R).sum()) > 0:
                 W_shads_R *= np.nan
                 W_shads_F *= np.nan
                 print("NaNs encountered! Terminating early...")
