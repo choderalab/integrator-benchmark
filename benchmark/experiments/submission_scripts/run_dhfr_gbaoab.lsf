@@ -1,7 +1,8 @@
 #!/bin/bash
 #BSUB -J dhfr_gbaoab
-#BSUB -n 4
-#BSUB -R rusage[mem=2]
+#BSUB -n 1
+#BSUB -R rusage[mem=8]
+#BSUB -R select[gpu_model0=='GeForceGTX1080']
 #BSUB -W 60:00
 #BSUB -o %J.stdout
 #BSUB -eo %J.stderr
