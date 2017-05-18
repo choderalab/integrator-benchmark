@@ -1,0 +1,11 @@
+#!/bin/bash
+#BSUB -n 4
+#BSUB -R rusage[mem=2]
+#BSUB -W 60:00
+#BSUB -L /bin/bash
+
+cd $LS_SUBCWD
+cd ..
+source activate integrators
+module load cuda
+python gbaoab.py
