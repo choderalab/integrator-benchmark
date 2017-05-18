@@ -1,4 +1,4 @@
-#!/bin/tcsh
+#!/bin/bash
 #
 # walltime : maximum wall clock time (hh:mm:ss)
 #PBS -l walltime=20:00:00
@@ -16,7 +16,7 @@
 #   ppn: number of processes per node
 #  gpus: number of gpus per node
 #  GPUs are in 'exclusive' mode by default, but 'shared' keyword sets them to shared mode.
-#PBS -l nodes=1:ppn=1:gpus=1:exclusive
+#PBS -l nodes=1:ppn=1:gpus=1:shared
 #
 # export all my environment variables to the job
 #PBS -V
@@ -40,4 +40,5 @@ cd $PBS_O_WORKDIR
 
 module load cuda
 source activate integrators
-python get_dhfr_cache.py
+cd ..
+python gbaoab.py
