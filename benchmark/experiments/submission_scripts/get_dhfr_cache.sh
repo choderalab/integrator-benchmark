@@ -38,5 +38,6 @@
 # Change to working directory used for job submission
 cd $PBS_O_WORKDIR
 
+module load cuda
 source activate integrators
 python get_dhfr_cache.py
