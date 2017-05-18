@@ -53,9 +53,9 @@ class EquilibriumSimulator():
         self.name = name
         self.cached = False
 
-        # Construct unbiased simulation
-        self.unbiased_simulation = self.construct_unbiased_simulation()
-        self.constraint_tolerance = self.unbiased_simulation.context.getIntegrator().getConstraintTolerance()
+        # get constraint tolerance
+        ghmc = GHMCIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep)
+        self.constraint_tolerance = ghmc.getConstraintTolerance()
 
     def load_or_simulate_x_samples(self):
         """If we've already collected and stored equilibrium samples, load those
