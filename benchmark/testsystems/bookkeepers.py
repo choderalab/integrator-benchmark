@@ -71,10 +71,6 @@ class EquilibriumSimulator():
         self.cached = True
 
 
-    def construct_unbiased_simulation(self):
-        ghmc = GHMCIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep)
-        return self.construct_simulation(ghmc)
-
     def get_ghmc_acceptance_rate(self):
         """Return the number of acceptances divided by the number of proposals."""
         ghmc = self.unbiased_simulation.integrator
@@ -93,24 +89,28 @@ class EquilibriumSimulator():
         print("Collecting equilibrium samples for '%s'..." % self.name)
         # Minimize energy by gradient descent
         print("Minimizing...")
-        minimizer = GradientDescentMinimizationIntegrator()
-        min_sim = self.construct_simulation(minimizer)
+        min_sim = self.construct_simulation(GradientDescentMinimizationIntegrator())
         min_sim.context.setPositions(self.positions)
         min_sim.context.setVelocitiesToTemperature(self.temperature)
         for _ in tqdm(range(100)):
             min_sim.step(1)
+        pos = get_positions(min_sim)
+        del (min_sim)
 
         # "Equilibrate" / "burn-in"
         # Running a bit of Langevin first improves GHMC acceptance rates?
         print("Intializing with Langevin dynamics...")
         langevin_sim = self.construct_simulation(VVVRIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep))
-        set_positions(langevin_sim, get_positions(min_sim))
+        set_positions(langevin_sim, pos)
         for _ in tqdm(range(self.burn_in_length)):
             langevin_sim.step(1)
+        pos = get_positions(langevin_sim)
+        del(langevin_sim)
 
         print('"Burning in" unbiased GHMC sampler for {:.3}ps...'.format(
             (self.burn_in_length * self.ghmc_timestep).value_in_unit(unit.picoseconds)))
-        set_positions(self.unbiased_simulation, get_positions(langevin_sim))
+        self.unbiased_simulation = self.construct_simulation(GHMCIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep))
+        set_positions(self.unbiased_simulation, pos)
         for _ in tqdm(range(self.burn_in_length)):
             self.unbiased_simulation.step(1)
         print("Burn-in GHMC acceptance rate: {:.3f}%".format(100 * self.get_ghmc_acceptance_rate()))
