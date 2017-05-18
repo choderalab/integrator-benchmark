@@ -42,6 +42,7 @@ def configure_platform(platform_name='Reference', fallback_platform_name='CPU'):
         elif platform_name.upper() == 'CUDA'.upper():
             platform = mm.Platform.getPlatformByName('CUDA')
             platform.setPropertyDefaultValue('CudaPrecision', 'mixed')
+            platform.setPropertyDefaultValue('DeterministicForces', 'true')
         else:
             raise (ValueError("Invalid platform name"))
 
