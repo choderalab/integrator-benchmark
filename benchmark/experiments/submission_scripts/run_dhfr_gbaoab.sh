@@ -1,4 +1,4 @@
-#!/bin/tcsh
+#!/bin/bash
 #
 # walltime : maximum wall clock time (hh:mm:ss)
 #PBS -l walltime=20:00:00
