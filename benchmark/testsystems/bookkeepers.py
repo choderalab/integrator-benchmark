@@ -1,15 +1,19 @@
-from openmmtools.integrators import GHMCIntegrator, GradientDescentMinimizationIntegrator, VVVRIntegrator
+import gc
+import os
+
 import numpy as np
+from openmmtools.integrators import GHMCIntegrator, GradientDescentMinimizationIntegrator, VVVRIntegrator
 from simtk import unit
 from simtk.openmm import app
 from tqdm import tqdm
-from benchmark.utilities import strip_unit, get_total_energy, get_velocities, get_positions,\
+
+from benchmark.utilities import strip_unit, get_total_energy, get_velocities, get_positions, \
     set_positions, set_velocities, remove_barostat, remove_center_of_mass_motion_remover
-import os
 
 W_unit = unit.kilojoule_per_mole
 
 from benchmark import DATA_PATH
+
 
 class BookkeepingSimulator():
     """Abstracts away details of storage and simulation, and supports
@@ -35,6 +39,7 @@ class BookkeepingSimulator():
         Returns a length n_steps numpy array of shadow_work values"""
         pass
 
+
 class EquilibriumSimulator():
     """Simulates a system at equilibrium."""
 
@@ -56,6 +61,8 @@ class EquilibriumSimulator():
         # get constraint tolerance
         ghmc = GHMCIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep)
         self.constraint_tolerance = ghmc.getConstraintTolerance()
+        del (ghmc)
+        gc.collect()
 
     def load_or_simulate_x_samples(self):
         """If we've already collected and stored equilibrium samples, load those
@@ -69,7 +76,6 @@ class EquilibriumSimulator():
             self.x_samples = self.collect_equilibrium_samples()
             self.save_equilibrium_samples(self.x_samples)
         self.cached = True
-
 
     def get_ghmc_acceptance_rate(self):
         """Return the number of acceptances divided by the number of proposals."""
@@ -89,6 +95,7 @@ class EquilibriumSimulator():
         print("Collecting equilibrium samples for '%s'..." % self.name)
         # Minimize energy by gradient descent
         print("Minimizing...")
+
         min_sim = self.construct_simulation(GradientDescentMinimizationIntegrator())
         min_sim.context.setPositions(self.positions)
         min_sim.context.setVelocitiesToTemperature(self.temperature)
@@ -96,20 +103,24 @@ class EquilibriumSimulator():
             min_sim.step(1)
         pos = get_positions(min_sim)
         del (min_sim)
+        gc.collect()
 
         # "Equilibrate" / "burn-in"
         # Running a bit of Langevin first improves GHMC acceptance rates?
         print("Intializing with Langevin dynamics...")
-        langevin_sim = self.construct_simulation(VVVRIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep))
+        langevin_sim = self.construct_simulation(
+            VVVRIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep))
         set_positions(langevin_sim, pos)
         for _ in tqdm(range(self.burn_in_length)):
             langevin_sim.step(1)
         pos = get_positions(langevin_sim)
-        del(langevin_sim)
+        del (langevin_sim)
+        gc.collect()
 
         print('"Burning in" unbiased GHMC sampler for {:.3}ps...'.format(
             (self.burn_in_length * self.ghmc_timestep).value_in_unit(unit.picoseconds)))
-        self.unbiased_simulation = self.construct_simulation(GHMCIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep))
+        self.unbiased_simulation = self.construct_simulation(
+            GHMCIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep))
         set_positions(self.unbiased_simulation, pos)
         for _ in tqdm(range(self.burn_in_length)):
             self.unbiased_simulation.step(1)
@@ -164,10 +175,12 @@ class EquilibriumSimulator():
 
     def construct_simulation(self, integrator):
         """Construct a simulation instance given an integrator."""
+        gc.collect()  # make sure that any recently deleted Contexts actually get deleted...
         simulation = app.Simulation(self.topology, self.system, integrator, self.platform)
         simulation.context.setPositions(self.positions)
         simulation.context.setVelocitiesToTemperature(self.temperature)
         return simulation
+
 
 class NonequilibriumSimulator(BookkeepingSimulator):
     """Nonequilibrium simulator, supporting shadow_work accumulation, and drawing x, v, from equilibrium."""
@@ -219,7 +232,6 @@ class NonequilibriumSimulator(BookkeepingSimulator):
 
         return delta_E.value_in_unit(W_unit) - delta_Q
 
-
     def collect_protocol_samples(self, n_protocol_samples, protocol_length, marginal="configuration"):
         """Perform nonequilibrium measurements, aimed at measuring the free energy difference for the chosen marginal."""
         W_shads_F, W_shads_R = np.zeros(n_protocol_samples), np.zeros(n_protocol_samples)
@@ -230,7 +242,7 @@ class NonequilibriumSimulator(BookkeepingSimulator):
 
             x_1 = get_positions(self.simulation)
             if marginal == "configuration":
-                v_1  = self.sample_v_given_x(x_1)
+                v_1 = self.sample_v_given_x(x_1)
             elif marginal == "full":
                 v_1 = get_velocities(self.simulation)
             else:
@@ -249,6 +261,4 @@ class NonequilibriumSimulator(BookkeepingSimulator):
 
 
 if __name__ == "__main__":
-
-
     pass

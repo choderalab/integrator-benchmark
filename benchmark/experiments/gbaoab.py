@@ -1,6 +1,7 @@
 # let's sweep over the number of constrained diffusion steps, for a waterbox!
 
 
+import gc
 import os
 import pickle
 
@@ -52,6 +53,7 @@ def run_experiment(n_geodesic_step_list=range(1, 5), n_protocol_samples=500, pro
             results[marginal][name] = simulator.collect_protocol_samples(
                 n_protocol_samples, protocol_length, marginal)
             del (simulator)
+            gc.collect()
 
             DeltaF_neq, squared_uncertainty = estimate_nonequilibrium_free_energy(*results[marginal][name])
             print("\t{:.3f} +/- {:.3f}".format(DeltaF_neq, np.sqrt(squared_uncertainty)))
