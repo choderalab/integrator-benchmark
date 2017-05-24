@@ -16,17 +16,17 @@ def load_waterbox(constrained=True):
 temperature = simulation_parameters["temperature"]
 from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 top, sys, pos = load_waterbox(constrained=True)
-#waterbox_constrained = EquilibriumSimulator(platform=configure_platform("CUDA"),
-#                                           topology=top, system=sys, positions=pos,
-#                                           temperature=temperature,
-#                                           ghmc_timestep=2.0 * unit.femtosecond,
-#                                           burn_in_length=1000, n_samples=500,
-#                                           thinning_interval=2, name="waterbox_constrained")
+waterbox_constrained = EquilibriumSimulator(platform=configure_platform("CUDA"),
+                                           topology=top, system=sys, positions=pos,
+                                           temperature=temperature,
+                                           ghmc_timestep=2.0 * unit.femtosecond,
+                                           burn_in_length=10000, n_samples=5000,
+                                           thinning_interval=100, name="waterbox_constrained")
 
 top, sys, pos = load_waterbox(constrained=False)
-#flexible_waterbox = EquilibriumSimulator(platform=configure_platform("CUDA"),
-#                                           topology=top, system=sys, positions=pos,
-#                                           temperature=temperature,
-#                                           ghmc_timestep=1.0 * unit.femtosecond,
-#                                           burn_in_length=1000, n_samples=500,
-#                                           thinning_interval=2, name="flexible_waterbox")
+flexible_waterbox = EquilibriumSimulator(platform=configure_platform("CUDA"),
+                                           topology=top, system=sys, positions=pos,
+                                           temperature=temperature,
+                                           ghmc_timestep=1.0 * unit.femtosecond,
+                                           burn_in_length=20000, n_samples=5000,
+                                           thinning_interval=200, name="flexible_waterbox")

@@ -54,12 +54,12 @@ def construct_simulator(name, top, sys, pos):
 
 # DHFR
 dhfr_constrained = construct_simulator("dhfr_constrained", *load_dhfr_explicit(constrained=True))
-#dhfr_unconstrained = construct_simulator("dhfr_unconstrained", *load_dhfr_explicit(constrained=False))
+dhfr_unconstrained = construct_simulator("dhfr_unconstrained", *load_dhfr_explicit(constrained=False))
 
 
 # T4 lysozyme
-#t4_constrained = construct_simulator("t4_constrained", *load_t4_implicit(constrained=True))
-#t4_unconstrained = construct_simulator("t4_unconstrained", *load_t4_implicit(constrained=False))
+t4_constrained = construct_simulator("t4_constrained", *load_t4_implicit(constrained=True))
+t4_unconstrained = construct_simulator("t4_unconstrained", *load_t4_implicit(constrained=False))
 
 # constraint-coupled harmonic oscillators
 top, sys, pos = load_constraint_coupled_harmonic_oscillators(constrained=True)
