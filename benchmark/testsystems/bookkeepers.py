@@ -248,6 +248,12 @@ class NonequilibriumSimulator(BookkeepingSimulator):
             else:
                 raise NotImplementedError("`marginal` must be either 'configuration' or 'full'")
 
+            if (np.isnan(x_1).sum() + np.isnan(v_1).sum()) > 0:
+                W_shads_R *= np.nan
+                W_shads_F *= np.nan
+                print("NaNs encountered! Terminating early...")
+                break
+
             W_shads_R[i] = self.accumulate_shadow_work(x_1, v_1, protocol_length)
 
             # if we've encountered any NaNs, terminate early
