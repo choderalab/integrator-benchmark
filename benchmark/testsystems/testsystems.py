@@ -39,12 +39,13 @@ def load_dhfr_explicit(constrained=True):
 
 temperature = simulation_parameters["temperature"]
 n_samples = 1000
-thinning_interval = 1000
+default_thinning = 1000
 burn_in_length = 100000
-timestep = 0.5 * unit.femtosecond
+default_timestep = 0.5 * unit.femtosecond
 from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 
-def construct_simulator(name, top, sys, pos):
+def construct_simulator(name, top, sys, pos, timestep=default_timestep,
+                        thinning_interval=default_thinning):
     return EquilibriumSimulator(platform=configure_platform("CUDA"),
                          topology=top, system=sys, positions=pos,
                          temperature=temperature,
@@ -54,7 +55,8 @@ def construct_simulator(name, top, sys, pos):
 
 # DHFR
 dhfr_constrained = construct_simulator("dhfr_constrained", *load_dhfr_explicit(constrained=True))
-dhfr_unconstrained = construct_simulator("dhfr_unconstrained", *load_dhfr_explicit(constrained=False))
+top, sys, pos = load_dhfr_explicit(constrained=False)
+dhfr_unconstrained = construct_simulator("dhfr_unconstrained", top, sys, pos, default_timestep / 10, default_thinning * 10)
 
 
 # T4 lysozyme
