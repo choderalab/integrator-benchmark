@@ -51,10 +51,8 @@ class Experiment():
 
     def save(self):
         with open(self.filename, "w") as f:
-            everything_but_the_simulator = {}
-            for key in self.experiment_descriptor.__dict__.keys():
-                if key != "equilibrium_simulator":
-                    everything_but_the_simulator[key] = self.experiment_descriptor.__dict__[key]
+            everything_but_the_simulator = self.experiment_descriptor._asdict()
+            everything_but_the_simulator.pop("equilibrium_simulator")
 
             dump({"result": self.result, "descriptor": everything_but_the_simulator}, f)
 
