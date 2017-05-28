@@ -74,4 +74,4 @@ if __name__ == "__main__":
     import sys
 
     job_id = int(sys.argv[1])
-    experiments[job_id].run_and_save_results()
+    experiments[job_id].run_and_save()
