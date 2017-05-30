@@ -8,7 +8,7 @@ from simtk.openmm import app
 from tqdm import tqdm
 
 from benchmark.utilities import strip_unit, get_total_energy, get_velocities, get_positions, \
-    set_positions, set_velocities, remove_barostat, remove_center_of_mass_motion_remover
+    set_positions, set_velocities, remove_barostat, remove_center_of_mass_motion_remover, get_potential_energy
 
 W_unit = unit.kilojoule_per_mole
 
@@ -207,13 +207,16 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         self.simulation.context.applyVelocityConstraints(self.constraint_tolerance)
         return get_velocities(self.simulation)
 
-    def accumulate_shadow_work(self, x_0, v_0, n_steps):
+    def accumulate_shadow_work(self, x_0, v_0, n_steps, store_potential_energy=False):
         """Run the integrator for n_steps and return the change in energy - the heat."""
         get_energy = lambda: get_total_energy(self.simulation)
+        get_potential = lambda: get_potential_energy(self.simulation).value_in_unit(W_unit)
         get_heat = lambda: self.simulation.integrator.getGlobalVariableByName("heat")
 
         set_positions(self.simulation, x_0)
         set_velocities(self.simulation, v_0)
+
+        result = {}
 
         # Apply position and velocity constraints.
         self.simulation.context.applyConstraints(self.constraint_tolerance)
@@ -222,7 +225,14 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         E_0 = get_energy()
         Q_0 = get_heat()
 
-        self.simulation.step(n_steps)
+        if store_potential_energy:
+            potential_energies = [get_potential()]
+            for _ in range(n_steps):
+                self.simulation.step(1)
+                potential_energies.append(get_potential())
+            result["potential_energies"] = potential_energies
+        else:
+            self.simulation.step(n_steps)
 
         E_1 = get_energy()
         Q_1 = get_heat()
@@ -230,40 +240,51 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         delta_E = E_1 - E_0
         delta_Q = Q_1 - Q_0
 
-        return delta_E.value_in_unit(W_unit) - delta_Q
+        result["W_shad"] = delta_E.value_in_unit(W_unit) - delta_Q
 
-    def collect_protocol_samples(self, n_protocol_samples, protocol_length, marginal="configuration"):
+        return result
+
+    def collect_protocol_samples(self, n_protocol_samples, protocol_length, marginal="configuration",
+                                 store_potential_energy_traces=False):
         """Perform nonequilibrium measurements, aimed at measuring the free energy difference for the chosen marginal."""
         W_shads_F, W_shads_R = np.zeros(n_protocol_samples), np.zeros(n_protocol_samples)
+
+        if marginal not in ["configuration", "full"]:
+            raise NotImplementedError("`marginal` must be either 'configuration' or 'full'")
+
+        potential_energy_traces = []
+
         for i in tqdm(range(n_protocol_samples)):
-            x_0 = self.sample_x_from_equilibrium()
-            v_0 = self.sample_v_given_x(x_0)
-            W_shads_F[i] = self.accumulate_shadow_work(x_0, v_0, protocol_length)
 
-            x_1 = get_positions(self.simulation)
-            if marginal == "configuration":
-                v_1 = self.sample_v_given_x(x_1)
-            elif marginal == "full":
-                v_1 = get_velocities(self.simulation)
-            else:
-                raise NotImplementedError("`marginal` must be either 'configuration' or 'full'")
+            try:
+                x_0 = self.sample_x_from_equilibrium()
+                v_0 = self.sample_v_given_x(x_0)
+                result_F = self.accumulate_shadow_work(x_0, v_0, protocol_length)
+                W_shads_F[i] = result_F["W_shad"]
 
-            if (np.isnan(x_1).sum() + np.isnan(v_1).sum()) > 0:
+                x_1 = get_positions(self.simulation)
+                if marginal == "configuration":
+                    v_1 = self.sample_v_given_x(x_1)
+                elif marginal == "full":
+                    v_1 = get_velocities(self.simulation)
+
+                result_R = self.accumulate_shadow_work(x_1, v_1, protocol_length,
+                                                       store_potential_energy=store_potential_energy_traces)
+                W_shads_R[i] = result_R["W_shad"]
+                if store_potential_energy_traces:
+                    potential_energy_traces.append(result_R["potential_energies"])
+
+            except:
+                # if any errors are encountered, terminate early
                 W_shads_R *= np.nan
                 W_shads_F *= np.nan
-                print("NaNs encountered! Terminating early...")
+                print("Simulation crashed! Terminating early...")
                 break
 
-            W_shads_R[i] = self.accumulate_shadow_work(x_1, v_1, protocol_length)
-
-            # if we've encountered any NaNs, terminate early
-            if (np.isnan(W_shads_F).sum() + np.isnan(W_shads_R).sum()) > 0:
-                W_shads_R *= np.nan
-                W_shads_F *= np.nan
-                print("NaNs encountered! Terminating early...")
-                break
-
-        return np.array(W_shads_F), np.array(W_shads_R)
+        if store_potential_energy_traces:
+            return W_shads_F, W_shads_R, potential_energy_traces
+        else:
+            return W_shads_F, W_shads_R
 
 
 if __name__ == "__main__":
