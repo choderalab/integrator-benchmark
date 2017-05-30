@@ -5,6 +5,9 @@ import simtk.openmm as mm
 from benchmark import simulation_parameters
 from simtk import unit
 
+def get_potential_energy(simulation):
+    return simulation.context.getState(getEnergy=True).getPotentialEnergy()
+
 
 def get_total_energy(simulation):
     """Compute the kinetic energy + potential energy of the simulation."""
