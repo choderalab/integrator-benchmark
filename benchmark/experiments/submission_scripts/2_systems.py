@@ -1,6 +1,8 @@
+import os
+
 import numpy as np
 from simtk import unit
-import os
+
 from benchmark import DATA_PATH
 from benchmark.experiments.driver import ExperimentDescriptor, Experiment
 from benchmark.testsystems import dhfr_constrained, alanine_constrained, t4_constrained, waterbox_constrained
@@ -19,13 +21,18 @@ systems = {"Alanine dipeptide in vacuum (constrained)": alanine_constrained,
            "TIP3P water (rigid)": waterbox_constrained
            }
 
-dt_range = np.array([0.1] + list(np.arange(0.5, 8.001, 0.5)))
+dt_range = np.array([0.1] + list(np.arange(0.5, 10.001, 0.5)))
 
 marginals = ["configuration", "full"]
 
 collision_rates = {"low": 1.0 / unit.picoseconds}
 
-n_protocol_samples = 1000
+n_protocol_samples = {"Alanine dipeptide in vacuum (constrained)": 1000,
+                      "T4 lysozyme in implicit solvent (constrained)": 1000,
+                      "DHFR in explicit solvent (constrained)": 100,
+                      "TIP3P water (rigid)": 1000
+                      }
+
 protocol_length = 1000
 
 experiment_name = "2_systems"
@@ -49,7 +56,7 @@ for splitting_name in sorted(splittings.keys()):
                         marginal=marginal,
                         collision_rate_name=collision_rate_name,
                         collision_rate=collision_rates[collision_rate_name],
-                        n_protocol_samples=n_protocol_samples,
+                        n_protocol_samples=n_protocol_samples[system_name],
                         protocol_length=protocol_length,
                         h_mass_factor=1
                     )
