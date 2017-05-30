@@ -1,10 +1,3 @@
-import matplotlib
-
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
-
-from simtk import unit
-import simtk.openmm as mm
 import numpy as np
 
 def strip_unit(quantity):
