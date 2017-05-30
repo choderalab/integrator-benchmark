@@ -28,7 +28,7 @@ marginals = ["configuration", "full"]
 collision_rates = {"low": 1.0 / unit.picoseconds,
                    "high": 91.0 / unit.picoseconds}
 
-n_protocol_samples = 1000
+n_protocol_samples = 100
 protocol_length = 1000
 
 experiment_name = "1_splittings"
