@@ -2,8 +2,10 @@ from copy import deepcopy
 
 import numpy as np
 import simtk.openmm as mm
-from benchmark import simulation_parameters
 from simtk import unit
+
+from benchmark import simulation_parameters
+
 
 def get_potential_energy(simulation):
     return simulation.context.getState(getEnergy=True).getPotentialEnergy()
@@ -251,8 +253,8 @@ def repartition_hydrogen_mass_amber(topology, system, scale_factor=3):
     hydrogens = get_hydrogens(topology)
     initial_h_masses = [get_mass(system, h) for h in hydrogens]
     if len(set(initial_h_masses)) > 1:
-        raise(NotImplementedError("Initial hydrogen masses aren't all equal. "
-                                  "Implementation currently assumes all hydrogen masses are initially equal."))
+        raise (NotImplementedError("Initial hydrogen masses aren't all equal. "
+                                   "Implementation currently assumes all hydrogen masses are initially equal."))
         # TODO: Relax this assumption
 
     scale_particle_masses(hmr_system, hydrogens, scale_factor)
@@ -264,15 +266,17 @@ def repartition_hydrogen_mass_amber(topology, system, scale_factor=3):
 
     return hmr_system
 
+
 # Heuristic evaluation of HMR scheme: does it equalize vibrational timescales,
 # assuming all bonds are independent?
 def get_vibration_timescales(system, masses):
     """Get list of bond vibration timescales"""
     bonds = get_harmonic_bonds(system)
     timescales = []
-    for (i,j,_,k) in bonds:
+    for (i, j, _, k) in bonds:
         timescales.append(bond_vibration_timescale(masses[i], masses[j], k))
     return timescales
+
 
 def get_harmonic_bonds(system):
     """Get a list of all harmonic bonds in the system"""
@@ -283,19 +287,24 @@ def get_harmonic_bonds(system):
                 bonds.append(f.getBondParameters(i))
     return bonds
 
+
 def bond_vibration_timescale(m1, m2, k):
     """Get period of two masses on a spring"""
     m = reduced_mass(m1, m2)
     return np.sqrt(k / m)
 
+
 def reduced_mass(m1, m2):
     return m1 * m2 / (m1 + m2)
+
 
 def difference_between_largest_and_shortest_timescale(timescales):
     return max(timescales) - min(timescales)
 
+
 def ratio_of_largest_and_shortest_timescale(timescales):
     return max(timescales) / min(timescales)
+
 
 # TODO: Reduce code duplication between repartition_hydrogen_mass_all and repartition_hydrogen_mass_connected]
 
@@ -311,6 +320,7 @@ def remove_barostat(system):
         force_name = system.getForce(force_index).__class__.__name__
         print("\tRemoving {}".format(force_name))
         system.removeForce(force_index)
+
 
 def remove_center_of_mass_motion_remover(system):
     force_indices_to_remove = list()
