@@ -50,7 +50,7 @@ class Experiment():
         print("\t{:.3f} +/- {:.3f}".format(DeltaF_neq, np.sqrt(squared_uncertainty)))
 
     def save(self):
-        with open(self.filename, "w") as f:
+        with open(self.filename, "wb") as f:
             everything_but_the_simulator = self.experiment_descriptor._asdict()
             everything_but_the_simulator.pop("equilibrium_simulator")
 
