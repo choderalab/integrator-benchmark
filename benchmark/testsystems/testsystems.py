@@ -37,6 +37,17 @@ def load_dhfr_explicit(constrained=True):
 
     return topology, system, positions
 
+def load_dhfr_reaction_field(constrained=True):
+    """DHFR in explicit solvent, but using reaction field instead of PME for nonbonded"""
+
+    topology, system, positions = load_dhfr_explicit(constrained)
+
+    system.getForces()
+
+    # TODO: Switch to reaction field
+
+    return topology, system, positions
+
 temperature = simulation_parameters["temperature"]
 n_samples = 1000
 default_thinning = 1000
@@ -58,6 +69,8 @@ dhfr_constrained = construct_simulator("dhfr_constrained", *load_dhfr_explicit(c
 top, sys, pos = load_dhfr_explicit(constrained=False)
 dhfr_unconstrained = construct_simulator("dhfr_unconstrained", top, sys, pos, default_timestep / 10, default_thinning * 10)
 
+# DHFR reaction field (for the MTS experiment)
+dhfr_reaction_field = construct_simulator("dhfr_constrained_reaction_field", *load_dhfr_reaction_field(constrained=True))
 
 # T4 lysozyme
 t4_constrained = construct_simulator("t4_constrained", *load_t4_implicit(constrained=True))

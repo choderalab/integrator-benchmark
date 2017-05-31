@@ -11,8 +11,6 @@ splittings = {"OVRVO": "O V R V O",
               "ORVRO": "O R V R O",
               "RVOVR": "R V O V R",
               "VRORV": "V R O R V",
-              "VOROV": "V O R O V",
-              "ROVOR": "R O V O R"
               }
 
 systems = {"Alanine dipeptide in vacuum (constrained)": alanine_constrained,
@@ -27,9 +25,9 @@ marginals = ["configuration", "full"]
 
 collision_rates = {"low": 1.0 / unit.picoseconds}
 
-n_protocol_samples = {"Alanine dipeptide in vacuum (constrained)": 1000,
+n_protocol_samples = {"Alanine dipeptide in vacuum (constrained)": 10000,
                       "T4 lysozyme in implicit solvent (constrained)": 1000,
-                      "DHFR in explicit solvent (constrained)": 100,
+                      "DHFR in explicit solvent (constrained)": 1000,
                       "TIP3P water (rigid)": 1000
                       }
 
@@ -37,7 +35,7 @@ protocol_length = 1000
 
 experiment_name = "2_systems"
 experiments = []
-i = 0
+i = 1
 for splitting_name in sorted(splittings.keys()):
     for system_name in sorted(systems.keys()):
         for dt in dt_range:
@@ -65,6 +63,7 @@ for splitting_name in sorted(splittings.keys()):
                     i += 1
 
 if __name__ == "__main__":
+    print(len(experiments))
     import sys
 
     job_id = int(sys.argv[1])

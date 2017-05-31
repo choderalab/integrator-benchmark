@@ -13,8 +13,6 @@ splittings = {"OVRVO": "O V R V O",
               "ORVRO": "O R V R O",
               "RVOVR": "R V O V R",
               "VRORV": "V R O R V",
-              "VOROV": "V O R O V",
-              "ROVOR": "R O V O R"
               }
 
 systems = {  # "DHFR (unconstrained)": dhfr_unconstrained, # these samples aren't available right now...
@@ -33,7 +31,7 @@ protocol_length = 1000
 
 experiment_name = "1_splittings"
 experiments = []
-i = 0
+i = 1
 for splitting_name in sorted(splittings.keys()):
     for system_name in sorted(systems.keys()):
         for dt in dt_range:
@@ -61,6 +59,7 @@ for splitting_name in sorted(splittings.keys()):
                     i += 1
 
 if __name__ == "__main__":
+    print(len(experiments))
     import sys
 
     job_id = int(sys.argv[1])

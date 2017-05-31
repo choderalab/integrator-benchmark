@@ -18,9 +18,7 @@ def geodesic_ify(splitting_name, splitting_string, n_geodesic_steps=1):
 original_splittings = {"OVRVO": "O V R V O",
                       "ORVRO": "O R V R O",
                       "RVOVR": "R V O V R",
-                      "VRORV": "V R O R V",
-                      "VOROV": "V O R O V",
-                      "ROVOR": "R O V O R"
+                      "VRORV": "V R O R V"
                       }
 
 splittings = {}
@@ -71,6 +69,7 @@ for splitting_name in sorted(splittings.keys()):
                     i += 1
 
 if __name__ == "__main__":
+    print(len(experiments))
     import sys
 
     job_id = int(sys.argv[1])
