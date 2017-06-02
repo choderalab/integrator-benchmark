@@ -52,7 +52,7 @@ collision_rates = {"low": 1.0 / unit.picoseconds}
 n_protocol_samples = 100
 protocol_length = 2000
 
-experiment_name = "5_mts_integrator_splittings"
+experiment_name = "4_mts_integrator_splittings"
 experiments = []
 i = 1
 for splitting_name in sorted(splittings.keys()):
