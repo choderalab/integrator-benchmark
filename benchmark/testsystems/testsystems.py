@@ -50,8 +50,8 @@ def load_dhfr_reaction_field(constrained=True):
 
 temperature = simulation_parameters["temperature"]
 n_samples = 1000
-default_thinning = 1000
-burn_in_length = 100000
+default_thinning = 10000
+burn_in_length = 1000000
 default_timestep = 0.5 * unit.femtosecond
 from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 
