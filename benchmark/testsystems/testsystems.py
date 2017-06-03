@@ -56,11 +56,19 @@ def load_src_explicit(constrained=True):
 def load_dhfr_reaction_field(constrained=True):
     """DHFR in explicit solvent, but using reaction field instead of PME for nonbonded"""
 
-    topology, system, positions = load_dhfr_explicit(constrained)
+    if constrained:
+        constraints = app.HBonds
+        rigid_water = True
+    else:
+        constraints = None
+        rigid_water = False
 
-    system.getForces()
 
-    # TODO: Switch to reaction field
+    testsystem = DHFRExplicit(nonbondedMethod=app.CutoffPeriodic, constraints=constraints, rigid_water=rigid_water)
+    topology, system, positions = testsystem.topology, testsystem.system, testsystem.positions
+
+    keep_only_some_forces(system)
+    add_barostat(system)
 
     return topology, system, positions
 
