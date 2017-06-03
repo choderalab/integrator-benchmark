@@ -19,11 +19,12 @@ ExperimentDescriptor = namedtuple("ExperimentDescriptor", ["experiment_name",
 
 
 class Experiment():
-    def __init__(self, experiment_descriptor, filename
+    def __init__(self, experiment_descriptor, filename, store_potential_energy_traces=False
                  ):
         self.experiment_descriptor = experiment_descriptor
         self.filename = filename
         exp = self.experiment_descriptor
+        self.store_potential_energy_traces = store_potential_energy_traces
 
         if exp.h_mass_factor != 1:
             if hasattr(exp.equilibrium_simulator, "MODIFIED_H_MASS"):
@@ -44,7 +45,8 @@ class Experiment():
                                                 collision_rate=exp.collision_rate))
 
         self.result = simulator.collect_protocol_samples(
-            exp.n_protocol_samples, exp.protocol_length, exp.marginal)
+            exp.n_protocol_samples, exp.protocol_length, exp.marginal,
+            store_potential_energy_traces=(exp.marginal=="full" and self.store_potential_energy_traces))
 
         DeltaF_neq, squared_uncertainty = estimate_nonequilibrium_free_energy(*self.result)
         print(self)

@@ -60,5 +60,5 @@ print(len(descriptors_and_fnames))
 
 if __name__ == "__main__":
     job_id = int(sys.argv[1])
-
-    Experiment(*descriptors_and_fnames[job_id]).run_and_save()
+    experiment_descriptor, full_filename = descriptors_and_fnames[job_id]
+    Experiment(experiment_descriptor, full_filename, store_potential_energy_traces=True).run_and_save()
