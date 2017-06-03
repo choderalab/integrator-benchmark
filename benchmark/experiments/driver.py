@@ -7,6 +7,7 @@ from simtk import unit
 from benchmark.evaluation import estimate_nonequilibrium_free_energy
 from benchmark.integrators import LangevinSplittingIntegrator
 from benchmark.testsystems import NonequilibriumSimulator
+from benchmark.utilities.openmm_utilities import repartition_hydrogen_mass_amber
 
 ExperimentDescriptor = namedtuple("ExperimentDescriptor", ["experiment_name",
                                                            "system_name", "equilibrium_simulator",
@@ -25,14 +26,14 @@ class Experiment():
         exp = self.experiment_descriptor
 
         if exp.h_mass_factor != 1:
-            raise (NotImplementedError("This isn't working yet..."))
+            if hasattr(exp.equilibrium_simulator, "MODIFIED_H_MASS"):
+                raise (Exception("H mass of this system was already modified! Can't guarantee correct behavior"))
 
             topology, system = exp.equilibrium_simulator.topology, exp.equilibrium_simulator.system
             hmr_system = repartition_hydrogen_mass_amber(topology, system,
-                                                         scale_factor=exp.h_mass_scale_factor)
+                                                         scale_factor=exp.h_mass_factor)
             exp.equilibrium_simulator.system = hmr_system
-            # TODO: Fix sequential errors... I think this will repeatedly modify the same system!
-            # Need to store the original system somewhere...
+            exp.equilibrium_simulator.MODIFIED_H_MASS = True
 
     def run(self):
         exp = self.experiment_descriptor
@@ -63,7 +64,12 @@ class Experiment():
     def __str__(self):
         exp = self.experiment_descriptor
 
-        properties = [exp.system_name, exp.splitting_name, exp.timestep_in_fs, exp.marginal,
-                      exp.collision_rate_name]
+        properties = [exp.system_name,
+                      exp.splitting_name,
+                      "dt={}fs".format(exp.timestep_in_fs),
+                      "marginal: {}".format(exp.marginal),
+                      "collision rate: {}".format(exp.collision_rate_name),
+                      "H-mass scale: {}".format(exp.h_mass_factor)
+                      ]
 
         return "\n\t".join(["{}"] * len(properties)).format(*properties)
