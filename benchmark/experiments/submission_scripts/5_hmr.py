@@ -7,7 +7,7 @@ from benchmark import DATA_PATH
 from benchmark.experiments.driver import ExperimentDescriptor, Experiment
 from benchmark.testsystems import dhfr_constrained
 
-scale_factors = [1, 0.5, 2, 2.5, 3, 3.5, 4]
+scale_factors = [1, 1.5, 2, 2.5, 3, 3.5, 4]
 dt_range = [0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
 
 splittings = {"OVRVO": "O V R V O",
