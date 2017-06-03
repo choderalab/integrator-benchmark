@@ -6,6 +6,7 @@ from openmmtools.integrators import GHMCIntegrator, GradientDescentMinimizationI
 from simtk import unit
 from simtk.openmm import app
 from tqdm import tqdm
+from benchmark.integrators import LangevinSplittingIntegrator
 
 from benchmark.utilities import strip_unit, get_total_energy, get_velocities, get_positions, \
     set_positions, set_velocities, remove_barostat, remove_center_of_mass_motion_remover, get_potential_energy
@@ -109,7 +110,10 @@ class EquilibriumSimulator():
         # Running a bit of Langevin first improves GHMC acceptance rates?
         print("Intializing with Langevin dynamics...")
         langevin_sim = self.construct_simulation(
-            VVVRIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep))
+            LangevinSplittingIntegrator("V R O R V", temperature=self.temperature,
+                                        collision_rate=1.0 / unit.picoseconds,
+                                        timestep=2 * self.ghmc_timestep, measure_heat=False)
+        )
         set_positions(langevin_sim, pos)
         for _ in tqdm(range(self.burn_in_length)):
             langevin_sim.step(1)
