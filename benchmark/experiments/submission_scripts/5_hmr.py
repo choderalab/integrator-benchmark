@@ -6,9 +6,10 @@ from simtk import unit
 from benchmark import DATA_PATH
 from benchmark.experiments.driver import ExperimentDescriptor, Experiment
 from benchmark.testsystems import dhfr_constrained
+import numpy as np
 
-scale_factors = [1, 1.5, 2, 2.5, 3, 3.5, 4]
-dt_range = [0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+scale_factors = np.arange(1.0, 4.01, 0.25)
+dt_range = np.arange(0.5, 6.01, 0.5)
 
 splittings = {"OVRVO": "O V R V O",
               "ORVRO": "O R V R O",
@@ -24,7 +25,7 @@ marginals = ["configuration", "full"]
 collision_rate_name = "low"
 collision_rate = 1.0 / unit.picoseconds
 
-n_protocol_samples = 500
+n_protocol_samples = 1000
 protocol_length = 2000
 
 experiment_name = "5_hmr"
