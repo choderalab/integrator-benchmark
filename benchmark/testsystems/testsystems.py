@@ -1,5 +1,5 @@
 import numpy as np
-from openmmtools.testsystems import LysozymeImplicit, DHFRExplicit
+from openmmtools.testsystems import LysozymeImplicit, DHFRExplicit, SrcExplicit
 from simtk.openmm import app
 from simtk import unit
 from benchmark.testsystems.configuration import configure_platform
@@ -30,6 +30,22 @@ def load_dhfr_explicit(constrained=True):
 
 
     testsystem = DHFRExplicit(constraints=constraints, rigid_water=rigid_water)
+    topology, system, positions = testsystem.topology, testsystem.system, testsystem.positions
+
+    keep_only_some_forces(system)
+    add_barostat(system)
+
+    return topology, system, positions
+
+def load_src_explicit(constrained=True):
+    if constrained:
+        constraints = app.HBonds
+        rigid_water = True
+    else:
+        constraints = None
+        rigid_water = False
+
+    testsystem = SrcExplicit(constraints=constraints, rigid_water=rigid_water)
     topology, system, positions = testsystem.topology, testsystem.system, testsystem.positions
 
     keep_only_some_forces(system)
@@ -71,6 +87,9 @@ dhfr_unconstrained = construct_simulator("dhfr_unconstrained", top, sys, pos, de
 
 # DHFR reaction field (for the MTS experiment)
 dhfr_reaction_field = construct_simulator("dhfr_constrained_reaction_field", *load_dhfr_reaction_field(constrained=True))
+
+# Src explicit
+src_constrained = construct_simulator("src_constrained", *load_src_explicit(constrained=True))
 
 # T4 lysozyme
 t4_constrained = construct_simulator("t4_constrained", *load_t4_implicit(constrained=True))
