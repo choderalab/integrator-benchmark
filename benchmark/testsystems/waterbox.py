@@ -21,7 +21,7 @@ waterbox_constrained = EquilibriumSimulator(platform=configure_platform("CUDA"),
                                            temperature=temperature,
                                            ghmc_timestep=1.0 * unit.femtosecond,
                                            burn_in_length=100000, n_samples=5000,
-                                           thinning_interval=1000, name="waterbox_constrained")
+                                           thinning_interval=100000, name="waterbox_constrained")
 
 top, sys, pos = load_waterbox(constrained=False)
 flexible_waterbox = EquilibriumSimulator(platform=configure_platform("CUDA"),
@@ -29,4 +29,4 @@ flexible_waterbox = EquilibriumSimulator(platform=configure_platform("CUDA"),
                                            temperature=temperature,
                                            ghmc_timestep=0.5 * unit.femtosecond,
                                            burn_in_length=200000, n_samples=5000,
-                                           thinning_interval=2000, name="flexible_waterbox")
+                                           thinning_interval=200000, name="flexible_waterbox")
