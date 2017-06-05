@@ -48,7 +48,7 @@ class Experiment():
             exp.n_protocol_samples, exp.protocol_length, exp.marginal,
             store_potential_energy_traces=(exp.marginal=="full" and self.store_potential_energy_traces))
 
-        DeltaF_neq, squared_uncertainty = estimate_nonequilibrium_free_energy(*self.result)
+        DeltaF_neq, squared_uncertainty = estimate_nonequilibrium_free_energy(self.result[0], self.result[1])
         print(self)
         print("\t{:.3f} +/- {:.3f}".format(DeltaF_neq, np.sqrt(squared_uncertainty)))
 
