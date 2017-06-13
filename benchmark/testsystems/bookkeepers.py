@@ -4,6 +4,7 @@ import os
 import numpy as np
 from openmmtools.integrators import GHMCIntegrator, GradientDescentMinimizationIntegrator, VVVRIntegrator
 from simtk import unit
+import simtk.openmm as mm
 from simtk.openmm import app
 from tqdm import tqdm
 from benchmark.integrators import LangevinSplittingIntegrator
@@ -174,17 +175,21 @@ class EquilibriumSimulator():
         """Sample velocities from (constrained) Maxwell-Boltzmann distribution."""
         if not hasattr(self, "unbiased_simulation"):
             self.unbiased_simulation = self.construct_simulation(
-                GHMCIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep))
+                GHMCIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep), use_reference=True)
 
         self.unbiased_simulation.context.setPositions(x)
         self.unbiased_simulation.context.setVelocitiesToTemperature(self.temperature)
         self.unbiased_simulation.context.applyVelocityConstraints(self.constraint_tolerance)
         return get_velocities(self.unbiased_simulation)
 
-    def construct_simulation(self, integrator):
+    def construct_simulation(self, integrator, use_reference=False):
         """Construct a simulation instance given an integrator."""
         gc.collect()  # make sure that any recently deleted Contexts actually get deleted...
-        simulation = app.Simulation(self.topology, self.system, integrator, self.platform)
+        if use_reference:
+            platform = mm.Platform.getPlatformByName('Reference')
+        else:
+            platform = self.platform
+        simulation = app.Simulation(self.topology, self.system, integrator, platform)
         simulation.context.setPositions(self.positions)
         simulation.context.setVelocitiesToTemperature(self.temperature)
         return simulation
