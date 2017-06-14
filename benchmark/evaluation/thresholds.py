@@ -1,15 +1,21 @@
-from benchmark.integrators import LangevinSplittingIntegrator
 import numpy as np
+
+from benchmark.integrators import LangevinSplittingIntegrator
+from benchmark.testsystems import t4_constrained
 from benchmark.utilities.openmm_utilities import repartition_hydrogen_mass_amber
 
-from benchmark.testsystems import t4_constrained
 test_system = t4_constrained
 
 from copy import deepcopy
+
 topology = test_system.topology
 default_system = deepcopy(test_system.system)
 
 from simtk import unit
+
+from benchmark.testsystems import NonequilibriumSimulator
+from benchmark.evaluation import estimate_nonequilibrium_free_energy
+
 
 def integrator_factory(dt):
     return LangevinSplittingIntegrator(collision_rate=91.0 / unit.picosecond, timestep=dt)
@@ -31,8 +37,9 @@ def test_stability(test_system, simulation, n_samples, trajectory_length):
     return True
 
 
-def find_stability_threshold_deterministic_search(test_system, integrator_factory, max_dt=10 * unit.femtoseconds, max_bisections=15,
-                             n_samples=10, trajectory_length=10000):
+def find_stability_threshold_deterministic_search(test_system, integrator_factory, max_dt=10 * unit.femtoseconds,
+                                                  max_bisections=15,
+                                                  n_samples=10, trajectory_length=10000):
     min_dt = 0 * unit.femtoseconds
 
     print("Searching for maximum stable timestep in range: [{}, {}]".format(min_dt, max_dt))
@@ -93,13 +100,14 @@ def probabilistic_bisection(noisy_oracle, initial_limits=(0, 1), p=0.6, n_iterat
         fs.append(new_f)
     return x, zs, fs
 
+
 def get_hmr_stability_threshold_curve(splitting="V R O R V", traj_length=1000):
     h_masses = np.arange(0.5, 4.51, 0.25)
     stability_thresholds = []
 
     for h_mass in h_masses:
         hmr_system = repartition_hydrogen_mass_amber(topology, default_system,
-                                                 scale_factor=h_mass)
+                                                     scale_factor=h_mass)
         test_system.system = hmr_system
         lsi = LangevinSplittingIntegrator(splitting)
         simulation = test_system.construct_simulation(lsi)
@@ -117,19 +125,39 @@ def get_hmr_stability_threshold_curve(splitting="V R O R V", traj_length=1000):
     return h_masses, stability_thresholds
 
 
+def error_oracle_factory(error_threshold, scheme="O V R V O", n_protocol_samples=10, protocol_length=1000):
+    def error_oracle(dt):
+        integrator = LangevinSplittingIntegrator(scheme, timestep=dt * unit.femtosecond)
+        sim = NonequilibriumSimulator(test_system, integrator)
+
+        W_F, W_R = sim.collect_protocol_samples(n_protocol_samples, protocol_length)
+        DeltaF_neq, sq_unc = estimate_nonequilibrium_free_energy(W_F, W_R)
+
+        print("\t{:.3f} +/- {:.3f}".format(DeltaF_neq, np.sqrt(sq_unc)))
+
+        if error_threshold > np.abs(DeltaF_neq):
+            return 1
+        else:
+            return -1
+
+    return error_oracle
+
+
 if __name__ == "__main__":
-    ys = {}
+    reference_integrator = LangevinSplittingIntegrator("O V R V O", timestep=2.0 * unit.femtosecond)
+    reference_sim = NonequilibriumSimulator(test_system, reference_integrator)
+
+    W_F, W_R = reference_sim.collect_protocol_samples(1000, 1000)
+    DeltaF_neq, sq_unc = estimate_nonequilibrium_free_energy(W_F, W_R)
+
+    results = {}
     for scheme in ["V R O R V", "R V O V R", "O V R V O", "O R V R O"]:
         print(scheme)
-        h_masses, stability_thresholds = get_hmr_stability_threshold_curve(scheme)
-        ys[scheme] = stability_thresholds
-        print("\tStability thresholds: {}".format(stability_thresholds))
-        print("\tBest H-mass tested: {}".format(h_masses[np.argmax(ys[scheme])]))
+        error_oracle = error_oracle_factory(DeltaF_neq, scheme)
+
+        results[scheme] = probabilistic_bisection(error_oracle, (0, 10), n_iterations=100)
 
     from pickle import dump
-    #import os
-    #from benchmark import DATA_PATH
-    #with open(os.path.join(DATA_PATH, "stability_limits_hmr.pkl"), "wb") as f:
-    #    dump((h_masses, ys), f)
-    with open("stability_limits_hmr.pkl", "wb") as f:
-        dump((h_masses, ys), f)
+
+    with open("error_thresholds.pkl", "wb") as f:
+        dump((results, DeltaF_neq, sq_unc), f)
