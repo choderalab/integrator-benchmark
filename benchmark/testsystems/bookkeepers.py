@@ -287,6 +287,14 @@ class NonequilibriumSimulator(BookkeepingSimulator):
                 if store_potential_energy_traces:
                     potential_energy_traces.append(result_R["potential_energies"])
 
+                if np.isnan(W_shads_F[i] + W_shads_R[i]):
+                    # if any NaNs are encountered, terminate early
+                    W_shads_R *= np.nan
+                    W_shads_F *= np.nan
+                    print("Simulation crashed! Terminating early...")
+                    break
+
+
             except:
                 # if any errors are encountered, terminate early
                 W_shads_R *= np.nan
