@@ -1,34 +1,67 @@
 # For each system, compute the configuration-space error to high accuracy.
 
-import sys
+import os
 
-import numpy as np
 from simtk import unit
 
-from benchmark.evaluation import estimate_nonequilibrium_free_energy
-from benchmark.integrators import LangevinSplittingIntegrator
-from benchmark.testsystems import NonequilibriumSimulator
+from benchmark import DATA_PATH
+from benchmark.experiments.driver import Experiment, ExperimentDescriptor
 from benchmark.testsystems import dhfr_constrained, dhfr_unconstrained, \
     waterbox_constrained, flexible_waterbox, t4_constrained, t4_unconstrained, \
     alanine_constrained, alanine_unconstrained, src_constrained
 
-systems = [None, dhfr_constrained, dhfr_unconstrained, src_constrained, \
-           waterbox_constrained, flexible_waterbox, t4_constrained, t4_unconstrained, \
-           alanine_constrained, alanine_unconstrained]
+systems = {"DHFR in explicit solvent (constrained)": dhfr_constrained,
+           "DHFR in explicit solvent (unconstrained)": dhfr_unconstrained,
+           "Src in explicit solvent (constrained)": src_constrained,
+           "Waterbox (constrained)": waterbox_constrained,
+           "Waterbox (unconstrained)": flexible_waterbox,
+           "T4 lysozyme in implicit solvent (constrained)": t4_constrained,
+           "T4 lysozyme in implicit solvent (unconstrained)": t4_unconstrained,
+           "Alanine dipeptide in vacuum (constrained)": alanine_constrained,
+           "Alanine dipeptide in vacuum (unconstrained)": alanine_unconstrained}
 
-for i in range(len(systems)):
-    print(i, systems[i])
+keys = sorted(systems.keys())
+for i in range(len(keys)):
+    print(i + 1, keys[i])
+
+n_protocol_samples = 1000
+protocol_length = 2000
+
+splitting_name = "OVRVO"
+splitting = "O V R V O"
+
+marginals = ["configuration", "full"]
+
+collision_rates = {"low": 1.0 / unit.picoseconds}
+
+experiment_name = "0_baseline"
+experiments = []
+i = 1
+for system_name in keys:
+    partial_fname = "{}_{}.pkl".format(experiment_name, i)
+    full_filename = os.path.join(DATA_PATH, partial_fname)
+
+    experiment_descriptor = ExperimentDescriptor(
+        experiment_name=experiment_name,
+        system_name=system_name,
+        equilibrium_simulator=systems[system_name],
+        splitting_name=splitting_name,
+        splitting_string=splitting,
+        timestep_in_fs=2.0 * unit.femtosecond,
+        marginal="configuration",
+        collision_rate_name="low",
+        collision_rate=collision_rates["low"],
+        n_protocol_samples=n_protocol_samples,
+        protocol_length=protocol_length,
+        h_mass_factor=1
+    )
+
+    experiments.append(Experiment(experiment_descriptor, full_filename))
+    i += 1
 
 if __name__ == "__main__":
-    reference_integrator = LangevinSplittingIntegrator("O V R V O", collision_rate=1.0 / unit.picosecond,
-                                                       timestep=2.0 * unit.femtosecond)
+    print(len(experiments))
+    import sys
 
-    noneq_sim = NonequilibriumSimulator(systems[int(sys.argv[1])], reference_integrator)
-
-    n_protocol_samples = 1000
-    protocol_length = 2000
-
-    W_F, W_R = noneq_sim.collect_protocol_samples(n_protocol_samples, protocol_length)
-    DeltaF_neq, sq_unc = estimate_nonequilibrium_free_energy(W_F, W_R)
-
-    print("\t{:.3f} +/- {:.3f}".format(DeltaF_neq, np.sqrt(sq_unc)))
+    job_id = int(sys.argv[1])
+    experiments[job_id].run_and_save()
