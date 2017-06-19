@@ -91,13 +91,14 @@ def construct_simulator(name, top, sys, pos, timestep=default_timestep,
 # DHFR
 dhfr_constrained = construct_simulator("dhfr_constrained", *load_dhfr_explicit(constrained=True))
 top, sys, pos = load_dhfr_explicit(constrained=False)
-dhfr_unconstrained = construct_simulator("dhfr_unconstrained", top, sys, pos, default_timestep / 10, default_thinning * 10)
+dhfr_unconstrained = construct_simulator("dhfr_unconstrained", top, sys, pos, default_timestep / 10, default_thinning * 5)
 
 # DHFR reaction field (for the MTS experiment)
 dhfr_reaction_field = construct_simulator("dhfr_constrained_reaction_field", *load_dhfr_reaction_field(constrained=True))
 
 # Src explicit
-src_constrained = construct_simulator("src_constrained", *load_src_explicit(constrained=True))
+top, sys, pos = load_src_explicit(constrained=True)
+src_constrained = construct_simulator("src_constrained", top, sys, pos, default_timestep, int(default_thinning / 10))
 
 # T4 lysozyme
 t4_constrained = construct_simulator("t4_constrained", *load_t4_implicit(constrained=True))
