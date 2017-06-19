@@ -32,8 +32,6 @@ splitting = "O V R V O"
 
 marginals = ["configuration", "full"]
 
-collision_rates = {"low": 1.0 / unit.picoseconds}
-
 experiment_name = "0_baseline"
 experiments = []
 i = 1
@@ -47,10 +45,10 @@ for system_name in keys:
         equilibrium_simulator=systems[system_name],
         splitting_name=splitting_name,
         splitting_string=splitting,
-        timestep_in_fs=2.0 * unit.femtosecond,
+        timestep_in_fs=2.0,
         marginal="configuration",
         collision_rate_name="low",
-        collision_rate=collision_rates["low"],
+        collision_rate=1.0 / unit.picoseconds,
         n_protocol_samples=n_protocol_samples,
         protocol_length=protocol_length,
         h_mass_factor=1
