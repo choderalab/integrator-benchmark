@@ -6,9 +6,12 @@ from simtk import openmm as mm
 
 from benchmark import simulation_parameters
 #extra_chances_list = list(range(11))# + [15,20]
-extra_chances_list = list(range(20))[::-1]
-timesteps = [0.5 * unit.femtoseconds, 1.0 * unit.femtoseconds, 1.5 * unit.femtoseconds, 2.0 * unit.femtoseconds, ]
-
+#extra_chances_list = list(range(20))[::-1]
+extra_chances_list = [20]
+#timesteps = [0.5 * unit.femtoseconds, 1.0 * unit.femtoseconds, 1.5 * unit.femtoseconds, 2.0 * unit.femtoseconds, ]
+#timesteps = [1.0 * unit.femtoseconds, 2.0 * unit.femtoseconds, 3.0 * unit.femtoseconds, 4.0 * unit.femtoseconds]
+#timesteps = [4.0 * unit.femtoseconds, 6.0 * unit.femtoseconds, 8.0 * unit.femtoseconds, 10.0 * unit.femtoseconds]
+timesteps = [s * unit.femtoseconds for s in list(range(1,9))]
 experiments = []
 
 for timestep in timesteps:
@@ -25,13 +28,15 @@ def evaluate(timestep, extra_chances):
                              extra_chances=extra_chances, steps_per_extra_hmc=1,
                              collision_rate=1.0 / unit.picosecond)
 
-    from benchmark.testsystems import dhfr_constrained, waterbox_constrained, alanine_unconstrained
+    from benchmark.testsystems import dhfr_constrained, waterbox_constrained, alanine_unconstrained, alanine_constrained
     #testsystem = dhfr_constrained
-    #testsystem = waterbox_constrained
-    testsystem = alanine_unconstrained
-    platform = mm.Platform.getPlatformByName("Reference")
+    testsystem = waterbox_constrained
+    #testsystem = alanine_constrained
+    #platform = mm.Platform.getPlatformByName("Reference")
     #platform = mm.Platform.getPlatformByName('CUDA')
     #platform.setPropertyDefaultValue('CudaPrecision', 'mixed') # double precision now...
+    platform = mm.Platform.getPlatformByName('OpenCL')
+    platform.setPropertyDefaultValue('OpenCLPrecision', 'mixed')
     #platform.setPropertyDefaultValue('DeterministicForces', 'true')
     testsystem.platform = platform
     sim = testsystem.construct_simulation(xchmc)
@@ -44,12 +49,12 @@ def evaluate(timestep, extra_chances):
 
     from mdtraj.reporters import HDF5Reporter
     name = "xchmc_timestep={}fs, extra_chances={}".format(timestep.value_in_unit(unit.femtoseconds), extra_chances)
-    #reporter = HDF5Reporter(file=name + ".h5", reportInterval=1000, velocities=True, cell=True)
+    reporter = HDF5Reporter(file=name + ".h5", reportInterval=1000, velocities=True, cell=True)
     #sim.reporters.append(reporter)
 
     from tqdm import tqdm
 
-    for _ in tqdm(range(100000)):
+    for _ in tqdm(range(1000)):
         #sim.runForClockTime(10 * unit.minute)
         sim.context.setPositions(testsystem.sample_x_from_equilibrium())
         sim.context.setVelocitiesToTemperature(simulation_parameters['temperature'])
