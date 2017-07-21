@@ -1,5 +1,6 @@
 import numpy as np
 from openmmtools.testsystems import LysozymeImplicit, DHFRExplicit, SrcExplicit
+from openmmtools.forcefactories import replace_reaction_field
 from simtk.openmm import app
 from simtk import unit
 from benchmark.testsystems.configuration import configure_platform
@@ -64,10 +65,10 @@ def load_dhfr_reaction_field(constrained=True):
         rigid_water = False
 
 
-    testsystem = DHFRExplicit(nonbondedMethod=app.CutoffPeriodic, constraints=constraints, rigid_water=rigid_water)
+    testsystem = DHFRExplicit(nonbondedCutoff=15*unit.angstrom, nonbondedMethod=app.CutoffPeriodic, constraints=constraints, rigid_water=rigid_water)
     topology, system, positions = testsystem.topology, testsystem.system, testsystem.positions
 
-    keep_only_some_forces(system)
+    system = replace_reaction_field(system)
     add_barostat(system)
 
     return topology, system, positions
