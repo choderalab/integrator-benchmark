@@ -1,7 +1,7 @@
 # Here, just generate the plot with timestep on the x axis, histogram-based KL divergence on the y-axis
 # Curves for {VVVR, BAOAB} x {configuration, full}
 
-from axis_aligned_joint_plot import joint_eq_hist, load_dictionaries,\
+from .axis_aligned_joint_plot import joint_eq_hist, load_dictionaries,\
     get_joint_kl_div_from_eq, get_x_marginal_kl_div_from_eq
 from glob import glob
 import os
