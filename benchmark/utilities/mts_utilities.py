@@ -427,69 +427,6 @@ def check_system_and_topology_match(system, topology):
     if system.getNumParticles() != topology.getNumAtoms():
         raise (Exception("They don't even have the same number of particles!"))
 
-
-def solute_solvent(system, topology, solvent_solvent=0, others=1):
-    """Splits all interactions into two force groups:
-    - solvent-solvent interactions are one force group
-    - all other interactions are another force group
-    
-    Internally, this is done by creating 3 forces, and assigning them to the two force groups:
-    - solvent_solvent_force : solvent_solvent
-    - solute_solute_force : others
-    - solute_solvent_force : others
-    
-    Notes / possible surprises
-    --------------------------
-    - Leaves bonded solvent interactions in others!
-    
-    Parameters
-    ----------
-    system : openmm system
-    topology : openmm topology
-    solvent_solvent : int
-    others : int
-
-    Side-effects
-    ------------
-    modifies system
-
-    Notes and references
-    --------------------
-    - Related discussion on OpenMM issue between John Chodera and Peter Eastman: 
-      https://github.com/pandegroup/openmm/issues/1498
-        I think this isn't quite the solvent-solute splitting algorithm described in the g-BAOAB paper.
-        In this discussion, the positions of the water molecules are updated more frequently than the 
-        In the paper, the *velocities* get
-    """
-
-    check_system_and_topology_match(system, topology)
-
-    atom_indices_solvent = get_water_atom_indices(topology)
-    atom_indices_solute = sorted(list(set(range(system.getNumParticles())).difference(set(atom_indices_solvent))))
-
-    # by default, set force group to others
-    for force in system.getForces():
-        force.setForceGroup(others)
-
-    for nonbonded_force in get_nonbonded_forces(system):
-        solvent_solvent_force, solute_solute_force, solute_solvent_force = split_nonbonded_force(nonbonded_force,
-                                                                                                 atom_indices_solvent,
-                                                                                                 atom_indices_solute)
-
-        # add these forces to the system
-        system.addForce(solvent_solvent_force)
-        system.addForce(solute_solute_force)
-        system.addForce(solute_solvent_force)
-
-        # assign them to the correct force group
-        solvent_solvent_force.setForceGroup(solvent_solvent)
-        solute_solute_force.setForceGroup(others)  # just to be safe
-        solute_solvent_force.setForceGroup(others)  # just to be safe
-
-        # TODO: Check that the system now has 3 times as many forces in it
-        # TODO: Check that system energies / forces are the same before and after splitting
-
-
 def guess_force_groups(system, nonbonded=1, fft=1, others=0, multipole=1):
     """Set NB short-range to 1 and long-range to 1, which is usually OK.
     This is useful for RESPA multiple timestep integrators.
