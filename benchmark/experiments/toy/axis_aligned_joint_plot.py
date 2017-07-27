@@ -10,12 +10,35 @@ import os
 from glob import glob
 from tqdm import tqdm
 
-from quartic_simple import p, v_density
+from benchmark.testsystems import quartic
+
+x = np.linspace(-10, 10, 10000)
+
+Z = np.trapz(np.exp(quartic.log_q(x)), x)
+
+def log_p(x):
+    return quartic.log_q(x) - np.log(Z)
+
+def kinetic_energy(v):
+    return 0.5 * quartic.mass * v**2
+
+beta = quartic.beta
+sigma2 = quartic.velocity_scale**2
+potential = quartic.potential
+
+def log_v_density(v):
+    return -v ** 2 / (2 * sigma2) - np.log((np.sqrt(2 * np.pi * sigma2)))
+
+def p(x):
+    return np.exp(log_p(x))
+
+def v_density(v):
+    return np.exp(log_v_density(v))
 
 data_range = (-2.5, 2.5)
-n_bins = 100
+n_bins = 50
 bin_edges = np.linspace(data_range[0], data_range[1], num=n_bins)
-one_d_hist_args = {"bins": n_bins * 10, "range": data_range, "density": True}
+one_d_hist_args = {"bins": n_bins * 2, "range": data_range, "density": True}
 
 def normalize_histogram(hist, bin_edges):
     x_range = bin_edges[-1] - bin_edges[0]
@@ -323,5 +346,5 @@ if __name__ == "__main__":
     print("loading dictionaries...")
     xv_dict_baoab, xv_dict_vvvr = load_dictionaries(fnames)
     print("plotting...")
-    timesteps, data = plot_array_of_joint_errors([0.6, 0.8, 1.0, 1.2], xv_dict_baoab, xv_dict_vvvr)
+    timesteps, data = plot_array_of_joint_errors([0.25, 0.6, 0.8, 1.0], xv_dict_baoab, xv_dict_vvvr)
     #plot_kl_divergences(timesteps, *get_kl_divergences(data))

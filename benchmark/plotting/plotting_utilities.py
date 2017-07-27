@@ -152,16 +152,16 @@ def plot_scheme_comparison(target_filename, name):
                 sq_uncs = []
 
                 for timestep in timesteps:
-                    W_shads_F, W_shads_R = results[marginal][(scheme, timestep)]
-                    W_shads_F = np.array(W_shads_F)
-                    W_shads_R = np.array(W_shads_R)
+                    W_shads_F, W_shads_R = results[marginal][(scheme, timestep)][:2]
+                    W_shads_F = np.array(W_shads_F)[:,-1]
+                    W_shads_R = np.array(W_shads_R)[:,-1]
                     DeltaF_neq, sq_unc = estimate_nonequilibrium_free_energy(W_shads_F, W_shads_R)
                     DeltaF_neqs.append(DeltaF_neq)
                     sq_uncs.append(sq_unc)
 
                 DeltaF_neqs = np.array(DeltaF_neqs)
                 sq_uncs = np.array(sq_uncs)
-                uncs = 1.96 * np.sqrt(sq_uncs)
+                uncs = np.sqrt(sq_uncs)
                 plt.hlines(0, min(timesteps), max(timesteps), linestyles="--")
                 plt.errorbar(timesteps, DeltaF_neqs, yerr=uncs, label="{} ({})".format(scheme, marginal))
                 # plt.plot(timesteps, DeltaF_neqs, label="{} ({})".format(scheme, marginal))

@@ -4,8 +4,26 @@
 # * Validating the nonparametric estimator of entropy and free energy
 # * Computing nonequilibrium free energy differences
 
-from quartic_simple import potential, kinetic_energy, log_p, log_v_density, beta
+#from quartic_simple import potential, kinetic_energy, log_p, log_v_density, beta
 import numpy as np
+from benchmark.testsystems import quartic
+
+x = np.linspace(-10, 10, 10000)
+
+Z = np.trapz(np.exp(quartic.log_q(x)), x)
+
+def log_p(x):
+    return quartic.log_q(x) - np.log(Z)
+
+def kinetic_energy(v):
+    return 0.5 * quartic.mass * v**2
+
+beta = quartic.beta
+sigma2 = quartic.velocity_scale**2
+potential = quartic.potential
+
+def log_v_density(v):
+    return -v ** 2 / (2 * sigma2) - np.log((np.sqrt(2 * np.pi * sigma2)))
 
 x = np.linspace(-10, 10, 10000)
 p_x = np.exp(log_p(x))
@@ -46,14 +64,15 @@ print("x-marginal equilibrium free energy: {}".format(x_marginal_free_energy))
 # For comparison, let's estimate the entropy using the k-nearest-neighbor estimator
 if __name__ == "__main__":
     from benchmark.evaluation.entropy import estimate_entropy, estimate_marginal_entropies
-    from quartic_simple import velocity_scale
-    from benchmark import DATA_PATH
-    import os
-    n_samples = 100000
-    eq_xs = np.load(os.path.join(DATA_PATH, "quartic_x_equilibrium.npy"))
+
+    from benchmark.testsystems import quartic
+    n_samples = 50000
+    _ = quartic.sample_x_from_equilibrium()
+    eq_xs = quartic.x_samples
     np.random.shuffle(eq_xs)
     eq_xs = eq_xs[:n_samples]
-    eq_vs = np.random.randn(n_samples) * velocity_scale
+
+    eq_vs = np.random.randn(n_samples) * quartic.velocity_scale
 
     xv = np.vstack((eq_xs, eq_vs)).T
     print(xv.shape)

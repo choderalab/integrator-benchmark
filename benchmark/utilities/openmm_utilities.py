@@ -2,8 +2,13 @@ from copy import deepcopy
 
 import numpy as np
 import simtk.openmm as mm
-from benchmark import simulation_parameters
 from simtk import unit
+
+from benchmark import simulation_parameters
+
+
+def get_potential_energy(simulation):
+    return simulation.context.getState(getEnergy=True).getPotentialEnergy()
 
 
 def get_total_energy(simulation):
@@ -248,8 +253,8 @@ def repartition_hydrogen_mass_amber(topology, system, scale_factor=3):
     hydrogens = get_hydrogens(topology)
     initial_h_masses = [get_mass(system, h) for h in hydrogens]
     if len(set(initial_h_masses)) > 1:
-        raise(NotImplementedError("Initial hydrogen masses aren't all equal. "
-                                  "Implementation currently assumes all hydrogen masses are initially equal."))
+        raise (NotImplementedError("Initial hydrogen masses aren't all equal. "
+                                   "Implementation currently assumes all hydrogen masses are initially equal."))
         # TODO: Relax this assumption
 
     scale_particle_masses(hmr_system, hydrogens, scale_factor)
@@ -261,15 +266,17 @@ def repartition_hydrogen_mass_amber(topology, system, scale_factor=3):
 
     return hmr_system
 
+
 # Heuristic evaluation of HMR scheme: does it equalize vibrational timescales,
 # assuming all bonds are independent?
 def get_vibration_timescales(system, masses):
     """Get list of bond vibration timescales"""
     bonds = get_harmonic_bonds(system)
     timescales = []
-    for (i,j,_,k) in bonds:
+    for (i, j, _, k) in bonds:
         timescales.append(bond_vibration_timescale(masses[i], masses[j], k))
     return timescales
+
 
 def get_harmonic_bonds(system):
     """Get a list of all harmonic bonds in the system"""
@@ -280,50 +287,26 @@ def get_harmonic_bonds(system):
                 bonds.append(f.getBondParameters(i))
     return bonds
 
+
 def bond_vibration_timescale(m1, m2, k):
     """Get period of two masses on a spring"""
     m = reduced_mass(m1, m2)
     return np.sqrt(k / m)
 
+
 def reduced_mass(m1, m2):
     return m1 * m2 / (m1 + m2)
+
 
 def difference_between_largest_and_shortest_timescale(timescales):
     return max(timescales) - min(timescales)
 
+
 def ratio_of_largest_and_shortest_timescale(timescales):
     return max(timescales) / min(timescales)
 
+
 # TODO: Reduce code duplication between repartition_hydrogen_mass_all and repartition_hydrogen_mass_connected]
-
-# Utilities for modifying force groups
-# TODO: Valence vs. nonbonded
-# TODO: Short-range vs long-range
-# TODO: Solute-solvent vs. solvent-solvent
-
-# Kyle's function for splitting up the forces in a system
-def guess_force_groups(system, nonbonded=1, fft=1, others=0, multipole=1):
-    """Set NB short-range to 1 and long-range to 1, which is usually OK.
-    This is useful for RESPA multiple timestep integrators.
-
-    Reference
-    ---------
-    https://github.com/kyleabeauchamp/openmmtools/blob/hmc/openmmtools/hmc_integrators.py
-    """
-    for force in system.getForces():
-        if isinstance(force, mm.openmm.NonbondedForce):
-            force.setForceGroup(nonbonded)
-            force.setReciprocalSpaceForceGroup(fft)
-        elif isinstance(force, mm.openmm.CustomGBForce):
-            force.setForceGroup(nonbonded)
-        elif isinstance(force, mm.openmm.GBSAOBCForce):
-            force.setForceGroup(nonbonded)
-        elif isinstance(force, mm.AmoebaMultipoleForce):
-            force.setForceGroup(multipole)
-        elif isinstance(force, mm.AmoebaVdwForce):
-            force.setForceGroup(nonbonded)
-        else:
-            force.setForceGroup(others)
 
 
 def remove_barostat(system):
@@ -334,7 +317,20 @@ def remove_barostat(system):
         if "Barostat" in force.__class__.__name__:
             force_indices_to_remove.append(force_index)
     for force_index in force_indices_to_remove[::-1]:
-        print('   Removing %s' % system.getForce(force_index).__class__.__name__)
+        force_name = system.getForce(force_index).__class__.__name__
+        print("\tRemoving {}".format(force_name))
+        system.removeForce(force_index)
+
+
+def remove_center_of_mass_motion_remover(system):
+    force_indices_to_remove = list()
+    for force_index in range(system.getNumForces()):
+        force = system.getForce(force_index)
+        if "CMMotionRemover" in force.__class__.__name__:
+            force_indices_to_remove.append(force_index)
+    for force_index in force_indices_to_remove[::-1]:
+        force_name = system.getForce(force_index).__class__.__name__
+        print("\tRemoving {}".format(force_name))
         system.removeForce(force_index)
 
 
@@ -354,5 +350,6 @@ def keep_only_some_forces(system, extra_forces_to_keep=[]):
         if force.__class__.__name__ not in forces_to_keep:
             force_indices_to_remove.append(force_index)
     for force_index in force_indices_to_remove[::-1]:
-        print('   Removing %s' % system.getForce(force_index).__class__.__name__)
+        force_name = system.getForce(force_index).__class__.__name__
+        print("\tRemoving {}".format(force_name))
         system.removeForce(force_index)

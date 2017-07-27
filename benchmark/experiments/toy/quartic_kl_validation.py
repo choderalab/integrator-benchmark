@@ -24,7 +24,7 @@ from functools import partial
 
 
 if __name__ == "__main__":
-    n_protocol_samples, protocol_length = 2000000, 10
+    n_protocol_samples, protocol_length = 500000, 25
     system_name = "quartic"
     equilibrium_simulator = benchmark.testsystems.quartic
     target_filename = os.path.join(DATA_PATH, "scheme_comparison_{}.pkl".format(system_name))
@@ -32,10 +32,10 @@ if __name__ == "__main__":
     potential, force, velocity_scale, mass = equilibrium_simulator.potential, equilibrium_simulator.force, equilibrium_simulator.velocity_scale, equilibrium_simulator.mass
     schemes = {"BAOAB": baoab_factory(potential, force, velocity_scale, mass),
                "VVVR": vvvr_factory(potential, force, velocity_scale, mass),
-               "ABOBA": aboba_factory(potential, force, velocity_scale, mass),
+               #"ABOBA": aboba_factory(potential, force, velocity_scale, mass),
                }
-    timesteps = np.linspace(0.1, 1.1, 10)
-    gamma = 100.0
+    timesteps = np.array([0.5,0.9]) #np.linspace(0.5, 0.9, 2)
+    gamma = 0.5
     noneq_simulators = {}
     for name, scheme in schemes.items():
         for timestep in timesteps:
@@ -44,18 +44,30 @@ if __name__ == "__main__":
             noneq_simulators[(name, timestep)] = NumbaNonequilibriumSimulator(equilibrium_simulator,
                                                                               partial(scheme, gamma=gamma, dt=timestep))
 
+    _ = equilibrium_simulator.sample_x_from_equilibrium()
+    edges = np.histogram(equilibrium_simulator.x_samples, bins=50)[1]
+
+
+    # we'll also want to plot the distance from equillibrium, which will require saving xs and vs, or at least their histograms
+    # alrighty, let's update to save vs also...
+
     results = {}
     for marginal in ["configuration", "full"]:
         results[marginal] = {}
         for name, simulator in noneq_simulators.items():
             print(marginal, name)
-            W_shads_F, W_shads_R = simulator.collect_protocol_samples(
+            W_shads_F, W_shads_R, xs_F, xs_R = simulator.collect_protocol_samples(
                 n_protocol_samples, protocol_length, marginal)
-            results[marginal][name] = W_shads_F, W_shads_R
 
-            W_shads_F = W_shads_F
-            W_shads_R = W_shads_R
-            DeltaF_neq, squared_uncertainty = estimate_nonequilibrium_free_energy(W_shads_F, W_shads_R)
+            # summarize xs_F and xs_R into histograms:
+            xs_F_hists = np.array([np.histogram(np.nan_to_num(xs_F[:, i]), bins=edges)[0] for i in range(xs_F.shape[1])])
+            xs_R_hists = np.array([np.histogram(np.nan_to_num(xs_R[:, i]), bins=edges)[0] for i in range(xs_R.shape[1])])
+
+            results[marginal][name] = np.array(W_shads_F, dtype=np.float16),\
+                                      np.array(W_shads_R, dtype=np.float16),\
+                                      edges, xs_F_hists, xs_R_hists
+
+            DeltaF_neq, squared_uncertainty = estimate_nonequilibrium_free_energy(W_shads_F[:,-1], W_shads_R[:,-1])
             print("\t{:.5f} +/- {:.5f}".format(DeltaF_neq, np.sqrt(squared_uncertainty)))
 
     with open(target_filename, "wb") as f:

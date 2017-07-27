@@ -6,8 +6,8 @@ from benchmark.utilities import add_barostat
 
 
 def load_waterbox(constrained=True):
-    """Load WaterBox test system with non-default PME cutoff and error tolerance"""
-    testsystem = WaterBox(constrained=constrained, ewaldErrorTolerance=1e-5, cutoff=10*unit.angstroms)
+    """Load WaterBox test system"""
+    testsystem = WaterBox(constrained=constrained)
     (topology, system, positions) = testsystem.topology, testsystem.system, testsystem.positions
     add_barostat(system)
     return topology, system, positions
@@ -16,17 +16,17 @@ def load_waterbox(constrained=True):
 temperature = simulation_parameters["temperature"]
 from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 top, sys, pos = load_waterbox(constrained=True)
-waterbox_constrained = EquilibriumSimulator(platform=configure_platform("OpenCL"),
-                                           topology=top, system=sys, positions=pos,
-                                           temperature=temperature,
-                                           ghmc_timestep=2.0 * unit.femtosecond,
-                                           burn_in_length=1000, n_samples=500,
-                                           thinning_interval=2, name="waterbox_constrained")
-
-top, sys, pos = load_waterbox(constrained=False)
-flexible_waterbox = EquilibriumSimulator(platform=configure_platform("OpenCL"),
+waterbox_constrained = EquilibriumSimulator(platform=configure_platform("CUDA"),
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
                                            ghmc_timestep=1.0 * unit.femtosecond,
-                                           burn_in_length=1000, n_samples=500,
-                                           thinning_interval=2, name="flexible_waterbox")
+                                           burn_in_length=100000, n_samples=1000,
+                                           thinning_interval=10000, name="waterbox_constrained")
+
+top, sys, pos = load_waterbox(constrained=False)
+flexible_waterbox = EquilibriumSimulator(platform=configure_platform("CUDA"),
+                                           topology=top, system=sys, positions=pos,
+                                           temperature=temperature,
+                                           ghmc_timestep=0.5 * unit.femtosecond,
+                                           burn_in_length=200000, n_samples=1000,
+                                           thinning_interval=20000, name="flexible_waterbox")

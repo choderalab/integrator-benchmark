@@ -1,13 +1,19 @@
 import numpy as np
 from benchmark import DATA_PATH
-from quartic import potential, force, velocity_scale, m
+from benchmark.testsystems import quartic
+
+potential = quartic.potential
+force = quartic.force
+velocity_scale = quartic.velocity_scale
+m = quartic.mass
+
 import os
 
 from benchmark.integrators import baoab_factory, vvvr_factory
-gamma = 100
+gamma = 10
 
-n_steps = 100000000
-n_thinning = 10
+n_steps = 10000000
+n_thinning = 5
 x_0, v_0 = 0, np.random.randn()
 timesteps_to_try = np.array([0.25, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2])
 
@@ -20,6 +26,10 @@ def sample_xv(scheme="VVVR"):
         integrator = vvvr
     elif scheme == "BAOAB":
         integrator = baoab
+    else:
+        print("Nooope.")
+        exit()
+
     for i, dt in enumerate(timesteps_to_try):
         print(dt)
         print("\nTesting {} with timestep dt={}".format(scheme, dt))
@@ -27,7 +37,7 @@ def sample_xv(scheme="VVVR"):
         xs, vs = [], []
         # these have the following signature: (x0, v0, n_steps, gamma, dt)
         for _ in range(n_thinning):
-            xs_, vs_, Q, W_shad = integrator(x_0, v_0, n_steps / n_thinning, gamma, dt)
+            xs_, vs_, Q, W_shad = integrator(x_0, v_0, n_steps, gamma, dt)
             xs_ = xs_[100:]
             vs_ = vs_[100:]
 

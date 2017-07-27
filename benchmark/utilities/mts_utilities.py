@@ -1,7 +1,11 @@
 # Utilities for generating multi-timestep splittings
-import numpy as np
+import itertools
 
+import numpy as np
 # To-do: add utilities for estimating the total number of force terms
+from simtk import openmm as mm
+
+
 def generate_solvent_solute_splitting_string(base_integrator="VRORV", K_p=1, K_r=3):
     """Generate string representing sequence of V0, V1, R, O steps, where force group 1
     is assumed to contain fast-changing, cheap-to-evaluate forces, and force group 0
@@ -26,7 +30,7 @@ def generate_solvent_solute_splitting_string(base_integrator="VRORV", K_p=1, K_r
     splitting_string: string
         Sequence of V0, V1, R, O steps, to be passed to LangevinSplittingIntegrator
     """
-    assert(base_integrator == "VRORV" or base_integrator == "BAOAB")
+    assert (base_integrator == "VRORV" or base_integrator == "BAOAB")
     Rs = "R " * K_r
     inner_loop = "V1 " + Rs + "O " + Rs + "V1 "
     s = "V0 " + inner_loop * K_p + "V0"
@@ -167,6 +171,7 @@ def generate_random_mts_string(n_updates_per_forcegroup, n_R_steps, n_O_steps):
 
     return " ".join(ingredients)
 
+
 def generate_gbaoab_string(K_r=1):
     """K_r=1 --> 'V R O R V
     K_r=2 --> 'V R R O R R V'
@@ -243,7 +248,7 @@ def condense_splitting(splitting_string):
 
     splitting = splitting_string.upper().split()
 
-    equivalence_classes = {"R":{"R"}, "V":{"O", "V"}, "O":{"O", "V"}}
+    equivalence_classes = {"R": {"R"}, "V": {"O", "V"}, "O": {"O", "V"}}
 
     current_chunk = [splitting[0]]
     collapsed = []
@@ -258,12 +263,11 @@ def condense_splitting(splitting_string):
     for i in range(1, len(splitting)):
 
         # if the next step in the splitting is
-        if splitting[i][0] in equivalence_classes[splitting[i-1][0]]:
+        if splitting[i][0] in equivalence_classes[splitting[i - 1][0]]:
             current_chunk.append(splitting[i])
         else:
             collapsed += collapse_chunk(current_chunk)
             current_chunk = [splitting[i]]
-
 
     collapsed = collapsed + collapse_chunk(current_chunk)
 
@@ -291,7 +295,6 @@ def generate_sequential_BAOAB_string(force_group_list, symmetric=True):
         VR.append("V{}".format(i))
         VR.append("R")
 
-
     if symmetric:
         return " ".join(VR + ["O"] + VR[::-1])
     else:
@@ -299,7 +302,150 @@ def generate_sequential_BAOAB_string(force_group_list, symmetric=True):
 
 
 def generate_all_BAOAB_permutation_strings(n_force_groups, symmetric=True):
-    """Generate all of the permutations of range(n_force_groups), and evaluate their
-    acceptance rates
+    """Generate all of the permutations of range(n_force_groups)"""
+    return [(perm, generate_sequential_BAOAB_string(perm, symmetric)) for perm in
+            itertools.permutations(range(n_force_groups))]
+
+
+# Utilities for modifying force groups
+# TODO: Valence vs. nonbonded
+# TODO: Short-range vs long-range
+# TODO: Solute-solvent vs. solvent-solvent
+
+# Kyle's function for splitting up the forces in a system
+
+def valence_vs_nonbonded(system):
+    pass
+
+
+def short_range_vs_long_range(system):
+    """Not sure the details of what this should do"""
+    pass
+
+
+def clone_nonbonded_parameters(nonbonded_force):
+    """Creates a new nonbonded force with the same global parameters,
+    particle parameters, and exception parameters"""
+
+    # call constructor
+    new_force = nonbonded_force.__class__()
+
+    # go through all of the setter and getter methods
+    new_force.setCutoffDistance(nonbonded_force.getCutoffDistance())
+    new_force.setEwaldErrorTolerance(nonbonded_force.getEwaldErrorTolerance())
+    # new_force.setExceptionParameters # this is per-particle-pair property
+    new_force.setForceGroup(nonbonded_force.getForceGroup())
+    new_force.setNonbondedMethod(nonbonded_force.getNonbondedMethod())
+    new_force.setPMEParameters(*nonbonded_force.getPMEParameters())
+    new_force.setReactionFieldDielectric(nonbonded_force.getReactionFieldDielectric())
+    new_force.setReciprocalSpaceForceGroup(nonbonded_force.getReciprocalSpaceForceGroup())
+    new_force.setSwitchingDistance(nonbonded_force.getSwitchingDistance())
+    new_force.setUseDispersionCorrection(nonbonded_force.getUseDispersionCorrection())
+    new_force.setUseSwitchingFunction(nonbonded_force.getUseSwitchingFunction())
+
+    # now add all the particle parameters
+    num_particles = nonbonded_force.getNumParticles()
+    for i in range(num_particles):
+        new_force.addParticle(*nonbonded_force.getParticleParameters(i))
+
+    # now add all the exceptions
+    for exception_index in range(nonbonded_force.getNumExceptions()):
+        new_force.addException(*nonbonded_force.getExceptionParameters(exception_index))
+
+    # TODO: There's probably a cleaner, more Pythonic way to do this
+    # (this was the most obvious way, but may not work in the future if the OpenMM API changes)
+
+    return new_force
+
+
+def split_nonbonded_force(nonbonded_force, atom_indices_0, atom_indices_1):
+    """Split a nonbonded force into 3 forces: """
+
+    num_particles = nonbonded_force.getNumParticles()
+
+    # check that atom_indices_0 and atom_indices_1 form a partition of the particle set
+    if set(atom_indices_0).union(set(atom_indices_1)) != set(range(num_particles)):
+        raise (Exception("Some atoms are missing!"))
+    if len(set(atom_indices_0).intersection(set(atom_indices_1))) > 0:
+        raise (Exception("atom_indices_0 and atom_indices_1 overlap!"))
+
+    # duplicate the global parameters of nonbonded force
+    new_force_0 = clone_nonbonded_parameters(nonbonded_force)
+    new_force_1 = clone_nonbonded_parameters(nonbonded_force)
+    new_force_01 = clone_nonbonded_parameters(nonbonded_force)
+
+    def mixed_term(i, j):
+        return ((i in atom_indices_0) and (j in atom_indices_1)) or\
+               ((j in atom_indices_0) and (i in atom_indices_1))
+
+    def only_in_0(i, j):
+        return (i in atom_indices_0) and (j in atom_indices_0)
+
+    def only_in_1(i, j):
+        return (i in atom_indices_1) and (j in atom_indices_1)
+
+    # add all appropriate exceptions
+    for i in range(num_particles):
+        for j in range(num_particles):
+
+            # (i,j) excluded from new_force_0 unless both i and j are
+            # in atom_indices_0
+            if (i not in atom_indices_0) or (j not in atom_indices_0):
+                new_force_0.addException(i, j, 0, 0, 0, True)
+
+            # (i,j) excluded from new_force_1 unless both i and j are
+            # in atom_indices_1
+            if (i not in atom_indices_1) or (j not in atom_indices_1):
+                new_force_1.addException(i, j, 0, 0, 0, True)
+
+            # if i,j are in the same atom_indices list, then
+            # (i,j) excluded from new_force_01
+            if (i not in atom_indices_0) == (j not in atom_indices_1):
+                new_force_01.addException(i, j, 0, 0, 0, True)
+
+    return new_force_0, new_force_1, new_force_01
+
+
+def get_water_atom_indices(topology):
+    """Get list of atom indices in "WAT" residues"""
+    indices = []
+    water_residues = [r for r in topology.residues() if r.name == "WAT"]
+    for water_residue in water_residues:
+        for a in water_residue.atoms():
+            indices.append(a.index)
+    return indices
+
+
+def get_nonbonded_forces(system):
+    return [force for force in system.getForces() if "Nonbonded" in force.__class__.__name__]
+
+
+def check_system_and_topology_match(system, topology):
+    """Check to make sure the particle indices of the system
+    line up with the atom indices in the topology"""
+
+    if system.getNumParticles() != topology.getNumAtoms():
+        raise (Exception("They don't even have the same number of particles!"))
+
+def guess_force_groups(system, nonbonded=1, fft=1, others=0, multipole=1):
+    """Set NB short-range to 1 and long-range to 1, which is usually OK.
+    This is useful for RESPA multiple timestep integrators.
+
+    Reference
+    ---------
+    https://github.com/kyleabeauchamp/openmmtools/blob/hmc/openmmtools/hmc_integrators.py
     """
-    return [(perm, generate_sequential_BAOAB_string(perm, symmetric)) for perm in itertools.permutations(range(n_force_groups))]
+    for force in system.getForces():
+        if isinstance(force, mm.openmm.NonbondedForce):
+            force.setForceGroup(nonbonded)
+            force.setReciprocalSpaceForceGroup(fft)
+        elif isinstance(force, mm.openmm.CustomGBForce):
+            force.setForceGroup(nonbonded)
+        elif isinstance(force, mm.openmm.GBSAOBCForce):
+            force.setForceGroup(nonbonded)
+        elif isinstance(force, mm.AmoebaMultipoleForce):
+            force.setForceGroup(multipole)
+        elif isinstance(force, mm.AmoebaVdwForce):
+            force.setForceGroup(nonbonded)
+        else:
+            force.setForceGroup(others)

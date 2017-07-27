@@ -1,0 +1,14 @@
+#!/bin/bash
+#BSUB -J dhfr_gbaoab
+#BSUB -n 1
+#BSUB -R rusage[ngpus_excl_p=1,mem=8]
+#BSUB -W 60:00
+#BSUB -o %J.stdout
+#BSUB -eo %J.stderr
+#BSUB -L /bin/bash
+
+cd $LS_SUBCWD
+cd ..
+source activate integrators
+module load cuda
+python gbaoab.py

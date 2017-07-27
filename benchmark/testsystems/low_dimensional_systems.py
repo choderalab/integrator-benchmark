@@ -3,7 +3,7 @@ import os
 import numpy as np
 from benchmark import DATA_PATH
 from benchmark.integrators import metropolis_hastings_factory
-from openmmtools.testsystems import CustomExternalForcesTestSystem
+from openmmtools.testsystems import CustomExternalForcesTestSystem, ConstraintCoupledHarmonicOscillator
 from tqdm import tqdm
 
 n_particles = 500
@@ -13,6 +13,12 @@ def load_harmonic_oscillator(*args, **kwargs):
     """Load 3D harmonic oscillator"""
     testsystem = CustomExternalForcesTestSystem(("{k}*x^2 + {k}*y^2 + {k}*z^2".format(k=100.0),),
                                                 n_particles=n_particles)
+    return testsystem.topology, testsystem.system, testsystem.positions
+
+
+def load_constraint_coupled_harmonic_oscillators(*args, **kwargs):
+    """Load pair of constraint-coupled 3D harmonic oscillators"""
+    testsystem = ConstraintCoupledHarmonicOscillator()
     return testsystem.topology, testsystem.system, testsystem.positions
 
 
@@ -149,25 +155,30 @@ class NumbaNonequilibriumSimulator():
 
     def accumulate_shadow_work(self, x_0, v_0, n_steps):
         """Run the integrator for n_steps and return the shadow work accumulated"""
-        return self.integrator(x_0, v_0, n_steps)[-1][-1]
+        return self.integrator(x_0, v_0, n_steps)[-1]
 
     def collect_protocol_samples(self, n_protocol_samples, protocol_length, marginal="configuration"):
         """Perform nonequilibrium measurements, aimed at measuring the free energy difference for the chosen marginal."""
         W_shads_F, W_shads_R = [], []
+        xv_F, xv_R = [], []
+
         for _ in tqdm(range(n_protocol_samples)):
             x_0 = self.sample_x_from_equilibrium()
             v_0 = self.sample_v_given_x(x_0)
             xs, vs, Q, W_shads = self.integrator(x0=x_0, v0=v_0, n_steps=protocol_length)
-            W_shads_F.append(W_shads[-1])
+            W_shads_F.append(W_shads)
+            xv_F.append(np.vstack([xs, vs]).T)
 
-            x_1 = xs[-1][-1]
+            x_1 = xs[-1]
             if marginal == "configuration":
                 v_1 = self.sample_v_given_x(x_1)
             elif marginal == "full":
-                v_1 = vs[-1][-1]
+                v_1 = vs[-1]
             else:
                 raise NotImplementedError("`marginal` must be either 'configuration' or 'full'")
 
-            W_shads_R.append(self.accumulate_shadow_work(x_1, v_1, protocol_length))
+            xs, vs, Q, W_shads = self.integrator(x0=x_1, v0=v_1, n_steps=protocol_length)
+            W_shads_R.append(W_shads)
+            xv_R.append(np.vstack([xs, vs]).T)
 
-        return np.array(W_shads_F), np.array(W_shads_R)
+        return np.array(W_shads_F), np.array(W_shads_R), np.array(xv_F), np.array(xv_R)

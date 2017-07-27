@@ -1,0 +1,1 @@
+qsub -t 1-8 collect_equilibrium_samples.sh
