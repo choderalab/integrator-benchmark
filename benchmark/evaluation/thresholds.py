@@ -1,15 +1,10 @@
 import numpy as np
 
 from benchmark.integrators import LangevinSplittingIntegrator
-from benchmark.testsystems import t4_constrained
+from benchmark.testsystems import alanine_constrained
 from benchmark.utilities.openmm_utilities import repartition_hydrogen_mass_amber
 
-test_system = t4_constrained
-
 from copy import deepcopy
-
-topology = test_system.topology
-default_system = deepcopy(test_system.system)
 
 from simtk import unit
 
@@ -29,10 +24,13 @@ def test_stability(test_system, simulation, n_samples, trajectory_length):
         simulation.context.setPositions(x)
         simulation.context.setVelocities(v)
 
-        simulation.step(trajectory_length)
+        for _ in range(round(trajectory_length / 10)):
+            simulation.step(10)
 
-        if np.isnan(simulation.context.getState(getPositions=True).getPositions(asNumpy=True)).sum() > 0:
-            return False
+            # check whether energy is nan or positive, rather than whether positions are NaNs
+            U = simulation.context.getState(getEnergy=True).getPotentialEnergy()
+            if not (U.value_in_unit(U.unit) <= 0):
+                return False
 
     return True
 
@@ -101,7 +99,10 @@ def probabilistic_bisection(noisy_oracle, initial_limits=(0, 1), p=0.6, n_iterat
     return x, zs, fs
 
 
-def get_hmr_stability_threshold_curve(splitting="V R O R V", traj_length=1000):
+def get_hmr_stability_threshold_curve(test_system, splitting="V R O R V", traj_length=1000):
+    topology = test_system.topology
+    default_system = deepcopy(test_system.system)
+
     h_masses = np.arange(0.5, 4.51, 0.25)
     stability_thresholds = []
 
@@ -122,13 +123,16 @@ def get_hmr_stability_threshold_curve(splitting="V R O R V", traj_length=1000):
 
         x, _, fs_heavy_H = probabilistic_bisection(stability_oracle, initial_limits=(0, 10), p=0.6, n_iterations=100)
         stability_thresholds.append(x[np.argmax(fs_heavy_H[-1])])
+    test_system = repartition_hydrogen_mass_amber(topology, default_system, scale_factor=1)
     return h_masses, stability_thresholds
 
 
-def error_oracle_factory(error_threshold, scheme="O V R V O", n_protocol_samples=10, protocol_length=1000):
+def error_oracle_factory(test_system, error_threshold, scheme="O V R V O", n_protocol_samples=100, protocol_length=1000):
+    integrator = LangevinSplittingIntegrator(scheme, timestep=1.0 * unit.femtosecond)
+    sim = NonequilibriumSimulator(test_system, integrator)
+
     def error_oracle(dt):
-        integrator = LangevinSplittingIntegrator(scheme, timestep=dt * unit.femtosecond)
-        sim = NonequilibriumSimulator(test_system, integrator)
+        integrator.setStepSize(dt * unit.femtosecond)
 
         W_F, W_R = sim.collect_protocol_samples(n_protocol_samples, protocol_length)
         DeltaF_neq, sq_unc = estimate_nonequilibrium_free_energy(W_F, W_R)
@@ -144,6 +148,7 @@ def error_oracle_factory(error_threshold, scheme="O V R V O", n_protocol_samples
 
 
 if __name__ == "__main__":
+    test_system = alanine_constrained
     reference_integrator = LangevinSplittingIntegrator("O V R V O", timestep=2.0 * unit.femtosecond)
     reference_sim = NonequilibriumSimulator(test_system, reference_integrator)
 
