@@ -81,7 +81,7 @@ class EquilibriumSimulator():
 
     def construct_unbiased_simulation(self, use_reference=False):
         n_steps = 10
-        self.construct_simulation(
+        return self.construct_simulation(
             XCGHMCIntegrator(temperature=self.temperature, steps_per_hmc=n_steps, extra_chances=15,
                              steps_per_extra_hmc=n_steps, timestep=self.xcghmc_timestep), use_reference=use_reference)
 
@@ -96,7 +96,7 @@ class EquilibriumSimulator():
         self.unbiased_simulation.minimizeEnergy()
 
         print('"Burning in" unbiased sampler for {:.3}ps...'.format(
-            (self.burn_in_length * self.xcghmc_timestep * n_steps).value_in_unit(unit.picoseconds)))
+            (self.burn_in_length * self.xcghmc_timestep * 10).value_in_unit(unit.picoseconds)))
         for _ in tqdm(range(self.burn_in_length)):
             self.unbiased_simulation.step(1)
         print("Burn-in XC-GHMC acceptance rate: {:.3f}%".format(100 * self.get_acceptance_rate()))
