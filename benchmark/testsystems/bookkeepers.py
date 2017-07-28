@@ -222,8 +222,8 @@ class NonequilibriumSimulator(BookkeepingSimulator):
             if store_potential_energy:
                 potential_energies = [get_potential()]
             if store_W_shad_trace:
-                total_energies = [get_energy()]
-                heats = [get_heat()]
+                total_energies = [E_0]
+                heats = [Q_0]
                 W_shad_trace = []
             for _ in range(n_steps):
                 self.simulation.step(1)
