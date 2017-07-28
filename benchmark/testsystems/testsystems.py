@@ -74,11 +74,10 @@ def load_dhfr_reaction_field(constrained=True):
 
     return topology, system, positions
 
-temperature = simulation_parameters["temperature"]
 n_samples = 1000
-default_thinning = 10000
-burn_in_length = 1000000
-default_timestep = 0.5 * unit.femtosecond
+default_thinning = 1000
+burn_in_length = 10000
+default_timestep = 0.25 * unit.femtosecond
 from benchmark.testsystems.bookkeepers import EquilibriumSimulator
 
 def construct_simulator(name, top, sys, pos, timestep=default_timestep,
@@ -86,21 +85,21 @@ def construct_simulator(name, top, sys, pos, timestep=default_timestep,
     return EquilibriumSimulator(platform=configure_platform("CUDA"),
                          topology=top, system=sys, positions=pos,
                          temperature=temperature,
-                         ghmc_timestep=timestep,
+                         xcghmc_timestep=timestep,
                          burn_in_length=burn_in_length, n_samples=n_samples,
                          thinning_interval=thinning_interval, name=name)
 
 # DHFR
 dhfr_constrained = construct_simulator("dhfr_constrained", *load_dhfr_explicit(constrained=True))
 top, sys, pos = load_dhfr_explicit(constrained=False)
-dhfr_unconstrained = construct_simulator("dhfr_unconstrained", top, sys, pos, default_timestep / 10, default_thinning * 5)
+dhfr_unconstrained = construct_simulator("dhfr_unconstrained", top, sys, pos, default_timestep / 2.5, default_thinning * 2.5)
 
 # DHFR reaction field (for the MTS experiment)
 dhfr_reaction_field = construct_simulator("dhfr_constrained_reaction_field", *load_dhfr_reaction_field(constrained=True))
 
 # Src explicit
 top, sys, pos = load_src_explicit(constrained=True)
-src_constrained = construct_simulator("src_constrained", top, sys, pos, default_timestep, int(default_thinning / 10))
+src_constrained = construct_simulator("src_constrained", top, sys, pos, default_timestep / 2.5, default_thinning * 2.5)
 
 # T4 lysozyme
 t4_constrained = construct_simulator("t4_constrained", *load_t4_implicit(constrained=True))
@@ -111,6 +110,6 @@ top, sys, pos = load_constraint_coupled_harmonic_oscillators(constrained=True)
 constraint_coupled_harmonic_oscillators = EquilibriumSimulator(platform=configure_platform("Reference"),
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
-                                           ghmc_timestep=1000.0 * unit.femtosecond,
+                                           xcghmc_timestep=1000.0 * unit.femtosecond,
                                            burn_in_length=50, n_samples=10000,
                                            thinning_interval=10, name="constraint_coupled_harmonic_oscillators")
