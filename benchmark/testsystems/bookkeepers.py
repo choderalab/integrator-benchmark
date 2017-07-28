@@ -64,14 +64,14 @@ class EquilibriumSimulator():
     def load_or_simulate_x_samples(self):
         """If we've already collected and stored equilibrium samples, load those
         Otherwise, collect equilibrium samples"""
-        self._path_to_samples = self.get_path_to_samples()
+        self._path_to_samples, self._path_to_box_vectors = self.get_path_to_samples_and_box_vectors()
         if self.check_for_cached_samples():
             print("Cache found: loading...")
             self.x_samples = self.load_equilibrium_samples()
         else:
             print("Cache not found: collecting equilibrium samples...")
             self.x_samples = self.collect_equilibrium_samples()
-            self.save_equilibrium_samples(self.x_samples)
+            self.save_equilibrium_samples(*self.x_samples)
         self.cached = True
 
     def get_acceptance_rate(self):
@@ -104,43 +104,50 @@ class EquilibriumSimulator():
         # Collect equilibrium samples
         print("Collecting equilibrium samples...")
         equilibrium_samples = []
+        box_vectors = []
         for _ in tqdm(range(self.n_samples)):
             self.unbiased_simulation.step(self.thinning_interval)
             state = self.unbiased_simulation.context.getState(getPositions=True)
             x = state.getPositions(asNumpy=True)
-            box_vectors = state.getPeriodicBoxVectors()
-            equilibrium_samples.append((strip_unit(x), box_vectors))
+            equilibrium_samples.append(strip_unit(x))
+            box_vectors.append(state.getPeriodicBoxVectors())
         print("Equilibrated XC-GHMC acceptance rate: {:.3f}%".format(100 * self.get_acceptance_rate()))
 
-        return np.array(equilibrium_samples)
+        return np.array(equilibrium_samples), np.array(box_vectors)
 
-    def get_path_to_samples(self):
+    def get_path_to_samples_and_box_vectors(self):
         """Samples are {name}_samples.npy in DATA_PATH"""
-        return os.path.join(DATA_PATH, '{}_samples.npy'.format(self.name))
+        samples = os.path.join(DATA_PATH, '{}_samples.npy'.format(self.name))
+        box_vectors = os.path.join(DATA_PATH, '{}_box_vectors.npy'.format(self.name))
+        return samples, box_vectors
 
     def check_for_cached_samples(self):
         """Check if there's a file where we expect to find cached
         equilibrium samples.
         """
         # TODO : Need to check if any of the simulation parameters have changed.
-        return os.path.exists(self._path_to_samples)
+        return os.path.exists(self._path_to_samples) and os.path.exists(self._path_to_box_vectors)
 
-    def save_equilibrium_samples(self, x_samples):
+    def save_equilibrium_samples(self, x_samples, box_vectors):
         """Save numpy archive of equilibrium samples to disk."""
         np.save(self._path_to_samples, x_samples)
+        np.save(self._path_to_box_vectors, box_vectors)
 
     def load_equilibrium_samples(self):
         """Load numpy archive of equilibrium samples"""
         print("Loading equilibrium samples from {}...".format(self._path_to_samples))
         x_samples = np.load(self._path_to_samples)
-        return x_samples
+        print("Loading box vectors from {}...".format(self._path_to_box_vectors))
+        x_box_vectors = np.load(self._path_to_box_vectors)
+        return x_samples, x_box_vectors
 
     def sample_x_from_equilibrium(self):
         """Draw sample (uniformly, with replacement) from cache of configuration samples"""
         if self.cached == False:
             self.load_or_simulate_x_samples()
 
-        return self.x_samples[np.random.randint(len(self.x_samples))]
+        i = np.random.randint(len(self.x_samples))
+        return self.x_samples[0][i], self.x_samples[1][i]
 
     def sample_v_given_x(self, x):
         """Sample velocities from (constrained) Maxwell-Boltzmann distribution."""
@@ -189,16 +196,20 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         self.simulation.context.applyVelocityConstraints(self.constraint_tolerance)
         return get_velocities(self.simulation)
 
-    def accumulate_shadow_work(self, x_0, v_0, n_steps, box_vectors=None, store_potential_energy=False):
+    def accumulate_shadow_work(self, x_0, v_0, n_steps, box_vectors=None, store_potential_energy=False, store_W_shad_trace=False):
         """Run the integrator for n_steps and return the change in energy - the heat."""
-        get_energy = lambda: get_total_energy(self.simulation)
+        get_energy = lambda: get_total_energy(self.simulation).value_in_unit(W_unit)
         get_potential = lambda: get_potential_energy(self.simulation).value_in_unit(W_unit)
         get_heat = lambda: self.simulation.integrator.getGlobalVariableByName("heat")
 
-        set_positions(self.simulation, x_0, box_vectors=box_vectors)
-        set_velocities(self.simulation, v_0)
-
         result = {}
+
+        try:
+            set_positions(self.simulation, x_0, box_vectors=box_vectors)
+            set_velocities(self.simulation, v_0)
+        except:
+            print("Error setting positions or velocities!")
+            return result
 
         # Apply position and velocity constraints.
         self.simulation.context.applyConstraints(self.constraint_tolerance)
@@ -207,12 +218,27 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         E_0 = get_energy()
         Q_0 = get_heat()
 
-        if store_potential_energy:
-            potential_energies = [get_potential()]
+        if store_potential_energy or store_W_shad_trace:
+            if store_potential_energy:
+                potential_energies = [get_potential()]
+            if store_W_shad_trace:
+                total_energies = [get_energy()]
+                heats = [get_heat()]
+                W_shad_trace = []
             for _ in range(n_steps):
                 self.simulation.step(1)
-                potential_energies.append(get_potential())
-            result["potential_energies"] = potential_energies
+                if store_potential_energy:
+                    potential_energies.append(get_potential())
+                if store_W_shad_trace:
+                    total_energies.append(get_energy())
+                    heats.append(get_heat())
+                    DeltaE = total_energies[-1] - total_energies[-2]
+                    DeltaQ = heats[-1] - heats[-2]
+                    W_shad_trace.append(DeltaE - DeltaQ)
+            if store_potential_energy:
+                result["potential_energies"] = np.array(potential_energies)
+            if store_W_shad_trace:
+                result["W_shad_trace"] = np.array(W_shad_trace)
         else:
             self.simulation.step(n_steps)
 
@@ -222,12 +248,12 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         delta_E = E_1 - E_0
         delta_Q = Q_1 - Q_0
 
-        result["W_shad"] = delta_E.value_in_unit(W_unit) - delta_Q
+        result["W_shad"] = delta_E - delta_Q
 
         return result
 
     def collect_protocol_samples(self, n_protocol_samples, protocol_length, marginal="configuration",
-                                 store_potential_energy_traces=False):
+                                 store_potential_energy_traces=False, store_W_shad_traces=False):
         """Perform nonequilibrium measurements, aimed at measuring the free energy difference for the chosen marginal."""
         W_shads_F, W_shads_R = np.zeros(n_protocol_samples), np.zeros(n_protocol_samples)
 
@@ -235,46 +261,46 @@ class NonequilibriumSimulator(BookkeepingSimulator):
             raise NotImplementedError("`marginal` must be either 'configuration' or 'full'")
 
         potential_energy_traces = []
+        W_shad_traces = []
 
         for i in tqdm(range(n_protocol_samples)):
 
-            try:
-                x_0, box_vectors = self.sample_x_from_equilibrium()
-                v_0 = self.sample_v_given_x(x_0)
-                result_F = self.accumulate_shadow_work(x_0, v_0, protocol_length, box_vectors)
-                W_shads_F[i] = result_F["W_shad"]
+            #try:
+            x_0, box_vectors = self.sample_x_from_equilibrium()
+            v_0 = self.sample_v_given_x(x_0)
+            result_F = self.accumulate_shadow_work(x_0, v_0, protocol_length, box_vectors, store_W_shad_trace=store_W_shad_traces)
+            W_shads_F[i] = result_F["W_shad"]
 
-                x_1 = get_positions(self.simulation)
-                if marginal == "configuration":
-                    v_1 = self.sample_v_given_x(x_1)
-                elif marginal == "full":
-                    v_1 = get_velocities(self.simulation)
+            x_1 = get_positions(self.simulation)
+            if marginal == "configuration":
+                v_1 = self.sample_v_given_x(x_1)
+            elif marginal == "full":
+                v_1 = get_velocities(self.simulation)
 
-                result_R = self.accumulate_shadow_work(x_1, v_1, protocol_length,
-                                                       store_potential_energy=store_potential_energy_traces)
-                W_shads_R[i] = result_R["W_shad"]
-                if store_potential_energy_traces:
-                    potential_energy_traces.append(result_R["potential_energies"])
-
-                if np.isnan(W_shads_F[i] + W_shads_R[i]):
-                    # if any NaNs are encountered, terminate early
-                    W_shads_R *= np.nan
-                    W_shads_F *= np.nan
-                    print("Simulation crashed! Terminating early...")
-                    break
-
-
-            except:
-                # if any errors are encountered, terminate early
+            result_R = self.accumulate_shadow_work(x_1, v_1, protocol_length,
+                                                   store_potential_energy=store_potential_energy_traces, store_W_shad_trace=store_W_shad_traces)
+            if len(result_R) == 0: # this means that self.accumulate_shadow_work tried to set coordinates to NaN
                 W_shads_R *= np.nan
                 W_shads_F *= np.nan
                 print("Simulation crashed! Terminating early...")
                 break
 
+            W_shads_R[i] = result_R["W_shad"]
+            if store_potential_energy_traces:
+                potential_energy_traces.append(result_R["potential_energies"])
+            if store_W_shad_traces:
+                W_shad_traces.append((result_F["W_shad_trace"], result_R["W_shad_trace"]))
+
+
+        result = {}
+        result["W_shads_F"] = W_shads_F
+        result["W_shads_R"] = W_shads_R
+        if store_W_shad_traces:
+            result["W_shad_traces"] = W_shad_traces
         if store_potential_energy_traces:
-            return W_shads_F, W_shads_R, potential_energy_traces
-        else:
-            return W_shads_F, W_shads_R
+            result["potential_energies"] = potential_energy_traces
+
+        return result
 
 
 if __name__ == "__main__":
