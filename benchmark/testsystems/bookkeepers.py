@@ -2,7 +2,7 @@ import gc
 import os
 
 import numpy as np
-from openmmtools.integrators import GHMCIntegrator, GradientDescentMinimizationIntegrator, VVVRIntegrator
+from benchmark.integrators.kyle.xchmc import XCGHMCIntegrator
 from simtk import unit
 import simtk.openmm as mm
 from simtk.openmm import app
@@ -45,7 +45,7 @@ class BookkeepingSimulator():
 class EquilibriumSimulator():
     """Simulates a system at equilibrium."""
 
-    def __init__(self, platform, topology, system, positions, temperature, ghmc_timestep,
+    def __init__(self, platform, topology, system, positions, temperature, xcghmc_timestep,
                  burn_in_length, n_samples, thinning_interval, name):
 
         self.platform = platform
@@ -53,18 +53,13 @@ class EquilibriumSimulator():
         self.system = system
         self.positions = positions
         self.temperature = temperature
-        self.ghmc_timestep = ghmc_timestep
+        self.xcghmc_timestep = xcghmc_timestep
         self.burn_in_length = burn_in_length
         self.n_samples = n_samples
         self.thinning_interval = thinning_interval
         self.name = name
         self.cached = False
-
-        # get constraint tolerance
-        ghmc = GHMCIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep)
-        self.constraint_tolerance = ghmc.getConstraintTolerance()
-        del (ghmc)
-        gc.collect()
+        self.constraint_tolerance = 1e-8
 
     def load_or_simulate_x_samples(self):
         """If we've already collected and stored equilibrium samples, load those
@@ -79,58 +74,32 @@ class EquilibriumSimulator():
             self.save_equilibrium_samples(self.x_samples)
         self.cached = True
 
-    def get_ghmc_acceptance_rate(self):
+    def get_acceptance_rate(self):
         """Return the number of acceptances divided by the number of proposals."""
-        ghmc = self.unbiased_simulation.integrator
-        n_accept = ghmc.getGlobalVariableByName("naccept")
-        n_trials = ghmc.getGlobalVariableByName("ntrials")
-        return float(n_accept) / n_trials
+        xchmc = self.unbiased_simulation.integrator
+        return float(sum(xchmc.all_counts[:-1])) / sum(xchmc.all_counts)
 
-    def reset_ghmc_statistics(self):
-        """Reset the number of acceptances and number of proposals."""
-        ghmc = self.unbiased_simulation.integrator
-        ghmc.setGlobalVariableByName("naccept", 0)
-        ghmc.setGlobalVariableByName("ntrials", 0)
+    def construct_unbiased_simulation(self, use_reference=False):
+        n_steps = 10
+        self.construct_simulation(
+            XCGHMCIntegrator(temperature=self.temperature, steps_per_hmc=n_steps, extra_chances=15,
+                             steps_per_extra_hmc=n_steps, timestep=self.xcghmc_timestep), use_reference=use_reference)
 
     def collect_equilibrium_samples(self):
         """Collect equilibrium samples, return as (n_samples, n_atoms, 3) numpy array"""
+
         print("Collecting equilibrium samples for '%s'..." % self.name)
-        # Minimize energy by gradient descent
-        print("Minimizing...")
 
-        min_sim = self.construct_simulation(GradientDescentMinimizationIntegrator())
-        min_sim.context.setPositions(self.positions)
-        min_sim.context.setVelocitiesToTemperature(self.temperature)
-        for _ in tqdm(range(100)):
-            min_sim.step(1)
-        pos = get_positions(min_sim)
-        del (min_sim)
-        gc.collect()
-
-        # "Equilibrate" / "burn-in"
-        # Running a bit of Langevin first improves GHMC acceptance rates?
-        print("Intializing with Langevin dynamics...")
-        langevin_sim = self.construct_simulation(
-            LangevinSplittingIntegrator("V R O R V", temperature=self.temperature,
-                                        collision_rate=1.0 / unit.picoseconds,
-                                        timestep=2 * self.ghmc_timestep, measure_heat=False)
-        )
-        set_positions(langevin_sim, pos)
-        for _ in tqdm(range(self.burn_in_length)):
-            langevin_sim.step(1)
-        pos = get_positions(langevin_sim)
-        del (langevin_sim)
-        gc.collect()
-
-        print('"Burning in" unbiased GHMC sampler for {:.3}ps...'.format(
-            (self.burn_in_length * self.ghmc_timestep).value_in_unit(unit.picoseconds)))
-        self.unbiased_simulation = self.construct_simulation(
-            GHMCIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep))
+        self.unbiased_simulation = self.construct_unbiased_simulation()
         set_positions(self.unbiased_simulation, pos)
+        print("Minimizing...")
+        self.unbiased_simulation.minimizeEnergy()
+
+        print('"Burning in" unbiased sampler for {:.3}ps...'.format(
+            (self.burn_in_length * self.xcghmc_timestep * n_steps).value_in_unit(unit.picoseconds)))
         for _ in tqdm(range(self.burn_in_length)):
             self.unbiased_simulation.step(1)
-        print("Burn-in GHMC acceptance rate: {:.3f}%".format(100 * self.get_ghmc_acceptance_rate()))
-        self.reset_ghmc_statistics()
+        print("Burn-in XC-GHMC acceptance rate: {:.3f}%".format(100 * self.get_acceptance_rate()))
 
         # Collect equilibrium samples
         print("Collecting equilibrium samples...")
@@ -141,7 +110,7 @@ class EquilibriumSimulator():
             x = state.getPositions(asNumpy=True)
             box_vectors = state.getPeriodicBoxVectors()
             equilibrium_samples.append((strip_unit(x), box_vectors))
-        print("Equilibrated GHMC acceptance rate: {:.3f}%".format(100 * self.get_ghmc_acceptance_rate()))
+        print("Equilibrated XC-GHMC acceptance rate: {:.3f}%".format(100 * self.get_acceptance_rate()))
 
         return np.array(equilibrium_samples)
 
@@ -176,9 +145,7 @@ class EquilibriumSimulator():
     def sample_v_given_x(self, x):
         """Sample velocities from (constrained) Maxwell-Boltzmann distribution."""
         if not hasattr(self, "unbiased_simulation"):
-            self.unbiased_simulation = self.construct_simulation(
-                GHMCIntegrator(temperature=self.temperature, timestep=self.ghmc_timestep), use_reference=True)
-
+            self.unbiased_simulation = self.construct_unbiased_simulation(use_reference=True)
         self.unbiased_simulation.context.setPositions(x)
         self.unbiased_simulation.context.setVelocitiesToTemperature(self.temperature)
         self.unbiased_simulation.context.applyVelocityConstraints(self.constraint_tolerance)
