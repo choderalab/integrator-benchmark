@@ -137,8 +137,10 @@ class EquilibriumSimulator():
         equilibrium_samples = []
         for _ in tqdm(range(self.n_samples)):
             self.unbiased_simulation.step(self.thinning_interval)
-            x = self.unbiased_simulation.context.getState(getPositions=True).getPositions(asNumpy=True)
-            equilibrium_samples.append(strip_unit(x))
+            state = self.unbiased_simulation.context.getState(getPositions=True)
+            x = state.getPositions(asNumpy=True)
+            box_vectors = state.getPeriodicBoxVectors()
+            equilibrium_samples.append((strip_unit(x), box_vectors))
         print("Equilibrated GHMC acceptance rate: {:.3f}%".format(100 * self.get_ghmc_acceptance_rate()))
 
         return np.array(equilibrium_samples)
@@ -220,13 +222,13 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         self.simulation.context.applyVelocityConstraints(self.constraint_tolerance)
         return get_velocities(self.simulation)
 
-    def accumulate_shadow_work(self, x_0, v_0, n_steps, store_potential_energy=False):
+    def accumulate_shadow_work(self, x_0, v_0, n_steps, box_vectors=None, store_potential_energy=False):
         """Run the integrator for n_steps and return the change in energy - the heat."""
         get_energy = lambda: get_total_energy(self.simulation)
         get_potential = lambda: get_potential_energy(self.simulation).value_in_unit(W_unit)
         get_heat = lambda: self.simulation.integrator.getGlobalVariableByName("heat")
 
-        set_positions(self.simulation, x_0)
+        set_positions(self.simulation, x_0, box_vectors=box_vectors)
         set_velocities(self.simulation, v_0)
 
         result = {}
@@ -270,9 +272,9 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         for i in tqdm(range(n_protocol_samples)):
 
             try:
-                x_0 = self.sample_x_from_equilibrium()
+                x_0, box_vectors = self.sample_x_from_equilibrium()
                 v_0 = self.sample_v_given_x(x_0)
-                result_F = self.accumulate_shadow_work(x_0, v_0, protocol_length)
+                result_F = self.accumulate_shadow_work(x_0, v_0, protocol_length, box_vectors)
                 W_shads_F[i] = result_F["W_shad"]
 
                 x_1 = get_positions(self.simulation)
