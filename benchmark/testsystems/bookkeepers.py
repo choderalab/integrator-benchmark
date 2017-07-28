@@ -91,7 +91,7 @@ class EquilibriumSimulator():
         print("Collecting equilibrium samples for '%s'..." % self.name)
 
         self.unbiased_simulation = self.construct_unbiased_simulation()
-        set_positions(self.unbiased_simulation, pos)
+        set_positions(self.unbiased_simulation, self.positions)
         print("Minimizing...")
         self.unbiased_simulation.minimizeEnergy()
 
