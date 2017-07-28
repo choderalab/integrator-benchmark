@@ -31,8 +31,8 @@ def get_velocities(simulation):
 def set_positions(simulation, x, box_vectors=None):
     """Set particle positions, and optionally box_vectors"""
     simulation.context.setPositions(x)
-    if box_vectors != None:
-        simulation.context.setPeriodicBoxVectors(box_vectors)
+    if type(box_vectors) != type(None):
+        simulation.context.setPeriodicBoxVectors(*box_vectors)
 
 
 def set_velocities(simulation, v):
