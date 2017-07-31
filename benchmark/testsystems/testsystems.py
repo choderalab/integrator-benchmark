@@ -69,7 +69,7 @@ def load_dhfr_reaction_field(constrained=True):
     topology, system, positions = testsystem.topology, testsystem.system, testsystem.positions
 
     keep_only_some_forces(system)
-    system = replace_reaction_field(system)
+    system = replace_reaction_field(system, shifted=True)
     add_barostat(system)
 
     return topology, system, positions
