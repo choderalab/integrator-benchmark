@@ -85,7 +85,7 @@ def construct_simulator(name, top, sys, pos, timestep=default_timestep,
     return EquilibriumSimulator(platform=configure_platform("CUDA"),
                          topology=top, system=sys, positions=pos,
                          temperature=temperature,
-                         xcghmc_timestep=timestep,
+                         timestep=timestep,
                          burn_in_length=burn_in_length, n_samples=n_samples,
                          thinning_interval=thinning_interval, name=name)
 
@@ -110,6 +110,6 @@ top, sys, pos = load_constraint_coupled_harmonic_oscillators(constrained=True)
 constraint_coupled_harmonic_oscillators = EquilibriumSimulator(platform=configure_platform("Reference"),
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
-                                           xcghmc_timestep=1000.0 * unit.femtosecond,
+                                           timestep=1000.0 * unit.femtosecond,
                                            burn_in_length=50, n_samples=10000,
                                            thinning_interval=10, name="constraint_coupled_harmonic_oscillators")

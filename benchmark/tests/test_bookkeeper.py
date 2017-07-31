@@ -17,7 +17,7 @@ top, sys, pos = load_alanine(constrained=True)
 alanine_constrained = EquilibriumSimulator(platform=configure_platform("Reference"),
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
-                                           xcghmc_timestep=1.0 * unit.femtosecond,
+                                           timestep=1.0 * unit.femtosecond,
                                            burn_in_length=500, n_samples=n_samples,
                                            thinning_interval=thinning_interval, name="alanine_constrained_test")
 print("Sample from cache: (xyz, periodic_box_vectors)\n", alanine_constrained.sample_x_from_equilibrium())

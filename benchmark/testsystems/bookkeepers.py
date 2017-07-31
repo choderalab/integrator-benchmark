@@ -45,7 +45,7 @@ class BookkeepingSimulator():
 class EquilibriumSimulator():
     """Simulates a system at equilibrium."""
 
-    def __init__(self, platform, topology, system, positions, temperature, xcghmc_timestep,
+    def __init__(self, platform, topology, system, positions, temperature, timestep,
                  burn_in_length, n_samples, thinning_interval, name):
 
         self.platform = platform
@@ -53,7 +53,7 @@ class EquilibriumSimulator():
         self.system = system
         self.positions = positions
         self.temperature = temperature
-        self.xcghmc_timestep = xcghmc_timestep
+        self.timestep = timestep
         self.burn_in_length = burn_in_length
         self.n_samples = n_samples
         self.thinning_interval = thinning_interval
@@ -83,7 +83,7 @@ class EquilibriumSimulator():
         n_steps = 10
         return self.construct_simulation(
             XCGHMCIntegrator(temperature=self.temperature, steps_per_hmc=n_steps, extra_chances=15,
-                             steps_per_extra_hmc=n_steps, timestep=self.xcghmc_timestep), use_reference=use_reference)
+                             steps_per_extra_hmc=n_steps, timestep=self.timestep), use_reference=use_reference)
 
     def collect_equilibrium_samples(self):
         """Collect equilibrium samples, return as (n_samples, n_atoms, 3) numpy array"""
@@ -96,7 +96,7 @@ class EquilibriumSimulator():
         self.unbiased_simulation.minimizeEnergy()
 
         print('"Burning in" unbiased sampler for {:.3}ps...'.format(
-            (self.burn_in_length * self.xcghmc_timestep * 10).value_in_unit(unit.picoseconds)))
+            (self.burn_in_length * self.timestep * 10).value_in_unit(unit.picoseconds)))
         for _ in tqdm(range(self.burn_in_length)):
             self.unbiased_simulation.step(1)
         print("Burn-in XC-GHMC acceptance rate: {:.3f}%".format(100 * self.get_acceptance_rate()))
