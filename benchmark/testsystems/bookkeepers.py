@@ -96,8 +96,8 @@ class EquilibriumSimulator():
         print("Minimizing...")
         self.unbiased_simulation.minimizeEnergy()
 
-        print('"Burning in" unbiased sampler for {:.3}ps...'.format(
-            (self.burn_in_length * self.timestep * 10).value_in_unit(unit.picoseconds)))
+        print('"Burning in" unbiased sampler for approximately {:.3}ps...'.format(
+            (self.burn_in_length * self.timestep * self.steps_per_hmc).value_in_unit(unit.picoseconds)))
         for _ in tqdm(range(self.burn_in_length)):
             self.unbiased_simulation.step(1)
         print("Burn-in XC-GHMC acceptance rate: {:.3f}%".format(100 * self.get_acceptance_rate()))
