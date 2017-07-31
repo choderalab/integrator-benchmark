@@ -20,7 +20,7 @@ alanine_constrained = EquilibriumSimulator(platform=configure_platform("Referenc
                                            timestep=1.0 * unit.femtosecond,
                                            burn_in_length=500, n_samples=n_samples,
                                            thinning_interval=thinning_interval, name="alanine_constrained_test")
-print("Sample from cache: (xyz, periodic_box_vectors)\n", alanine_constrained.sample_x_from_equilibrium())
+print("Sample from cache: \n", alanine_constrained.sample_x_from_equilibrium())
 
 sim = NonequilibriumSimulator(alanine_constrained,
                               LangevinSplittingIntegrator("O V R V O", timestep=4.5 * unit.femtoseconds))
