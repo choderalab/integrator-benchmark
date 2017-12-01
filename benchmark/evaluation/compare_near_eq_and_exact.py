@@ -29,10 +29,6 @@ marginals = ["configuration", "full"]
 collision_rates = {"low": 1.0 / unit.picoseconds,
                    "high": 91.0 / unit.picoseconds}
 
-def convert_to_kT(x_in_kJ_mol):
-    return x_in_kJ_mol * conversion_factor
-
-
 n_inner_samples = 100
 n_outer_samples = 1000
 n_steps = 1000
@@ -51,7 +47,7 @@ def inner_sample(noneq_sim, x, v, n_steps, marginal="full"):
     elif marginal == "configuration":
         v = noneq_sim.sample_v_given_x(x)
 
-    return convert_to_kT(noneq_sim.accumulate_shadow_work(x, v, n_steps, store_W_shad_trace=True)['W_shad_trace'])
+    return noneq_sim.accumulate_shadow_work(x, v, n_steps, store_W_shad_trace=True)['W_shad_trace']
 
 
 def outer_sample(index=0, noneq_sim=None, marginal="full", n_inner_samples=100, n_steps=1000):
@@ -60,7 +56,7 @@ def outer_sample(index=0, noneq_sim=None, marginal="full", n_inner_samples=100, 
     v0 = noneq_sim.sample_v_given_x(x0)
 
     # (x, v) drawn from rho
-    W_shad_forward = convert_to_kT(noneq_sim.accumulate_shadow_work(x0, v0, n_steps)["W_shad"])
+    W_shad_forward = noneq_sim.accumulate_shadow_work(x0, v0, n_steps)["W_shad"]
     x = get_state_as_mdtraj(noneq_sim.simulation)
     v = noneq_sim.simulation.context.getState(getVelocities=True).getVelocities(asNumpy=True)
 
