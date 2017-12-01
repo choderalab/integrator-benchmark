@@ -9,11 +9,10 @@ from simtk import unit
 from simtk.openmm import app
 from tqdm import tqdm
 
+from openmmtools.constants import kB
 from benchmark.integrators.kyle.xchmc import XCGHMCIntegrator
 from benchmark.utilities import get_total_energy, get_velocities, \
     set_positions, set_velocities, remove_barostat, remove_center_of_mass_motion_remover, get_potential_energy
-
-W_unit = unit.kilojoule_per_mole
 
 from benchmark import DATA_PATH
 
@@ -39,7 +38,7 @@ class BookkeepingSimulator():
 
     def accumulate_shadow_work(self, x_0, v_0, n_steps):
         """Simulate for n_steps, starting at x_0, v_0.
-        Returns a length n_steps numpy array of shadow_work values"""
+        Returns a length n_steps numpy array of shadow_work values (in units of kT)"""
         pass
 
 
@@ -62,6 +61,7 @@ class EquilibriumSimulator():
         self.cached = False
         self.constraint_tolerance = 1e-8
         self.steps_per_hmc = 10
+        self.kT = self.temperature * kB
 
     def load_or_simulate_samples(self):
         """If we've already collected and stored equilibrium samples, load those
@@ -182,10 +182,17 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         return get_velocities(self.simulation)
 
     def accumulate_shadow_work(self, x_0, v_0, n_steps, store_potential_energy=False, store_W_shad_trace=False):
-        """Run the integrator for n_steps and return the change in energy - the heat."""
-        get_energy = lambda: get_total_energy(self.simulation).value_in_unit(W_unit)
-        get_potential = lambda: get_potential_energy(self.simulation).value_in_unit(W_unit)
-        get_heat = lambda: self.simulation.integrator.getGlobalVariableByName("heat")
+        """Run the integrator for n_steps and return a dictionary containing:
+        * "W_shad" : total shadow work accumulated (in units of kT)
+        and optionally:
+        * "potential_energies" : unit'd numpy array of length (n_steps - 1)
+        * "W_shad_trace" : numpy array of length (n_steps)
+
+        If there is an error setting positions or velocities, then return an empty dictionary
+        """
+        get_energy = lambda: get_total_energy(self.simulation)
+        get_potential = lambda: get_potential_energy(self.simulation)
+        get_heat = lambda: self.simulation.integrator.getGlobalVariableByName("heat") * unit.kilojoule_per_mole
 
         result = {}
 
@@ -233,7 +240,7 @@ class NonequilibriumSimulator(BookkeepingSimulator):
         delta_E = E_1 - E_0
         delta_Q = Q_1 - Q_0
 
-        result["W_shad"] = delta_E - delta_Q
+        result["W_shad"] = (delta_E - delta_Q) / self.equilibrium_simulator.kT
 
         return result
 
