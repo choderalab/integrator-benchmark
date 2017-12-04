@@ -8,7 +8,6 @@ from simtk import unit
 from tqdm import tqdm
 
 testsystems = {
-    "alanine_constrained": alanine_constrained,
     "waterbox_constrained": waterbox_constrained,
     "t4_constrained": t4_constrained
 }
@@ -26,8 +25,8 @@ marginals = ["configuration", "full"]
 
 collision_rate = 1.0 / unit.picoseconds
 
-n_inner_samples = 10
-n_outer_samples = 200
+n_inner_samples = 100
+n_outer_samples = 100
 n_steps = 1000
 
 def estimate_from_work_samples(work_samples):
@@ -134,26 +133,4 @@ if __name__ == '__main__':
         save(job_id, experiment, result)
 
     except:
-        print("No job_id supplied! Doing a quick comparison of configuration and full...")
-
-        experiment1 = ("VRORV", 4.0, "configuration", "alanine_constrained")
-        experiment2 = ("VRORV", 4.0, "full", "alanine_constrained")
-
-        (scheme, dt, marginal, testsystem) = experiment1
-        result1 = estimate_kl_div(testsystem, scheme, dt, marginal, collision_rate, n_inner_samples, n_outer_samples,
-                                 n_steps)
-        save("conf", experiment1, result1)
-
-        (scheme, dt, marginal, testsystem) = experiment2
-        result2 = estimate_kl_div(testsystem, scheme, dt, marginal, collision_rate, n_inner_samples, n_outer_samples,
-                                  n_steps)
-        save("full", experiment2, result2)
-
-
-        print('conf')
-        print('\tnew_estimate: {:.3f}'.format(result1["new_estimate"]))
-        print('\tnear_eq_estimate: {:.3f}'.format(result1["near_eq_estimate"]))
-
-        print('full')
-        print('\tnew_estimate: {:.3f}'.format(result2["new_estimate"]))
-        print('\tnear_eq_estimate: {:.3f}'.format(result2["near_eq_estimate"]))
+        print("No job_id supplied!")
