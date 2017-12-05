@@ -29,6 +29,14 @@ n_inner_samples = 100
 n_outer_samples = 100
 n_steps = 1000
 
+
+def stdev_log_rho_pi(w):
+    """Estimate the standard deviation of the estimate of log < e^{-w} >_{x; \Lambda}
+
+    Note : This will be an underestimate esp. when len(w) is small or stdev_log_rho_pi is large.
+    """
+    return np.std(np.exp(-w)) / (np.mean(np.exp(-w)) * np.sqrt(len(w)))
+
 def estimate_from_work_samples(work_samples):
     """Returns an estimate of log(rho(x) / pi(x)) from unitless work_samples initialized at x"""
     return np.log(np.mean(np.exp(-np.array(work_samples))))
