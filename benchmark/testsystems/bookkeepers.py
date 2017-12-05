@@ -230,7 +230,7 @@ class NonequilibriumSimulator(BookkeepingSimulator):
             if store_potential_energy:
                 result["potential_energies"] = np.array(potential_energies)
             if store_W_shad_trace:
-                result["W_shad_trace"] = np.array(W_shad_trace)
+                result["W_shad_trace"] = np.array(W_shad_trace) / self.equilibrium_simulator.kT
         else:
             self.simulation.step(n_steps)
 
