@@ -93,10 +93,7 @@ def estimate_kl_div(testsystem_name, scheme, dt, marginal, collision_rate,
 
     # near-equilibrium estimate
     W_F_hat = np.mean([s["W_shad_forward"] for s in outer_samples])
-
-    # TODO: I've collected many W_R samples per W_F sample: Decide whether to perform an average over these.
     W_R_hat = np.mean([s["Ws"][0] for s in outer_samples])  # picking the first W_R sample associated with each W_F
-    # W_R_hat = np.mean([np.mean(s["Ws"][:,-1]) for s in outer_samples]) # taking a mean over all W_R samples associated with each W_F
     near_eq_estimate = 0.5 * (W_F_hat - W_R_hat)
 
 
