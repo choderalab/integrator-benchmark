@@ -1,41 +1,73 @@
 import numpy as np
-from benchmark.testsystems import waterbox_constrained, t4_constrained, alanine_constrained
-from benchmark.integrators import LangevinSplittingIntegrator
-from benchmark.testsystems import NonequilibriumSimulator
-from benchmark.testsystems.bookkeepers import get_state_as_mdtraj
-from benchmark import simulation_parameters
 from simtk import unit
 from tqdm import tqdm
 
+from benchmark import simulation_parameters
+from benchmark.integrators import LangevinSplittingIntegrator
+from benchmark.testsystems import NonequilibriumSimulator
+from benchmark.testsystems import waterbox_constrained, t4_constrained, alanine_constrained
+from benchmark.testsystems.bookkeepers import get_state_as_mdtraj
+
+
+import warnings
+
+# experiment variables
 testsystems = {
-    "waterbox_constrained": waterbox_constrained,
-    "t4_constrained": t4_constrained
+    "alanine_constrained": alanine_constrained,
+    # "waterbox_constrained": waterbox_constrained,
+    # "t4_constrained": t4_constrained
 }
-
-temperature = simulation_parameters['temperature']
-
 splittings = {"OVRVO": "O V R V O",
               "ORVRO": "O R V R O",
               "RVOVR": "R V O V R",
               "VRORV": "V R O R V",
               }
-
-dt_range = np.array([0.1] + list(np.arange(0.5, 4.001, 0.5)))
 marginals = ["configuration", "full"]
+dt_range = np.array([0.1] + list(np.arange(0.5, 4.001, 0.5)))
 
+# constant parameters
 collision_rate = 1.0 / unit.picoseconds
+temperature = simulation_parameters['temperature']
+n_steps = 1000  # number of steps until system is judged to have reached "steady-state"
 
+# naive inner-loop params
 n_inner_samples = 100
+
+# adaptive inner-loop params
+inner_loop_initial_size = 50
+inner_loop_batch_size = 1
+inner_loop_stdev_threshold = 0.1
+inner_loop_max_samples = 1000
+
+# naive outer-loop params
 n_outer_samples = 100
-n_steps = 1000
+
+# adaptive outer-loop params
+outer_loop_initial_size = 50
+outer_loop_batch_size = 1
+outer_loop_stdev_threshold = 0.1
+outer_loop_max_samples = 1000
 
 
 def stdev_log_rho_pi(w):
-    """Estimate the standard deviation of the estimate of log < e^{-w} >_{x; \Lambda}
+    """Approximate the standard deviation of the estimate of log < e^{-w} >_{x; \Lambda}
 
     Note : This will be an underestimate esp. when len(w) is small or stdev_log_rho_pi is large.
     """
+
+    # use leading term in taylor expansion: anecdotally, looks like it's in good agreement with
+    # bootstrapped uncertainty estimates up to ~0.5-0.75, then becomes an increasingly bad underestimate
     return np.std(np.exp(-w)) / (np.mean(np.exp(-w)) * np.sqrt(len(w)))
+
+
+def stdev_kl_div(outer_samples):
+    """Approximate the stdev of the estimate of E_rho log_rho_pi"""
+
+    # TODO: Propagate uncertainty from the estimates of log_rho_pi
+    # currently, just use standard error of mean of log_rho_pi_s
+    log_rho_pi_s = np.array([np.log(np.mean(np.exp(-sample['Ws']))) for sample in outer_samples])
+    return np.std(log_rho_pi_s) / np.sqrt(len(log_rho_pi_s))
+
 
 def estimate_from_work_samples(work_samples):
     """Returns an estimate of log(rho(x) / pi(x)) from unitless work_samples initialized at x"""
@@ -48,9 +80,10 @@ def inner_sample(noneq_sim, x, v, n_steps, marginal="full"):
     elif marginal == "configuration":
         v = noneq_sim.sample_v_given_x(x)
     else:
-        raise(Exception("marginal must be `full` or `configuration`"))
+        raise (Exception("marginal must be `full` or `configuration`"))
 
     return noneq_sim.accumulate_shadow_work(x, v, n_steps)['W_shad']
+
 
 def collect_inner_samples_naive(x, v, noneq_sim, marginal="full", n_steps=1000, n_inner_samples=100):
     """Collect a fixed number of noneq trajectories starting from x,v"""
@@ -59,7 +92,9 @@ def collect_inner_samples_naive(x, v, noneq_sim, marginal="full", n_steps=1000, 
         Ws[i] = inner_sample(noneq_sim, x, v, n_steps, marginal)
     return Ws
 
-def collect_inner_samples_until_threshold(x, v, noneq_sim, marginal="full", initial_size=100, batch_size=5, n_steps=1000, threshold=0.1, max_samples=1000):
+
+def collect_inner_samples_until_threshold(x, v, noneq_sim, marginal="full", initial_size=100, batch_size=5,
+                                          n_steps=1000, threshold=0.1, max_samples=1000):
     """Collect up to max_samples trajectories, potentially fewer if stdev of estimated log(rho(x,v) / pi(x,v)) is below threshold."""
     Ws = []
 
@@ -74,7 +109,9 @@ def collect_inner_samples_until_threshold(x, v, noneq_sim, marginal="full", init
 
     # warn user if stdev threshold was not met
     if (stdev_log_rho_pi(np.array(Ws)) > threshold):
-        raise(RuntimeWarning("stdev_log_rho_pi(Ws) > threshold\n({:.3f} > {:.3f})".format(stdev_log_rho_pi(np.array(Ws)), threshold)))
+        message = "stdev_log_rho_pi(Ws) > threshold\n({:.3f} > {:.3f})".format(stdev_log_rho_pi(np.array(Ws)), threshold)
+        warnings.warn(message, RuntimeWarning)
+
 
     return np.array(Ws)
 
@@ -94,6 +131,7 @@ def sample_from_rho(noneq_sim, n_steps=1000):
             'W_shad_forward': W_shad_forward,
             }
 
+
 def outer_sample_naive(index=0, noneq_sim=None, marginal="full", n_inner_samples=100, n_steps=1000):
     rho_sample = sample_from_rho(noneq_sim, n_steps)
     x, v, W_shad_forward = rho_sample['x'], rho_sample['v'], rho_sample['W_shad_forward']
@@ -108,11 +146,13 @@ def outer_sample_naive(index=0, noneq_sim=None, marginal="full", n_inner_samples
     }
 
 
-def outer_sample_adaptive(index=0, noneq_sim=None, marginal="full", n_steps=1000, initial_size=100, batch_size=5, threshold=0.1, max_samples=1000):
+def outer_sample_adaptive(noneq_sim=None, marginal="full", n_steps=1000, initial_size=100, batch_size=5, threshold=0.1,
+                          max_samples=1000):
     rho_sample = sample_from_rho(noneq_sim, n_steps)
     x, v, W_shad_forward = rho_sample['x'], rho_sample['v'], rho_sample['W_shad_forward']
 
-    Ws = collect_inner_samples_until_threshold(x, v, noneq_sim, marginal, initial_size, batch_size, n_steps, threshold, max_samples)
+    Ws = collect_inner_samples_until_threshold(x, v, noneq_sim, marginal, initial_size, batch_size, n_steps, threshold,
+                                               max_samples)
 
     return {
         "xv": (x, v),
@@ -121,19 +161,19 @@ def outer_sample_adaptive(index=0, noneq_sim=None, marginal="full", n_steps=1000
         "W_shad_forward": W_shad_forward
     }
 
-def estimate_kl_div(testsystem_name, scheme, dt, marginal, collision_rate,
-                    n_inner_samples=100, n_outer_samples=100, n_steps=1000, return_samples=False):
 
+def noneq_sim_factory(testsystem_name, scheme, dt, collision_rate):
     testsystem = testsystems[testsystem_name]
     integrator = LangevinSplittingIntegrator(splittings[scheme],
                                              temperature=temperature,
                                              collision_rate=collision_rate,
                                              timestep=dt * unit.femtosecond)
     noneq_sim = NonequilibriumSimulator(testsystem, integrator)
+    return noneq_sim
 
-    outer_samples = []
-    for _ in tqdm(range(n_outer_samples)):
-        outer_samples.append(outer_sample_naive(noneq_sim=noneq_sim, marginal=marginal, n_inner_samples=n_inner_samples, n_steps=n_steps))
+
+def process_outer_samples(outer_samples):
+    """Compute near-equilibrium and "exact" estimates of D_KL from work samples"""
 
     # estimate D_KL as a sample average over x ~ rho of log(rho(x) / pi(x))
     new_estimate = np.mean([s["estimate"] for s in outer_samples], 0)
@@ -143,6 +183,18 @@ def estimate_kl_div(testsystem_name, scheme, dt, marginal, collision_rate,
     W_R_hat = np.mean([s["Ws"][0] for s in outer_samples])  # picking the first W_R sample associated with each W_F
     near_eq_estimate = 0.5 * (W_F_hat - W_R_hat)
 
+    return new_estimate, near_eq_estimate
+
+
+def estimate_kl_div_naive_outer_loop(noneq_sim, marginal,
+                                     outer_sample_fxn, n_outer_samples=100, n_steps=1000,
+                                     return_samples=False):
+    """Collect n_outer_samples samples un-adaptively"""
+    outer_samples = []
+    for _ in tqdm(range(n_outer_samples)):
+        outer_samples.append(outer_sample_fxn(noneq_sim=noneq_sim, marginal=marginal, n_steps=n_steps))
+
+    new_estimate, near_eq_estimate = process_outer_samples(outer_samples)
 
     result = {
         "new_estimate": new_estimate,
@@ -151,7 +203,45 @@ def estimate_kl_div(testsystem_name, scheme, dt, marginal, collision_rate,
         "Ws": np.array([s["Ws"] for s in outer_samples])
     }
 
-    if return_samples: # takes up a lot of extra space, maybe unnecessary
+    if return_samples:  # takes up a lot of extra space, maybe unnecessary
+        result['samples'] = outer_samples
+
+    return result
+
+
+def estimate_kl_div_adaptive_outer_loop(
+        noneq_sim, marginal, outer_sample_fxn, n_steps=1000,
+        initial_size=100, batch_size=1, threshold=0.1, max_samples=1000,
+        return_samples=False):
+    """Collect up to max_samples outer-loop samples, using a threshold on the stdev of the estimated KL divergence"""
+
+    collect_outer_sample = lambda: outer_sample_fxn(noneq_sim=noneq_sim, marginal=marginal, n_steps=n_steps)
+
+    outer_samples = []
+    for _ in tqdm(range(initial_size)):
+        outer_samples.append(collect_outer_sample())
+
+    # keep adding batches until either stdev threshold is reached or budget is reached
+    while (stdev_kl_div(outer_samples) > threshold) and (len(outer_samples) <= (max_samples - batch_size)):
+        for _ in range(batch_size):
+            outer_samples.append(collect_outer_sample())
+
+    # warn user if stdev threshold was not met
+    if (stdev_kl_div(outer_samples) > threshold):
+        message = "stdev_kl_div(outer_samples) > threshold\n({:.3f} > {:.3f})".format(stdev_kl_div(outer_samples),
+                                                                                threshold)
+        warnings.warn(message, RuntimeWarning)
+
+    new_estimate, near_eq_estimate = process_outer_samples(outer_samples)
+
+    result = {
+        "new_estimate": new_estimate,
+        "near_eq_estimate": near_eq_estimate,
+        "W_shad_forward": np.array([s["W_shad_forward"] for s in outer_samples]),
+        "Ws": np.array([s["Ws"] for s in outer_samples])
+    }
+
+    if return_samples:  # takes up a lot of extra space, maybe unnecessary
         result['samples'] = outer_samples
 
     return result
@@ -160,8 +250,11 @@ def estimate_kl_div(testsystem_name, scheme, dt, marginal, collision_rate,
 def save(job_id, experiment, result):
     from pickle import dump
 
-    with open( "{}.pkl".format(job_id), 'wb') as f:
+    with open("{}.pkl".format(job_id), 'wb') as f:
         dump((experiment, result), f)
+
+
+from functools import partial
 
 if __name__ == '__main__':
     experiments = []
@@ -173,15 +266,27 @@ if __name__ == '__main__':
 
     print(len(experiments))
 
+    outer_sample_fxn = partial(outer_sample_adaptive,
+                               initial_size=inner_loop_initial_size, batch_size=inner_loop_batch_size,
+                               threshold=inner_loop_stdev_threshold, max_samples=inner_loop_max_samples)
+
     import sys
 
     try:
         job_id = int(sys.argv[1])
-        experiment = experiments[job_id - 1]
-        print(experiment)
-        (scheme, dt, marginal, testsystem) = experiment
-        result = estimate_kl_div(testsystem, scheme, dt, marginal, collision_rate, n_inner_samples, n_outer_samples, n_steps)
-        save(job_id, experiment, result)
-
     except:
-        print("No job_id supplied!")
+        print("No valid job_id supplied! Selecting one at random")
+        job_id = np.random.randint(len(experiments)) + 1
+
+    experiment = experiments[job_id - 1]
+    print(experiment)
+
+    (scheme, dt, marginal, testsystem) = experiment
+    noneq_sim = noneq_sim_factory(testsystem, scheme, dt, collision_rate)
+    result = estimate_kl_div_adaptive_outer_loop(noneq_sim, marginal, outer_sample_fxn, n_steps,
+                                                 initial_size=outer_loop_initial_size,
+                                                 batch_size=outer_loop_batch_size,
+                                                 max_samples=outer_loop_max_samples,
+                                                 threshold=outer_loop_stdev_threshold)
+    # result = estimate_kl_div_naive_outer_loop(noneq_sim, marginal, outer_sample_fxn, n_outer_samples=n_outer_samples, n_steps=n_steps)
+    save(job_id, experiment, result)
