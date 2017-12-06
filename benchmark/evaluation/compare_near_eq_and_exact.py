@@ -52,8 +52,34 @@ def inner_sample(noneq_sim, x, v, n_steps, marginal="full"):
 
     return noneq_sim.accumulate_shadow_work(x, v, n_steps)['W_shad']
 
+def collect_inner_samples_naive(x, v, noneq_sim, marginal="full", n_steps=1000, n_inner_samples=100):
+    """Collect a fixed number of noneq trajectories starting from x,v"""
+    Ws = np.zeros(n_inner_samples)
+    for i in range(n_inner_samples):
+        Ws[i] = inner_sample(noneq_sim, x, v, n_steps, marginal)
+    return Ws
 
-def outer_sample(index=0, noneq_sim=None, marginal="full", n_inner_samples=100, n_steps=1000):
+def collect_inner_samples_until_threshold(x, v, noneq_sim, marginal="full", initial_size=100, batch_size=5, n_steps=1000, threshold=0.1, max_samples=1000):
+    """Collect up to max_samples trajectories, potentially fewer if stdev of estimated log(rho(x,v) / pi(x,v)) is below threshold."""
+    Ws = []
+
+    # collect initial samples
+    for _ in range(initial_size):
+        Ws.append(inner_sample(noneq_sim, x, v, n_steps, marginal))
+
+    # keep adding batches until either stdev threshold is reached or budget is reached
+    while (stdev_log_rho_pi(np.array(Ws)) > threshold) and (len(Ws) <= (max_samples - batch_size)):
+        for _ in range(batch_size):
+            Ws.append(inner_sample(noneq_sim, x, v, n_steps, marginal))
+
+    # warn user if stdev threshold was not met
+    if (stdev_log_rho_pi(np.array(Ws)) > threshold):
+        raise(RuntimeWarning("stdev_log_rho_pi(Ws) > threshold\n({:.3f} > {:.3f})".format(stdev_log_rho_pi(np.array(Ws)), threshold)))
+
+    return np.array(Ws)
+
+
+def sample_from_rho(noneq_sim, n_steps=1000):
     # (x0, v0) drawn from pi
     x0 = noneq_sim.sample_x_from_equilibrium()
     v0 = noneq_sim.sample_v_given_x(x0)
@@ -63,13 +89,34 @@ def outer_sample(index=0, noneq_sim=None, marginal="full", n_inner_samples=100, 
     x = get_state_as_mdtraj(noneq_sim.simulation)
     v = noneq_sim.simulation.context.getState(getVelocities=True).getVelocities(asNumpy=True)
 
-    Ws = []
-    for _ in range(n_inner_samples):
-        Ws.append(inner_sample(noneq_sim, x, v, n_steps, marginal))
+    return {'x': x,
+            'v': v,
+            'W_shad_forward': W_shad_forward,
+            }
+
+def outer_sample_naive(index=0, noneq_sim=None, marginal="full", n_inner_samples=100, n_steps=1000):
+    rho_sample = sample_from_rho(noneq_sim, n_steps)
+    x, v, W_shad_forward = rho_sample['x'], rho_sample['v'], rho_sample['W_shad_forward']
+
+    Ws = collect_inner_samples_naive(x, v, noneq_sim, marginal, n_steps, n_inner_samples)
 
     return {
         "xv": (x, v),
-        "Ws": np.array(Ws),
+        "Ws": Ws,
+        "estimate": estimate_from_work_samples(Ws),
+        "W_shad_forward": W_shad_forward
+    }
+
+
+def outer_sample_adaptive(index=0, noneq_sim=None, marginal="full", n_steps=1000, initial_size=100, batch_size=5, threshold=0.1, max_samples=1000):
+    rho_sample = sample_from_rho(noneq_sim, n_steps)
+    x, v, W_shad_forward = rho_sample['x'], rho_sample['v'], rho_sample['W_shad_forward']
+
+    Ws = collect_inner_samples_until_threshold(x, v, noneq_sim, marginal, initial_size, batch_size, n_steps, threshold, max_samples)
+
+    return {
+        "xv": (x, v),
+        "Ws": Ws,
         "estimate": estimate_from_work_samples(Ws),
         "W_shad_forward": W_shad_forward
     }
@@ -86,7 +133,7 @@ def estimate_kl_div(testsystem_name, scheme, dt, marginal, collision_rate,
 
     outer_samples = []
     for _ in tqdm(range(n_outer_samples)):
-        outer_samples.append(outer_sample(noneq_sim=noneq_sim, marginal=marginal, n_inner_samples=n_inner_samples, n_steps=n_steps))
+        outer_samples.append(outer_sample_naive(noneq_sim=noneq_sim, marginal=marginal, n_inner_samples=n_inner_samples, n_steps=n_steps))
 
     # estimate D_KL as a sample average over x ~ rho of log(rho(x) / pi(x))
     new_estimate = np.mean([s["estimate"] for s in outer_samples], 0)
@@ -133,8 +180,7 @@ if __name__ == '__main__':
         experiment = experiments[job_id - 1]
         print(experiment)
         (scheme, dt, marginal, testsystem) = experiment
-        result = estimate_kl_div(testsystem, scheme, dt, marginal, collision_rate, n_inner_samples, n_outer_samples,
-                                 n_steps)
+        result = estimate_kl_div(testsystem, scheme, dt, marginal, collision_rate, n_inner_samples, n_outer_samples, n_steps)
         save(job_id, experiment, result)
 
     except:
