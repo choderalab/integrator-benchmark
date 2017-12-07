@@ -46,7 +46,17 @@ outer_loop_max_samples = 1000
 def stdev_log_rho_pi(w):
     """Approximate the standard deviation of the estimate of log < e^{-w} >_{x; \Lambda}
 
-    Note : This will be an underestimate esp. when len(w) is small or stdev_log_rho_pi is large.
+    Parameters
+    ----------
+    w : unitless (kT) numpy array of work samples
+    
+    Returns
+    -------
+    stdev : float
+
+    Notes
+    -----
+    This will be an underestimate esp. when len(w) is small or stdev_log_rho_pi is large.
     """
 
     # use leading term in taylor expansion: anecdotally, looks like it's in good agreement with
