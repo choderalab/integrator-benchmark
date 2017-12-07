@@ -49,7 +49,7 @@ def stdev_log_rho_pi(w):
     Parameters
     ----------
     w : unitless (kT) numpy array of work samples
-    
+
     Returns
     -------
     stdev : float
@@ -58,6 +58,9 @@ def stdev_log_rho_pi(w):
     -----
     This will be an underestimate esp. when len(w) is small or stdev_log_rho_pi is large.
     """
+
+    assert(type(w) != unit.Quantity) # assert w is unitless
+    assert(type(w) == np.ndarray) # assert w is a numpy array
 
     # use leading term in taylor expansion: anecdotally, looks like it's in good agreement with
     # bootstrapped uncertainty estimates up to ~0.5-0.75, then becomes an increasingly bad underestimate
