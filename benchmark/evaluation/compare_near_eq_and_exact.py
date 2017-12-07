@@ -30,9 +30,6 @@ collision_rate = 1.0 / unit.picoseconds
 temperature = simulation_parameters['temperature']
 n_steps = 1000  # number of steps until system is judged to have reached "steady-state"
 
-# naive inner-loop params
-n_inner_samples = 100
-
 # adaptive inner-loop params
 inner_loop_initial_size = 50
 inner_loop_batch_size = 1
