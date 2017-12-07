@@ -307,7 +307,7 @@ def resample_Ws(Ws):
 
     for i in range(n_outer_samples):
         n_cols = len(Ws_[i])
-        Ws_[i] = Ws_[i, np.random.randint(0, n_cols, n_cols)]  # within each row, resample the columns independently
+        Ws_[i] = Ws_[i][np.random.randint(0, n_cols, n_cols)]  # within each row, resample the columns independently
     return Ws_
 
 def save(job_id, experiment, result):
