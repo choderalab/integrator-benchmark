@@ -351,5 +351,4 @@ if __name__ == '__main__':
                                                  batch_size=outer_loop_batch_size,
                                                  max_samples=outer_loop_max_samples,
                                                  threshold=outer_loop_stdev_threshold)
-    # result = estimate_kl_div_naive_outer_loop(noneq_sim, marginal, outer_sample_fxn, n_outer_samples=n_outer_samples, n_steps=n_steps)
     save(job_id, experiment, result)
