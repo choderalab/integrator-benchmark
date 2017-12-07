@@ -281,6 +281,35 @@ def estimate_kl_div_adaptive_outer_loop(
     return result
 
 
+def resample_Ws(Ws):
+    """Generate a bootstrap sample of the Ws structure.
+
+    Parameters
+    ----------
+    Ws : iterable of iterables
+        Each element of Ws is an iterable of floats, potentially of varying length
+        * len(Ws) is the number of outer-loop samples
+        * [len(w) for w in Ws] are the numbers of inner-loop samples
+            associated with each outer-loop sample
+
+    Algorithm
+    ---------
+    * Resample elements of Ws uniformly with replacement, assign to Ws_
+    * For each element in Ws_, resample its elements uniformly with replacement
+
+    Returns
+    -------
+    Ws_ : iterable of iterables, same shapes as input Ws
+    """
+    n_outer_samples = len(Ws)
+
+    Ws_ = Ws[np.random.randint(0, n_outer_samples, n_outer_samples)]  # resample the rows
+
+    for i in range(n_outer_samples):
+        n_cols = len(Ws_[i])
+        Ws_[i] = Ws_[i, np.random.randint(0, n_cols, n_cols)]  # within each row, resample the columns independently
+    return Ws_
+
 def save(job_id, experiment, result):
     from pickle import dump
 
