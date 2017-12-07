@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 from simtk import unit
 from tqdm import tqdm
@@ -7,9 +9,6 @@ from benchmark.integrators import LangevinSplittingIntegrator
 from benchmark.testsystems import NonequilibriumSimulator
 from benchmark.testsystems import waterbox_constrained, t4_constrained, alanine_constrained
 from benchmark.testsystems.bookkeepers import get_state_as_mdtraj
-
-
-import warnings
 
 # experiment variables
 testsystems = {
@@ -23,7 +22,7 @@ splittings = {"OVRVO": "O V R V O",
               "VRORV": "V R O R V",
               }
 marginals = ["configuration", "full"]
-dt_range = np.array([0.1] + list(np.arange(0.5, 4.001, 0.5)))
+dt_range = np.array([0.1] + list(np.arange(0.5, 4.001, 0.5))) * unit.femtosecond
 
 # constant parameters
 collision_rate = 1.0 / unit.picoseconds
@@ -170,11 +169,39 @@ def outer_sample_adaptive(noneq_sim=None, marginal="full", n_steps=1000, initial
 
 
 def noneq_sim_factory(testsystem_name, scheme, dt, collision_rate):
+    """Generate a NonequilibriumSimulator object for a given experiment
+
+    Parameters
+    ----------
+    testsystem_name : string
+    scheme : string
+    dt : in units compatible with unit.femtosecond
+    collision_rate : in units compatible with (1 / unit.picosecond)
+
+    Returns
+    -------
+    noneq_sim : NonequilibriumSimulator
+
+    """
+    # check that testsystem_name is valid
+    assert (testsystem_name in testsystems)
+
+    # check that scheme is valid
+    assert (scheme in splittings)
+
+    # check that dt is valid
+    assert (type(dt) == unit.Quantity)
+    assert (dt.unit.is_compatible(unit.femtosecond))
+
+    # check that collision_rate is valid
+    assert (type(collision_rate) == unit.Quantity)
+    assert ((1 / collision_rate).unit.is_compatible(unit.picosecond))
+
     testsystem = testsystems[testsystem_name]
     integrator = LangevinSplittingIntegrator(splittings[scheme],
                                              temperature=temperature,
                                              collision_rate=collision_rate,
-                                             timestep=dt * unit.femtosecond)
+                                             timestep=dt)
     noneq_sim = NonequilibriumSimulator(testsystem, integrator)
     return noneq_sim
 
