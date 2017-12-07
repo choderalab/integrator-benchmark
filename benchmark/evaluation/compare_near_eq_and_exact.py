@@ -36,9 +36,6 @@ inner_loop_batch_size = 1
 inner_loop_stdev_threshold = 0.1
 inner_loop_max_samples = 1000
 
-# naive outer-loop params
-n_outer_samples = 100
-
 # adaptive outer-loop params
 outer_loop_initial_size = 50
 outer_loop_batch_size = 1
