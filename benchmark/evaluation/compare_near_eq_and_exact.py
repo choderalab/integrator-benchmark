@@ -33,7 +33,7 @@ n_steps = 1000  # number of steps until system is judged to have reached "steady
 inner_loop_initial_size = 50
 inner_loop_batch_size = 1
 inner_loop_stdev_threshold = 0.1
-inner_loop_max_samples = 1000
+inner_loop_max_samples = 10000
 
 # adaptive outer-loop params
 outer_loop_initial_size = 50
