@@ -226,11 +226,11 @@ class NonequilibriumSimulator(BookkeepingSimulator):
                     heats.append(get_heat())
                     DeltaE = total_energies[-1] - total_energies[-2]
                     DeltaQ = heats[-1] - heats[-2]
-                    W_shad_trace.append(DeltaE - DeltaQ)
+                    W_shad_trace.append((DeltaE - DeltaQ) / self.equilibrium_simulator.kT)
             if store_potential_energy:
                 result["potential_energies"] = np.array(potential_energies)
             if store_W_shad_trace:
-                result["W_shad_trace"] = np.array(W_shad_trace) / self.equilibrium_simulator.kT
+                result["W_shad_trace"] = np.array(W_shad_trace)
         else:
             self.simulation.step(n_steps)
 
