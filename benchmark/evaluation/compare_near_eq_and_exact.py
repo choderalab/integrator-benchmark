@@ -12,8 +12,8 @@ from benchmark.testsystems.bookkeepers import get_state_as_mdtraj
 
 # experiment variables
 testsystems = {
-    "alanine_constrained": alanine_constrained,
-    # "waterbox_constrained": waterbox_constrained,
+    # "alanine_constrained": alanine_constrained,
+    "waterbox_constrained": waterbox_constrained,
     # "t4_constrained": t4_constrained
 }
 splittings = {"OVRVO": "O V R V O",
