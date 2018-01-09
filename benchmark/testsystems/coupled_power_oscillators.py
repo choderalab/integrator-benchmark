@@ -142,6 +142,6 @@ top, sys, pos = testsystem.topology, testsystem.system, testsystem.positions
 coupled_power_oscillators = EquilibriumSimulator(platform=configure_platform("CPU"),
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
-                                           ghmc_timestep=1.0 * unit.femtosecond,
+                                           timestep=1.0 * unit.femtosecond,
                                            burn_in_length=1000, n_samples=n_samples,
                                            thinning_interval=10, name="coupled_power_oscillators")

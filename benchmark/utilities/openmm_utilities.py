@@ -28,9 +28,11 @@ def get_velocities(simulation):
     return simulation.context.getState(getVelocities=True).getVelocities(asNumpy=True)
 
 
-def set_positions(simulation, x):
-    """Set particle positions"""
+def set_positions(simulation, x, box_vectors=None):
+    """Set particle positions, and optionally box_vectors"""
     simulation.context.setPositions(x)
+    if type(box_vectors) != type(None):
+        simulation.context.setPeriodicBoxVectors(*box_vectors)
 
 
 def set_velocities(simulation, v):

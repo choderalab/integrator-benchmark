@@ -1,0 +1,22 @@
+#!/bin/bash
+#BSUB -J validate
+#BSUB -n 1
+#BSUB -q gpuqueue -gpu -
+#BSUB -W 24:00
+#BSUB -o %J.stdout
+#BSUB -eo %J.stderr
+#BSUB -L /bin/bash
+
+cd $LS_SUBCWD
+PATH=$PATH:/home/fassj/anaconda3/bin
+source activate integrators
+sleep 10
+python compare_near_eq_and_exact.py $LSB_JOBINDEX
+outputfile=$LSB_JOBINDEX".pkl"
+if [ -f "$outputfile" ]
+then
+   echo "output not found -- something must have gone wrong! trying again once"
+   python compare_near_eq_and_exact.py $LSB_JOBINDEX
+else
+   echo "output found, terminating sucessfully"
+fi

@@ -41,7 +41,7 @@ top, sys, pos = load_alanine(constrained=True)
 alanine_constrained = EquilibriumSimulator(platform=configure_platform("Reference"),
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
-                                           ghmc_timestep=1.0 * unit.femtosecond,
+                                           timestep=1.0 * unit.femtosecond,
                                            burn_in_length=50000, n_samples=n_samples,
                                            thinning_interval=10000, name="alanine_constrained")
 
@@ -49,7 +49,7 @@ top, sys, pos = load_alanine(constrained=False)
 alanine_unconstrained = EquilibriumSimulator(platform=configure_platform("Reference"),
                                            topology=top, system=sys, positions=pos,
                                            temperature=temperature,
-                                           ghmc_timestep=1.0 * unit.femtosecond,
+                                           timestep=1.0 * unit.femtosecond,
                                            burn_in_length=50000, n_samples=n_samples,
                                            thinning_interval=10000, name="alanine_unconstrained")
 
@@ -57,14 +57,14 @@ top, sys, pos = load_solvated_alanine(constrained=False)
 solvated_alanine_unconstrained = EquilibriumSimulator(platform=configure_platform("CUDA"),
                                           topology=top, system=sys, positions=pos,
                                           temperature=temperature,
-                                          ghmc_timestep=0.25 * unit.femtosecond,
-                                          burn_in_length=200000, n_samples=n_samples,
-                                          thinning_interval=200000, name="solvated_alanine_unconstrained")
+                                          timestep=0.25 * unit.femtosecond,
+                                          burn_in_length=50000, n_samples=n_samples,
+                                          thinning_interval=10000, name="solvated_alanine_unconstrained")
 
 top, sys, pos = load_solvated_alanine(constrained=True)
 solvated_alanine_constrained = EquilibriumSimulator(platform=configure_platform("CUDA"),
                                           topology=top, system=sys, positions=pos,
                                           temperature=temperature,
-                                          ghmc_timestep=0.25 * unit.femtosecond,
-                                          burn_in_length=200000, n_samples=n_samples,
-                                          thinning_interval=200000, name="solvated_alanine_constrained")
+                                          timestep=0.25 * unit.femtosecond,
+                                          burn_in_length=50000, n_samples=n_samples,
+                                          thinning_interval=10000, name="solvated_alanine_constrained")
