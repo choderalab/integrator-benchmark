@@ -105,3 +105,17 @@ water_cluster_flexible = EquilibriumSimulator(platform=configure_platform("Refer
                                            timestep=1.0 * unit.femtosecond,
                                            burn_in_length=100000, n_samples=1000,
                                            thinning_interval=10000, name="water_cluster_flexible")
+
+
+# bigger
+n_waters = 40
+
+testsystem = WaterCluster(n_waters=n_waters, constrained=True)
+(topology, system, positions) = testsystem.topology, testsystem.system, testsystem.positions
+
+big_water_cluster_rigid = EquilibriumSimulator(platform=configure_platform("Reference"),
+                                           topology=topology, system=system, positions=positions,
+                                           temperature=temperature,
+                                           timestep=1.0 * unit.femtosecond,
+                                           burn_in_length=100000, n_samples=1000,
+                                           thinning_interval=10000, name="big_water_cluster_rigid")
