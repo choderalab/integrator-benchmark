@@ -22,7 +22,7 @@ splittings = {"OVRVO": "O V R V O",
               "VRORV": "V R O R V",
               }
 marginals = ["configuration", "full"]
-dt_range = np.array([0.1] + list(np.arange(0.5, 4.001, 0.5))) * unit.femtosecond
+dt_range = np.array([0.1] + list(np.arange(0.5, 8.001, 0.5))) * unit.femtosecond
 
 # constant parameters
 collision_rate = 1.0 / unit.picoseconds
