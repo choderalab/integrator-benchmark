@@ -27,7 +27,18 @@ dt_range = np.array([0.1] + list(np.arange(0.5, 8.001, 0.5))) * unit.femtosecond
 # constant parameters
 collision_rate = 1.0 / unit.picoseconds
 temperature = simulation_parameters['temperature']
-n_steps = 1000  # number of steps until system is judged to have reached "steady-state"
+#n_steps = 1000  # number of steps until system is judged to have reached "steady-state"
+
+def n_steps_(dt, max_steps=1000):
+
+    Examples:
+        n_steps_(dt=1fs) = 1000
+        n_steps_(dt=2fs) = 500
+        n_steps_(dt=4fs) = 250
+        n_steps_(dt=8fs) = 125
+    """
+    return min(max_steps, int((1 / collision_rate) / dt))
+
 
 # adaptive inner-loop params
 inner_loop_initial_size = 50
@@ -346,6 +357,7 @@ if __name__ == '__main__':
 
     (scheme, dt, marginal, testsystem) = experiment
     noneq_sim = noneq_sim_factory(testsystem, scheme, dt, collision_rate)
+    n_steps = n_steps_(dt)
     result = estimate_kl_div_adaptive_outer_loop(noneq_sim, marginal, outer_sample_fxn, n_steps,
                                                  initial_size=outer_loop_initial_size,
                                                  batch_size=outer_loop_batch_size,
