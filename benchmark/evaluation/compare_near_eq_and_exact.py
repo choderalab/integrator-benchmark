@@ -7,13 +7,14 @@ from tqdm import tqdm
 from benchmark import simulation_parameters
 from benchmark.integrators import LangevinSplittingIntegrator
 from benchmark.testsystems import NonequilibriumSimulator
-from benchmark.testsystems import waterbox_constrained, t4_constrained, alanine_constrained
+from benchmark.testsystems import water_cluster_rigid, waterbox_constrained, t4_constrained, alanine_constrained
 from benchmark.testsystems.bookkeepers import get_state_as_mdtraj
 
 # experiment variables
 testsystems = {
     # "alanine_constrained": alanine_constrained,
-    "waterbox_constrained": waterbox_constrained,
+    #"waterbox_constrained": waterbox_constrained,
+    "water_cluster_rigid": water_cluster_rigid,
     # "t4_constrained": t4_constrained
 }
 splittings = {"OVRVO": "O V R V O",
