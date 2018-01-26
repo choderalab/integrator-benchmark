@@ -30,6 +30,7 @@ temperature = simulation_parameters['temperature']
 #n_steps = 1000  # number of steps until system is judged to have reached "steady-state"
 
 def n_steps_(dt, max_steps=1000):
+    """Heuristic for how many steps are needed to reach steady state.
 
     Examples:
         n_steps_(dt=1fs) = 1000
@@ -43,13 +44,13 @@ def n_steps_(dt, max_steps=1000):
 # adaptive inner-loop params
 inner_loop_initial_size = 50
 inner_loop_batch_size = 1
-inner_loop_stdev_threshold = 0.1
+inner_loop_stdev_threshold = 0.01
 inner_loop_max_samples = 10000
 
 # adaptive outer-loop params
 outer_loop_initial_size = 50
 outer_loop_batch_size = 1
-outer_loop_stdev_threshold = 0.1
+outer_loop_stdev_threshold = inner_loop_stdev_threshold
 outer_loop_max_samples = 1000
 
 
