@@ -30,8 +30,13 @@ collision_rate = 1.0 / unit.picoseconds
 temperature = simulation_parameters['temperature']
 #n_steps = 1000  # number of steps until system is judged to have reached "steady-state"
 
-def n_steps_(dt, max_steps=1000):
-    """Heuristic for how many steps are needed to reach steady state.
+def n_steps_(dt, n_collisions=1, max_steps=1000):
+    """Heuristic for how many steps are needed to reach steady state:
+    should run at least long enough to have n_collisions full "collisions"
+    with the bath.
+
+    This corresponds to more discrete steps when dt is small, and fewer discrete steps
+    when dt is large.
 
     Examples:
         n_steps_(dt=1fs) = 1000
@@ -39,14 +44,14 @@ def n_steps_(dt, max_steps=1000):
         n_steps_(dt=4fs) = 250
         n_steps_(dt=8fs) = 125
     """
-    return min(max_steps, int((1 / collision_rate) / dt))
+    return min(max_steps, int((n_collisions / collision_rate) / dt))
 
 
 # adaptive inner-loop params
 inner_loop_initial_size = 50
 inner_loop_batch_size = 1
 inner_loop_stdev_threshold = 0.01
-inner_loop_max_samples = 10000
+inner_loop_max_samples = 50000
 
 # adaptive outer-loop params
 outer_loop_initial_size = 50
