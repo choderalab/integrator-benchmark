@@ -1,0 +1,12 @@
+#!/bin/bash
+#BSUB -J quartic_plot
+#BSUB -n 1
+#BSUB -W 0:20
+#BSUB -o %J.stdout
+#BSUB -eo %J.stderr
+#BSUB -L /bin/bash
+
+cd $LS_SUBCWD
+PATH=$PATH:/home/fassj/anaconda3/bin
+source activate integrators
+python quartic_kl_plot.py
