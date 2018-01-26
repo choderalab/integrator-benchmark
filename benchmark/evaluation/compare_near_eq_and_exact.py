@@ -7,15 +7,13 @@ from tqdm import tqdm
 from benchmark import simulation_parameters
 from benchmark.integrators import LangevinSplittingIntegrator
 from benchmark.testsystems import NonequilibriumSimulator
-from benchmark.testsystems import water_cluster_rigid, waterbox_constrained, t4_constrained, alanine_constrained
+from benchmark.testsystems import water_cluster_rigid, alanine_constrained
 from benchmark.testsystems.bookkeepers import get_state_as_mdtraj
 
 # experiment variables
 testsystems = {
-    # "alanine_constrained": alanine_constrained,
-    #"waterbox_constrained": waterbox_constrained,
+    "alanine_constrained": alanine_constrained,
     "water_cluster_rigid": water_cluster_rigid,
-    # "t4_constrained": t4_constrained
 }
 splittings = {"OVRVO": "O V R V O",
               "ORVRO": "O R V R O",
@@ -28,7 +26,6 @@ dt_range = np.array([0.1] + list(np.arange(0.5, 8.001, 0.5))) * unit.femtosecond
 # constant parameters
 collision_rate = 1.0 / unit.picoseconds
 temperature = simulation_parameters['temperature']
-#n_steps = 1000  # number of steps until system is judged to have reached "steady-state"
 
 def n_steps_(dt, n_collisions=1, max_steps=1000):
     """Heuristic for how many steps are needed to reach steady state:
