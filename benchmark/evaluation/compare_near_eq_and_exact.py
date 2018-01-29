@@ -137,25 +137,28 @@ def collect_inner_samples_until_threshold(x, v, noneq_sim, marginal="full", init
     return np.array(Ws)
 
 
-def sample_from_rho(noneq_sim, n_steps=1000):
+def sample_from_rho(noneq_sim, n_collisions=2):
     # (x0, v0) drawn from pi
     x0 = noneq_sim.sample_x_from_equilibrium()
     v0 = noneq_sim.sample_v_given_x(x0)
 
+    dt = noneq_sim.integrator.getStepSize()
+
+    n_steps = n_steps_(dt, n_collisions)
+
     # (x, v) drawn from rho
-    W_shad_forward = noneq_sim.accumulate_shadow_work(x0, v0, n_steps)["W_shad"]
+    _ = noneq_sim.accumulate_shadow_work(x0, v0, n_steps)
     x = get_state_as_mdtraj(noneq_sim.simulation)
     v = noneq_sim.simulation.context.getState(getVelocities=True).getVelocities(asNumpy=True)
 
     return {'x': x,
             'v': v,
-            'W_shad_forward': W_shad_forward,
             }
 
 
 def outer_sample_naive(index=0, noneq_sim=None, marginal="full", n_inner_samples=100, n_steps=1000):
-    rho_sample = sample_from_rho(noneq_sim, n_steps)
-    x, v, W_shad_forward = rho_sample['x'], rho_sample['v'], rho_sample['W_shad_forward']
+    rho_sample = sample_from_rho(noneq_sim)
+    x, v = rho_sample['x'], rho_sample['v']
 
     Ws = collect_inner_samples_naive(x, v, noneq_sim, marginal, n_steps, n_inner_samples)
 
@@ -163,14 +166,12 @@ def outer_sample_naive(index=0, noneq_sim=None, marginal="full", n_inner_samples
         "xv": (x, v),
         "Ws": Ws,
         "estimate": estimate_from_work_samples(Ws),
-        "W_shad_forward": W_shad_forward
     }
 
 
 def outer_sample_adaptive(noneq_sim=None, marginal="full", n_steps=1000, initial_size=100, batch_size=5, threshold=0.1,
                           max_samples=1000):
-    rho_sample = sample_from_rho(noneq_sim, n_steps)
-    x, v, W_shad_forward = rho_sample['x'], rho_sample['v'], rho_sample['W_shad_forward']
+    rho_sample = sample_from_rho(noneq_sim)
 
     Ws = collect_inner_samples_until_threshold(x, v, noneq_sim, marginal, initial_size, batch_size, n_steps, threshold,
                                                max_samples)
@@ -179,7 +180,6 @@ def outer_sample_adaptive(noneq_sim=None, marginal="full", n_steps=1000, initial
         "xv": (x, v),
         "Ws": Ws,
         "estimate": estimate_from_work_samples(Ws),
-        "W_shad_forward": W_shad_forward
     }
 
 
@@ -242,7 +242,6 @@ def estimate_kl_div_naive_outer_loop(noneq_sim, marginal,
 
     result = {
         "new_estimate": new_estimate,
-        "W_shad_forward": np.array([s["W_shad_forward"] for s in outer_samples]),
         "Ws": np.array([s["Ws"] for s in outer_samples])
     }
 
@@ -279,7 +278,6 @@ def estimate_kl_div_adaptive_outer_loop(
 
     result = {
         "new_estimate": new_estimate,
-        "W_shad_forward": np.array([s["W_shad_forward"] for s in outer_samples]),
         "Ws": np.array([s["Ws"] for s in outer_samples])
     }
 
