@@ -222,17 +222,12 @@ def noneq_sim_factory(testsystem_name, scheme, dt, collision_rate):
 
 
 def process_outer_samples(outer_samples):
-    """Compute near-equilibrium and "exact" estimates of D_KL from work samples"""
+    """Compute "exact" estimate of D_KL from work samples"""
 
     # estimate D_KL as a sample average over x ~ rho of log(rho(x) / pi(x))
     new_estimate = np.mean([s["estimate"] for s in outer_samples], 0)
 
-    # near-equilibrium estimate
-    W_F_hat = np.mean([s["W_shad_forward"] for s in outer_samples])
-    W_R_hat = np.mean([s["Ws"][0] for s in outer_samples])  # picking the first W_R sample associated with each W_F
-    near_eq_estimate = 0.5 * (W_F_hat - W_R_hat)
-
-    return new_estimate, near_eq_estimate
+    return new_estimate
 
 
 def estimate_kl_div_naive_outer_loop(noneq_sim, marginal,
@@ -243,11 +238,10 @@ def estimate_kl_div_naive_outer_loop(noneq_sim, marginal,
     for _ in tqdm(range(n_outer_samples)):
         outer_samples.append(outer_sample_fxn(noneq_sim=noneq_sim, marginal=marginal, n_steps=n_steps))
 
-    new_estimate, near_eq_estimate = process_outer_samples(outer_samples)
+    new_estimate = process_outer_samples(outer_samples)
 
     result = {
         "new_estimate": new_estimate,
-        "near_eq_estimate": near_eq_estimate,
         "W_shad_forward": np.array([s["W_shad_forward"] for s in outer_samples]),
         "Ws": np.array([s["Ws"] for s in outer_samples])
     }
@@ -281,11 +275,10 @@ def estimate_kl_div_adaptive_outer_loop(
                                                                                 threshold)
         warnings.warn(message, RuntimeWarning)
 
-    new_estimate, near_eq_estimate = process_outer_samples(outer_samples)
+    new_estimate = process_outer_samples(outer_samples)
 
     result = {
         "new_estimate": new_estimate,
-        "near_eq_estimate": near_eq_estimate,
         "W_shad_forward": np.array([s["W_shad_forward"] for s in outer_samples]),
         "Ws": np.array([s["Ws"] for s in outer_samples])
     }
