@@ -9,6 +9,8 @@ from benchmark.integrators import LangevinSplittingIntegrator
 from benchmark.testsystems import NonequilibriumSimulator
 from benchmark.testsystems import water_cluster_rigid, alanine_constrained
 from benchmark.testsystems.bookkeepers import get_state_as_mdtraj
+from multiprocessing import Pool
+n_processes = 4
 
 # experiment variables
 testsystems = {
@@ -287,6 +289,43 @@ def estimate_kl_div_adaptive_outer_loop(
 
     return result
 
+def estimate_kl_div_parallel_adaptive_outer_loop(
+        noneq_sim, marginal, outer_sample_fxn, n_steps=1000,
+        initial_size=100, n_processes=1, batch_size=100, threshold=0.1, max_samples=1000,
+        return_samples=False):
+    """Collect up to max_samples outer-loop samples, using a threshold on the stdev of the estimated KL divergence"""
+
+    def collect_outer_sample(i=None):
+        print(i)
+        return outer_sample_fxn(noneq_sim=noneq_sim, marginal=marginal, n_steps=n_steps)
+
+    pool = Pool(n_processes)
+
+    outer_samples = pool.map(collect_outer_sample, range(initial_size))
+
+    # keep adding batches until either stdev threshold is reached or budget is reached
+    while (stdev_kl_div(outer_samples) > threshold) and (len(outer_samples) <= (max_samples - batch_size)):
+
+        outer_samples.append(pool.map(collect_outer_sample, range(batch_size)))
+
+    # warn user if stdev threshold was not met
+    if (stdev_kl_div(outer_samples) > threshold):
+        message = "stdev_kl_div(outer_samples) > threshold\n({:.3f} > {:.3f})".format(stdev_kl_div(outer_samples),
+                                                                                threshold)
+        warnings.warn(message, RuntimeWarning)
+
+    new_estimate = process_outer_samples(outer_samples)
+
+    result = {
+        "new_estimate": new_estimate,
+        "Ws": np.array([s["Ws"] for s in outer_samples])
+    }
+
+    if return_samples:  # takes up a lot of extra space, maybe unnecessary
+        result['samples'] = outer_samples
+
+    return result
+
 
 def resample_Ws(Ws):
     """Generate a bootstrap sample of the Ws structure.
@@ -353,10 +392,12 @@ if __name__ == '__main__':
 
     (scheme, dt, marginal, testsystem) = experiment
     noneq_sim = noneq_sim_factory(testsystem, scheme, dt, collision_rate)
-    n_steps = n_steps_(dt)
-    result = estimate_kl_div_adaptive_outer_loop(noneq_sim, marginal, outer_sample_fxn, n_steps,
-                                                 initial_size=outer_loop_initial_size,
-                                                 batch_size=outer_loop_batch_size,
-                                                 max_samples=outer_loop_max_samples,
-                                                 threshold=outer_loop_stdev_threshold)
+    n_steps = n_steps_(dt, n_collisions=2)
+    result = estimate_kl_div_parallel_adaptive_outer_loop(
+        noneq_sim, marginal, outer_sample_fxn, n_steps,
+        initial_size=outer_loop_initial_size,
+        n_processes=n_processes,
+        batch_size=outer_loop_batch_size,
+        max_samples=outer_loop_max_samples,
+        threshold=outer_loop_stdev_threshold)
     save(job_id, experiment, result)
