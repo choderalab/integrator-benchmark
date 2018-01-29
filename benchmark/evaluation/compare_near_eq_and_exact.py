@@ -10,7 +10,7 @@ from benchmark.testsystems import NonequilibriumSimulator
 from benchmark.testsystems import water_cluster_rigid, alanine_constrained
 from benchmark.testsystems.bookkeepers import get_state_as_mdtraj
 from multiprocessing import Pool
-n_processes = 4
+n_processes = 32
 
 # experiment variables
 testsystems = {
@@ -54,7 +54,7 @@ inner_loop_max_samples = 50000
 
 # adaptive outer-loop params
 outer_loop_initial_size = 50
-outer_loop_batch_size = 1
+outer_loop_batch_size = 100
 outer_loop_stdev_threshold = inner_loop_stdev_threshold
 outer_loop_max_samples = 1000
 
