@@ -172,6 +172,7 @@ def outer_sample_naive(index=0, noneq_sim=None, marginal="full", n_inner_samples
 def outer_sample_adaptive(noneq_sim=None, marginal="full", n_steps=1000, initial_size=100, batch_size=5, threshold=0.1,
                           max_samples=1000):
     rho_sample = sample_from_rho(noneq_sim)
+    x, v = rho_sample['x'], rho_sample['v']
 
     Ws = collect_inner_samples_until_threshold(x, v, noneq_sim, marginal, initial_size, batch_size, n_steps, threshold,
                                                max_samples)
