@@ -369,7 +369,7 @@ if __name__ == '__main__':
 
     # keep adding batches until either stdev threshold is reached or budget is reached
     while (stdev_kl_div(outer_samples) > outer_loop_stdev_threshold) and (len(outer_samples) <= (outer_loop_max_samples - outer_loop_batch_size)):
-        outer_samples.append(pool.map(collect_outer_sample, range(outer_loop_batch_size)))
+        outer_samples.extend(pool.map(collect_outer_sample, range(outer_loop_batch_size)))
 
     # warn user if stdev threshold was not met
     if (stdev_kl_div(outer_samples) > outer_loop_stdev_threshold):
