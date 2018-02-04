@@ -367,22 +367,27 @@ if __name__ == '__main__':
 
     outer_samples = pool.map(collect_outer_sample, range(outer_loop_initial_size))
 
+    def save_result_so_far(outer_samples):
+        new_estimate = process_outer_samples(outer_samples)
+
+        result = {
+            "new_estimate": new_estimate,
+            "Ws": np.array([s["Ws"] for s in outer_samples])
+        }
+        save(job_id, experiment, result)
+
+
     # keep adding batches until either stdev threshold is reached or budget is reached
     while (stdev_kl_div(outer_samples) > outer_loop_stdev_threshold) and (len(outer_samples) <= (outer_loop_max_samples - outer_loop_batch_size)):
         outer_samples.extend(pool.map(collect_outer_sample, range(outer_loop_batch_size)))
+        save_result_so_far(outer_samples)
+
 
     # warn user if stdev threshold was not met
     if (stdev_kl_div(outer_samples) > outer_loop_stdev_threshold):
         message = "stdev_kl_div(outer_samples) > threshold\n({:.3f} > {:.3f})".format(stdev_kl_div(outer_samples),
                                                                                       outer_loop_stdev_threshold)
         warnings.warn(message, RuntimeWarning)
-
-    new_estimate = process_outer_samples(outer_samples)
-
-    result = {
-        "new_estimate": new_estimate,
-        "Ws": np.array([s["Ws"] for s in outer_samples])
-    }
 
 
     #result = estimate_kl_div_parallel_adaptive_outer_loop(
@@ -392,4 +397,3 @@ if __name__ == '__main__':
     #    batch_size=outer_loop_batch_size,
     #    max_samples=outer_loop_max_samples,
     #    threshold=outer_loop_stdev_threshold)
-    save(job_id, experiment, result)
