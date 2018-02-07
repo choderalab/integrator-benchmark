@@ -225,7 +225,7 @@ def orvro_factory(potential, force, velocity_scale, m):
     potential = jit_if_possible(potential)
     force = jit_if_possible(force)
 
-    def simulate_aboba(x0, v0, n_steps, gamma, dt):
+    def simulate_orvro(x0, v0, n_steps, gamma, dt):
         """Simulate n_steps of ORVRO, accumulating heat
         """
         Q = 0
