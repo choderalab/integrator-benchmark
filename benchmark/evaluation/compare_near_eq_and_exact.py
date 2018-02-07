@@ -7,15 +7,15 @@ from tqdm import tqdm
 from benchmark import simulation_parameters
 from benchmark.integrators import LangevinSplittingIntegrator
 from benchmark.testsystems import NonequilibriumSimulator
-from benchmark.testsystems import water_cluster_rigid, waterbox_constrained, t4_constrained, alanine_constrained
+from benchmark.testsystems import water_cluster_rigid, alanine_constrained
 from benchmark.testsystems.bookkeepers import get_state_as_mdtraj
+from multiprocessing import Pool
+n_processes = 32
 
 # experiment variables
 testsystems = {
-    # "alanine_constrained": alanine_constrained,
-    #"waterbox_constrained": waterbox_constrained,
+    "alanine_constrained": alanine_constrained,
     "water_cluster_rigid": water_cluster_rigid,
-    # "t4_constrained": t4_constrained
 }
 splittings = {"OVRVO": "O V R V O",
               "ORVRO": "O R V R O",
@@ -28,10 +28,14 @@ dt_range = np.array([0.1] + list(np.arange(0.5, 8.001, 0.5))) * unit.femtosecond
 # constant parameters
 collision_rate = 1.0 / unit.picoseconds
 temperature = simulation_parameters['temperature']
-#n_steps = 1000  # number of steps until system is judged to have reached "steady-state"
 
-def n_steps_(dt, max_steps=1000):
-    """Heuristic for how many steps are needed to reach steady state.
+def n_steps_(dt, n_collisions=1, max_steps=1000):
+    """Heuristic for how many steps are needed to reach steady state:
+    should run at least long enough to have n_collisions full "collisions"
+    with the bath.
+
+    This corresponds to more discrete steps when dt is small, and fewer discrete steps
+    when dt is large.
 
     Examples:
         n_steps_(dt=1fs) = 1000
@@ -39,18 +43,18 @@ def n_steps_(dt, max_steps=1000):
         n_steps_(dt=4fs) = 250
         n_steps_(dt=8fs) = 125
     """
-    return min(max_steps, int((1 / collision_rate) / dt))
+    return min(max_steps, int((n_collisions / collision_rate) / dt))
 
 
 # adaptive inner-loop params
 inner_loop_initial_size = 50
 inner_loop_batch_size = 1
 inner_loop_stdev_threshold = 0.01
-inner_loop_max_samples = 10000
+inner_loop_max_samples = 50000
 
 # adaptive outer-loop params
 outer_loop_initial_size = 50
-outer_loop_batch_size = 1
+outer_loop_batch_size = 100
 outer_loop_stdev_threshold = inner_loop_stdev_threshold
 outer_loop_max_samples = 1000
 
@@ -135,25 +139,28 @@ def collect_inner_samples_until_threshold(x, v, noneq_sim, marginal="full", init
     return np.array(Ws)
 
 
-def sample_from_rho(noneq_sim, n_steps=1000):
+def sample_from_rho(noneq_sim, n_collisions=2):
     # (x0, v0) drawn from pi
     x0 = noneq_sim.sample_x_from_equilibrium()
     v0 = noneq_sim.sample_v_given_x(x0)
 
+    dt = noneq_sim.integrator.getStepSize()
+
+    n_steps = n_steps_(dt, n_collisions)
+
     # (x, v) drawn from rho
-    W_shad_forward = noneq_sim.accumulate_shadow_work(x0, v0, n_steps)["W_shad"]
+    _ = noneq_sim.accumulate_shadow_work(x0, v0, n_steps)
     x = get_state_as_mdtraj(noneq_sim.simulation)
     v = noneq_sim.simulation.context.getState(getVelocities=True).getVelocities(asNumpy=True)
 
     return {'x': x,
             'v': v,
-            'W_shad_forward': W_shad_forward,
             }
 
 
 def outer_sample_naive(index=0, noneq_sim=None, marginal="full", n_inner_samples=100, n_steps=1000):
-    rho_sample = sample_from_rho(noneq_sim, n_steps)
-    x, v, W_shad_forward = rho_sample['x'], rho_sample['v'], rho_sample['W_shad_forward']
+    rho_sample = sample_from_rho(noneq_sim)
+    x, v = rho_sample['x'], rho_sample['v']
 
     Ws = collect_inner_samples_naive(x, v, noneq_sim, marginal, n_steps, n_inner_samples)
 
@@ -161,14 +168,13 @@ def outer_sample_naive(index=0, noneq_sim=None, marginal="full", n_inner_samples
         "xv": (x, v),
         "Ws": Ws,
         "estimate": estimate_from_work_samples(Ws),
-        "W_shad_forward": W_shad_forward
     }
 
 
 def outer_sample_adaptive(noneq_sim=None, marginal="full", n_steps=1000, initial_size=100, batch_size=5, threshold=0.1,
                           max_samples=1000):
-    rho_sample = sample_from_rho(noneq_sim, n_steps)
-    x, v, W_shad_forward = rho_sample['x'], rho_sample['v'], rho_sample['W_shad_forward']
+    rho_sample = sample_from_rho(noneq_sim)
+    x, v = rho_sample['x'], rho_sample['v']
 
     Ws = collect_inner_samples_until_threshold(x, v, noneq_sim, marginal, initial_size, batch_size, n_steps, threshold,
                                                max_samples)
@@ -177,7 +183,6 @@ def outer_sample_adaptive(noneq_sim=None, marginal="full", n_steps=1000, initial
         "xv": (x, v),
         "Ws": Ws,
         "estimate": estimate_from_work_samples(Ws),
-        "W_shad_forward": W_shad_forward
     }
 
 
@@ -220,17 +225,12 @@ def noneq_sim_factory(testsystem_name, scheme, dt, collision_rate):
 
 
 def process_outer_samples(outer_samples):
-    """Compute near-equilibrium and "exact" estimates of D_KL from work samples"""
+    """Compute "exact" estimate of D_KL from work samples"""
 
     # estimate D_KL as a sample average over x ~ rho of log(rho(x) / pi(x))
     new_estimate = np.mean([s["estimate"] for s in outer_samples], 0)
 
-    # near-equilibrium estimate
-    W_F_hat = np.mean([s["W_shad_forward"] for s in outer_samples])
-    W_R_hat = np.mean([s["Ws"][0] for s in outer_samples])  # picking the first W_R sample associated with each W_F
-    near_eq_estimate = 0.5 * (W_F_hat - W_R_hat)
-
-    return new_estimate, near_eq_estimate
+    return new_estimate
 
 
 def estimate_kl_div_naive_outer_loop(noneq_sim, marginal,
@@ -241,12 +241,10 @@ def estimate_kl_div_naive_outer_loop(noneq_sim, marginal,
     for _ in tqdm(range(n_outer_samples)):
         outer_samples.append(outer_sample_fxn(noneq_sim=noneq_sim, marginal=marginal, n_steps=n_steps))
 
-    new_estimate, near_eq_estimate = process_outer_samples(outer_samples)
+    new_estimate = process_outer_samples(outer_samples)
 
     result = {
         "new_estimate": new_estimate,
-        "near_eq_estimate": near_eq_estimate,
-        "W_shad_forward": np.array([s["W_shad_forward"] for s in outer_samples]),
         "Ws": np.array([s["Ws"] for s in outer_samples])
     }
 
@@ -279,12 +277,10 @@ def estimate_kl_div_adaptive_outer_loop(
                                                                                 threshold)
         warnings.warn(message, RuntimeWarning)
 
-    new_estimate, near_eq_estimate = process_outer_samples(outer_samples)
+    new_estimate = process_outer_samples(outer_samples)
 
     result = {
         "new_estimate": new_estimate,
-        "near_eq_estimate": near_eq_estimate,
-        "W_shad_forward": np.array([s["W_shad_forward"] for s in outer_samples]),
         "Ws": np.array([s["Ws"] for s in outer_samples])
     }
 
@@ -359,10 +355,45 @@ if __name__ == '__main__':
 
     (scheme, dt, marginal, testsystem) = experiment
     noneq_sim = noneq_sim_factory(testsystem, scheme, dt, collision_rate)
-    n_steps = n_steps_(dt)
-    result = estimate_kl_div_adaptive_outer_loop(noneq_sim, marginal, outer_sample_fxn, n_steps,
-                                                 initial_size=outer_loop_initial_size,
-                                                 batch_size=outer_loop_batch_size,
-                                                 max_samples=outer_loop_max_samples,
-                                                 threshold=outer_loop_stdev_threshold)
-    save(job_id, experiment, result)
+    n_steps = n_steps_(dt, n_collisions=2)
+
+
+    def collect_outer_sample(i=None):
+        print(i)
+        return outer_sample_fxn(noneq_sim=noneq_sim, marginal=marginal, n_steps=n_steps)
+
+
+    pool = Pool(n_processes)
+
+    outer_samples = pool.map(collect_outer_sample, range(outer_loop_initial_size))
+
+    def save_result_so_far(outer_samples):
+        new_estimate = process_outer_samples(outer_samples)
+
+        result = {
+            "new_estimate": new_estimate,
+            "Ws": np.array([s["Ws"] for s in outer_samples])
+        }
+        save(job_id, experiment, result)
+
+
+    # keep adding batches until either stdev threshold is reached or budget is reached
+    while (stdev_kl_div(outer_samples) > outer_loop_stdev_threshold) and (len(outer_samples) <= (outer_loop_max_samples - outer_loop_batch_size)):
+        outer_samples.extend(pool.map(collect_outer_sample, range(outer_loop_batch_size)))
+        save_result_so_far(outer_samples)
+
+
+    # warn user if stdev threshold was not met
+    if (stdev_kl_div(outer_samples) > outer_loop_stdev_threshold):
+        message = "stdev_kl_div(outer_samples) > threshold\n({:.3f} > {:.3f})".format(stdev_kl_div(outer_samples),
+                                                                                      outer_loop_stdev_threshold)
+        warnings.warn(message, RuntimeWarning)
+
+
+    #result = estimate_kl_div_parallel_adaptive_outer_loop(
+    #    noneq_sim, marginal, outer_sample_fxn, n_steps,
+    #    initial_size=outer_loop_initial_size,
+    #    n_processes=n_processes,
+    #    batch_size=outer_loop_batch_size,
+    #    max_samples=outer_loop_max_samples,
+    #    threshold=outer_loop_stdev_threshold)
