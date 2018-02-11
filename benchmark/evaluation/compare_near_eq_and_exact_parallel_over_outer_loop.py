@@ -52,7 +52,8 @@ inner_loop_stdev_threshold = 0.01
 inner_loop_max_samples = 50000
 
 # adaptive outer-loop params
-outer_loop_samples = 100
+outer_loop_samples = 500
+outer_loop_batch_size = 5
 
 
 def stdev_log_rho_pi(w):
@@ -332,7 +333,7 @@ if __name__ == '__main__':
         for dt in dt_range:
             for marginal in marginals:
                 for testsystem in testsystems:
-                    for n in range(outer_loop_samples):
+                    for n in range(int(outer_loop_samples / outer_loop_batch_size)):
                         experiments.append((scheme, dt, marginal, testsystem))
     print('# experiments: {}'.format(len(experiments)))
 
@@ -354,15 +355,11 @@ if __name__ == '__main__':
 
     (scheme, dt, marginal, testsystem) = experiment
     noneq_sim = noneq_sim_factory(testsystem, scheme, dt, collision_rate)
-    n_steps = n_steps_(dt, n_collisions=2)
+    n_steps = n_steps_(dt, n_collisions=1)
 
     def collect_outer_sample(i=None):
         print(i)
         return outer_sample_fxn(noneq_sim=noneq_sim, marginal=marginal, n_steps=n_steps)
-
-
-
-    outer_samples = [collect_outer_sample()]
 
     def save_result_so_far(outer_samples):
         new_estimate = process_outer_samples(outer_samples)
@@ -374,4 +371,7 @@ if __name__ == '__main__':
         save(job_id, experiment, result)
 
 
-    save_result_so_far(outer_samples)
+    outer_samples = []
+    for _ in range(outer_loop_batch_size):
+        outer_samples.append(collect_outer_sample())
+        save_result_so_far(outer_samples)
