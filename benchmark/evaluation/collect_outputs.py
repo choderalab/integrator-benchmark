@@ -46,4 +46,4 @@ for i, key in enumerate(tqdm(results.keys())):
     result = {'Ws': Ws, 'new_estimate': new_estimate}
 
     with open('summary/summary_{}.pkl'.format(i), 'wb') as f:
-        dump((key_to_experiment_tuple(key), results[key]), f)
+        dump((key_to_experiment_tuple(key), result), f)
