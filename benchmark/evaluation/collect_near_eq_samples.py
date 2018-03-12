@@ -19,7 +19,10 @@ marginals = ["configuration", "full"]
 dt_range = np.array([0.1] + list(np.arange(0.5, 8.001, 0.5))) * unit.femtosecond
 
 # constant parameters
-collision_rate = 1.0 / unit.picoseconds
+collision_rates = {'100' : 100.0 / unit.picoseconds,
+                   '10' : 10.0 / unit.picoseconds,
+                   '1' : 1.0 / unit.picoseconds,
+                   '0.1' : 0.1 / unit.picoseconds}
 temperature = simulation_parameters['temperature']
 n_steps = 1000  # number of steps until system is judged to have reached "steady-state"
 n_samples = 100000
@@ -76,7 +79,8 @@ if __name__ == '__main__':
         for dt in dt_range:
             for marginal in marginals:
                 for testsystem in testsystems:
-                    experiments.append((scheme, dt, marginal, testsystem))
+                    for collision_rate in collision_rates:
+                        experiments.append((scheme, dt, marginal, testsystem, collision_rate))
 
     print(len(experiments))
 
@@ -91,8 +95,8 @@ if __name__ == '__main__':
     experiment = experiments[job_id - 1]
     print(experiment)
 
-    (scheme, dt, marginal, testsystem) = experiment
-    noneq_sim = noneq_sim_factory(testsystem, scheme, dt, collision_rate)
+    (scheme, dt, marginal, testsystem, collision_rate) = experiment
+    noneq_sim = noneq_sim_factory(testsystem, scheme, dt, collision_rates[collision_rate])
     result = noneq_sim.collect_protocol_samples(n_samples, n_steps, marginal)
 
     save(job_id, experiment, result)
